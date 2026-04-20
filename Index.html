@@ -2089,6 +2089,69 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
   white-space: nowrap;
 }
 .date-nav-today:hover { background: var(--navy); color: #fff; }
+
+/* ══════════════════════════════════════════
+   ALL LOADS — REBUILT
+══════════════════════════════════════════ */
+.loads-network-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:28px}
+@media(max-width:900px){.loads-network-grid{grid-template-columns:1fr}}
+.loads-site-card{background:#fff;border:1px solid var(--rule);border-radius:var(--r-lg);overflow:hidden;cursor:pointer;transition:all .15s}
+.loads-site-card:hover{box-shadow:0 4px 20px rgba(0,0,0,.08);transform:translateY(-2px);border-color:var(--navy)}
+.loads-site-card-top{padding:20px 22px;border-bottom:1px solid var(--rule)}
+.loads-site-card-accent{height:4px;width:100%}
+.loads-site-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.loads-site-card-name{font-family:var(--font-head);font-size:17px;font-weight:700;color:var(--ink)}
+.loads-site-card-biz{font-size:12px;color:var(--ink3);margin-top:2px}
+.loads-site-card-pill{font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;font-family:var(--font-mono)}
+.loads-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:1px solid var(--rule)}
+.loads-kpi{padding:14px 16px;border-right:1px solid var(--rule);text-align:center}
+.loads-kpi:last-child{border-right:none}
+.loads-kpi-val{font-family:var(--font-head);font-size:22px;font-weight:800;color:var(--ink);line-height:1}
+.loads-kpi-lbl{font-family:var(--font-mono);font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;margin-top:4px}
+.loads-view-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;background:var(--cream);font-size:12px;font-weight:500;color:var(--ink2);border-top:1px solid var(--rule);transition:all .15s}
+.loads-site-card:hover .loads-view-btn{background:var(--navy);color:#fff}
+
+/* Drill-down view */
+.loads-drilldown{display:none}
+.loads-drilldown.show{display:block}
+.loads-back-btn{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:#fff;border:1px solid var(--rule);border-radius:8px;font-size:13px;font-weight:500;color:var(--ink2);cursor:pointer;margin-bottom:20px;transition:all .15s}
+.loads-back-btn:hover{background:var(--navy);color:#fff;border-color:var(--navy)}
+.loads-drilldown-header{display:flex;align-items:center;gap:14px;margin-bottom:24px;flex-wrap:wrap}
+.loads-drilldown-title{font-family:var(--font-head);font-size:22px;font-weight:800;color:var(--ink)}
+.loads-drilldown-sub{font-size:13px;color:var(--ink3)}
+.loads-drilldown-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.loads-drilldown-stat{background:#fff;border:1px solid var(--rule);border-radius:10px;padding:14px 16px;text-align:center}
+.loads-drilldown-stat-val{font-family:var(--font-head);font-size:26px;font-weight:800;color:var(--ink);line-height:1}
+.loads-drilldown-stat-lbl{font-family:var(--font-mono);font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;margin-top:5px}
+
+/* Shipment accordion */
+.loads-shipment{background:#fff;border:1px solid var(--rule);border-radius:var(--r-lg);margin-bottom:12px;overflow:hidden}
+.loads-shipment-header{display:flex;align-items:center;gap:14px;padding:16px 20px;cursor:pointer;transition:background .15s}
+.loads-shipment-header:hover{background:var(--cream)}
+.loads-shipment-num{font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--navy2);background:rgba(15,43,70,.08);padding:4px 10px;border-radius:6px;white-space:nowrap}
+.loads-shipment-info{flex:1}
+.loads-shipment-title{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:2px}
+.loads-shipment-meta{font-size:11px;color:var(--ink3);font-family:var(--font-mono)}
+.loads-shipment-kpis{display:flex;gap:16px;align-items:center}
+.loads-shipment-kpi{text-align:center}
+.loads-shipment-kpi-val{font-family:var(--font-mono);font-size:15px;font-weight:700;color:var(--ink)}
+.loads-shipment-kpi-lbl{font-family:var(--font-mono);font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em}
+.loads-shipment-chevron{color:var(--ink3);transition:transform .2s;font-size:16px}
+.loads-shipment.open .loads-shipment-chevron{transform:rotate(90deg)}
+.loads-shipment-body{display:none;border-top:1px solid var(--rule)}
+.loads-shipment.open .loads-shipment-body{display:block}
+
+/* Stop table */
+.loads-stop-table{width:100%;border-collapse:collapse;font-size:12px}
+.loads-stop-table th{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);font-weight:500;padding:9px 20px;text-align:left;border-bottom:1px solid var(--rule);background:var(--cream)}
+.loads-stop-table td{padding:11px 20px;border-bottom:1px solid var(--rule);color:var(--ink2);vertical-align:middle}
+.loads-stop-table tbody tr:last-child td{border-bottom:none}
+.loads-stop-table tbody tr:hover{background:var(--cream)}
+.stop-customer{font-weight:500;color:var(--ink)}
+.stop-pc{font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--navy)}
+.stop-time{font-family:var(--font-mono);font-size:11px;color:var(--ink2)}
+.stop-pallets{font-family:var(--font-mono);font-weight:700;color:var(--ink);text-align:right}
+.stop-checkin{font-family:var(--font-mono);font-size:11px;color:var(--amber)}
 </style>
 </head>
 <body>
@@ -2577,28 +2640,28 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
     <!-- ─── KPI TAB (admin only) ─── -->
     <div id="tab-kpi" class="content" style="display:none">
       <div style="margin-bottom:24px">
-        <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:var(--ink);margin-bottom:4px">Network KPIs</div>
-        <div style="font-size:13px;color:var(--ink3)">Live performance indicators across all four sites. Visible to you only.</div>
+        <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:var(--ink);margin-bottom:4px">KPIs &amp; Performance</div>
+        <div style="font-size:13px;color:var(--ink3)">Network performance across all four sites. Visible to Desborough only.</div>
       </div>
 
-      <!-- 4 headline KPI cards -->
-      <div class="kpi-grid" id="kpi-grid"></div>
+      <!-- 6 headline KPI cards -->
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:28px" id="kpi-grid"></div>
 
-      <!-- Upload compliance -->
-      <div class="kpi-section-title">Upload compliance — today</div>
-      <div class="compliance-grid" id="kpi-compliance"></div>
-
-      <!-- Per-site breakdown table -->
-      <div class="kpi-section-title">Site breakdown</div>
+      <!-- Site breakdown -->
+      <div class="kpi-section-title">Site breakdown — today</div>
       <div class="kpi-site-breakdown">
         <div class="kpi-breakdown-head">
-          <span>Site</span><span>Stops</span><span>Pallets</span><span>Weight</span><span>Utilisation</span><span>Status</span>
+          <span>Site</span><span>Runs</span><span>Loads</span><span>Stops</span><span>Pallets</span><span>Util %</span><span>Status</span>
         </div>
         <div id="kpi-breakdown"></div>
       </div>
 
-      <!-- Load sharing savings banner -->
-      <div class="kpi-section-title">Load sharing savings — today</div>
+      <!-- Upload compliance -->
+      <div class="kpi-section-title" style="margin-top:24px">Upload compliance — today</div>
+      <div class="compliance-grid" id="kpi-compliance"></div>
+
+      <!-- Load sharing -->
+      <div class="kpi-section-title" style="margin-top:24px">Load sharing opportunities — 30-mile ring fence</div>
       <div id="kpi-savings"></div>
     </div>
 
@@ -2714,39 +2777,103 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
 
     <!-- ─── ALL LOADS TAB ─── -->
     <div id="tab-loads" class="content" style="display:none">
-      <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
-        <div>
-          <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:var(--ink);margin-bottom:4px">All loads — today</div>
-          <div style="font-size:13px;color:var(--ink3)">Every route across all four sites, consolidated in one view.</div>
+      <!-- Network overview (default) -->
+      <div id="loads-overview-view">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:var(--ink);margin-bottom:4px">All loads</div>
+            <div style="font-size:13px;color:var(--ink3)">Click any site to see its full load breakdown by shipment and delivery stop.</div>
+          </div>
         </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <span style="font-size:12px;color:var(--ink3)">Filter by site:</span>
-          <div id="loads-filter" style="display:flex;gap:6px;flex-wrap:wrap"></div>
-        </div>
+        <div id="loads-summary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px"></div>
+        <div id="loads-network-grid" class="loads-network-grid"></div>
+        <div id="loads-filter" style="display:none"></div>
+        <div id="loads-list" style="display:none"></div>
       </div>
-      <!-- Summary strip -->
-      <div id="loads-summary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px"></div>
-      <!-- Grouped route cards -->
-      <div id="loads-list"></div>
+      <!-- Drill-down (shown when site clicked) -->
+      <div id="loads-drilldown-view" class="loads-drilldown">
+        <button class="loads-back-btn" onclick="loadsShowOverview()">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Back to all sites
+        </button>
+        <div id="loads-drilldown-content"></div>
+      </div>
     </div>
 
     <!-- ─── MAP VIEW TAB ─── -->
-    <div id="tab-mapview" class="content" style="display:none;padding:0">
+    <div id="tab-mapview" class="content" style="display:none;padding:0;height:calc(100vh - 64px);display:none;flex-direction:row">
 
-      <!-- Top bar with legend -->
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 32px 16px;flex-wrap:wrap;gap:10px">
-        <div>
-          <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:var(--ink);margin-bottom:2px">Network map</div>
-          <div style="font-size:13px;color:var(--ink3)">Click any depot to see its load. Dashed lines show sharing opportunities.</div>
+      <!-- ── Left control panel ── -->
+      <div id="map-panel" style="width:280px;flex-shrink:0;background:#fff;border-right:1px solid var(--rule);display:flex;flex-direction:column;overflow-y:auto;z-index:2">
+
+        <!-- Header -->
+        <div style="padding:16px 20px 14px;border-bottom:1px solid var(--rule);display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-family:var(--font-head);font-size:17px;font-weight:800;color:var(--ink);margin-bottom:2px">Network Map</div>
+            <div style="font-size:11px;color:var(--ink3)">Select a depot to show routes</div>
+          </div>
+          <button onclick="_mapTogglePanel()" title="Hide panel"
+            style="width:28px;height:28px;border-radius:7px;border:1px solid var(--rule);background:var(--cream);
+            cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s"
+            onmouseover="this.style.background='var(--navy)';this.style.color='white'"
+            onmouseout="this.style.background='var(--cream)';this.style.color='inherit'">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap" id="map-legend"></div>
+
+        <!-- Show all button -->
+        <div style="padding:14px 20px;border-bottom:1px solid var(--rule)">
+          <button id="map-show-all-btn" onclick="_mapShowAll()"
+            style="width:100%;padding:10px;border-radius:9px;border:1.5px solid var(--navy);
+            background:white;color:var(--navy);font-size:13px;font-weight:700;
+            cursor:pointer;font-family:'IBM Plex Sans',sans-serif;transition:all .2s;
+            display:flex;align-items:center;justify-content:center;gap:8px">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.5"/><path d="M4 7h6M7 4v6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Show all depots
+          </button>
+        </div>
+
+        <!-- Depot buttons -->
+        <div style="padding:14px 20px;border-bottom:1px solid var(--rule)">
+          <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink3);margin-bottom:10px">Depots</div>
+          <div id="map-depot-btns" style="display:flex;flex-direction:column;gap:8px"></div>
+        </div>
+
+        <!-- Run list (shown when depot selected) -->
+        <div id="map-run-list" style="padding:14px 20px;flex:1">
+          <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink3);margin-bottom:10px">Runs</div>
+          <div id="map-runs-inner" style="display:flex;flex-direction:column;gap:6px">
+            <div style="font-size:12px;color:var(--ink3);font-style:italic;text-align:center;padding:20px 0">Select a depot to see its runs</div>
+          </div>
+        </div>
+
       </div>
-      <!-- Map container -->
-      <div id="leaflet-map" style="height:520px;width:100%;z-index:1;background:var(--cream)"></div>
-      <!-- Opportunity cards below -->
-      <div style="padding:20px 32px 32px">
-        <div style="font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--ink);margin-bottom:14px">Sharing opportunities on this map</div>
-        <div id="map-opp-list" style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px"></div>
+
+      <!-- ── Map ── -->
+      <div style="flex:1;position:relative;display:flex;flex-direction:column">
+        <div id="leaflet-map" style="flex:1;width:100%;z-index:1;background:var(--cream)"></div>
+        <!-- Floating panel restore button (shown when panel hidden) -->
+        <div id="map-panel-restore" style="position:absolute;top:16px;left:16px;z-index:10;display:none">
+          <button onclick="_mapTogglePanel()"
+            style="padding:8px 14px;background:white;border:1px solid var(--rule);border-radius:9px;
+            font-size:12px;font-weight:600;color:var(--ink);cursor:pointer;
+            box-shadow:0 2px 10px rgba(0,0,0,0.12);display:flex;align-items:center;gap:7px;
+            font-family:'IBM Plex Sans',sans-serif;transition:all .15s"
+            onmouseover="this.style.background='var(--navy)';this.style.color='white'"
+            onmouseout="this.style.background='white';this.style.color='var(--ink)'">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M4 2l5 4.5L4 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Show panel
+          </button>
+        </div>
+        <!-- Map hint overlay -->
+        <div id="map-hint" style="position:absolute;bottom:16px;right:16px;background:white;border:1px solid var(--rule);
+          border-radius:10px;padding:10px 14px;font-size:11px;color:var(--ink3);z-index:10;pointer-events:none;
+          box-shadow:0 2px 12px rgba(0,0,0,0.1);max-width:220px;line-height:1.5">
+          <span style="font-weight:600;color:var(--ink)">How to use:</span><br>
+          1. Click a depot to show runs<br>
+          2. Click a run to expand all stops<br>
+          3. Click numbered stops for details
+        </div>
       </div>
     </div>
 
@@ -2989,7 +3116,6 @@ async function doLogin() {
       : document.getElementById('login-email').value.includes('wellington') ? 'wellington'
       : 'desborough';
     enterApp();
-    renderAll();
     return;
   }
   const email = document.getElementById('login-email').value.trim();
@@ -3045,7 +3171,7 @@ function enterApp() {
     if (el) el.style.display = isAdmin ? '' : 'none';
   });
   if (isConfigured && sb) { loadFromSupabase(); setupRealtime(); }
-  else renderAll();
+  else loadFallback();
 }
 
 /* ══════════════════════════════════════════
@@ -3143,7 +3269,12 @@ async function loadFromSupabase() {
 }
 
 function loadFallback() {
-  // Demo data removed — app starts blank ready for live data
+  viewDate = todayStr();
+  todayData = [
+    { site:'desborough', date:todayStr(), capacity:850, notes:'', uploaded_by:'VPK Schedule',
+       routes:[{"area": "4011313092", "pc": "HA3,UB8,UB2", "postcodes": "HA3,UB8,UB2", "stops": 3, "pallets": 53, "weight": 10.6, "weight_t": 10.6, "runNum": 1, "runLabel": "Run 1", "multiLoad": false, "runShips": ["4011313092"], "stops_detail": [{"loadRef": "4011313092", "name": "Bakkavor", "postcode": "HA3 8NT", "postal": "HA3 8NT", "pallets": 13, "delivTime": "08:00", "time": "08:00", "checkIn": "05:00", "ship": "4011313092", "customer": "Bakkavor", "runNum": 1, "runLabel": "Run 1", "multiLoad": false, "runShips": ["4011313092"]}, {"loadRef": "4011313092", "name": "Alternative", "postcode": "UB8 2RS", "postal": "UB8 2RS", "pallets": 1, "delivTime": "09:00", "time": "09:00", "checkIn": "05:00", "ship": "4011313092", "customer": "Alternative", "runNum": 1, "runLabel": "Run 1", "multiLoad": false, "runShips": ["4011313092"]}, {"loadRef": "4011313092", "name": "Noon warehouse", "postcode": "UB2 4NA", "postal": "UB2 4NA", "pallets": 39, "delivTime": "11:00", "time": "11:00", "checkIn": "05:00", "ship": "4011313092", "customer": "Noon warehouse", "runNum": 1, "runLabel": "Run 1", "multiLoad": false, "runShips": ["4011313092"]}]}, {"area": "4011313093", "pc": "NN14,NN16,NN8,PE28", "postcodes": "NN14,NN16,NN8,PE28", "stops": 4, "pallets": 41, "weight": 8.2, "weight_t": 8.2, "runNum": 2, "runLabel": "Run 2", "multiLoad": false, "runShips": ["4011313093"], "stops_detail": [{"loadRef": "4011313093", "name": "Povoas packaging", "postcode": "NN14 2SR", "postal": "NN14 2SR", "pallets": 13, "delivTime": "08:00", "time": "08:00", "checkIn": "07:30", "ship": "4011313093", "customer": "Povoas packaging", "runNum": 2, "runLabel": "Run 2", "multiLoad": false, "runShips": ["4011313093"]}, {"loadRef": "4011313093", "name": "Sealed air", "postcode": "NN16 8UN", "postal": "NN16 8UN", "pallets": 9, "delivTime": "09:00", "time": "09:00", "checkIn": "07:30", "ship": "4011313093", "customer": "Sealed air", "runNum": 2, "runLabel": "Run 2", "multiLoad": false, "runShips": ["4011313093"]}, {"loadRef": "4011313093", "name": "S&C Dickinson", "postcode": "NN8 4SR", "postal": "NN8 4SR", "pallets": 7, "delivTime": "10:00", "time": "10:00", "checkIn": "07:30", "ship": "4011313093", "customer": "S&C Dickinson", "runNum": 2, "runLabel": "Run 2", "multiLoad": false, "runShips": ["4011313093"]}, {"loadRef": "4011313093", "name": "Clf", "postcode": "PE28 2UW", "postal": "PE28 2UW", "pallets": 12, "delivTime": "12:00", "time": "12:00", "checkIn": "07:30", "ship": "4011313093", "customer": "Clf", "runNum": 2, "runLabel": "Run 2", "multiLoad": false, "runShips": ["4011313093"]}]}, {"area": "4011313094", "pc": "WV4,WV10,ST13,CW5", "postcodes": "WV4,WV10,ST13,CW5", "stops": 4, "pallets": 46, "weight": 9.2, "weight_t": 9.2, "runNum": 3, "runLabel": "Run 3", "multiLoad": false, "runShips": ["4011313094"], "stops_detail": [{"loadRef": "4011313094", "name": "Macfarlane", "postcode": "WV4 6UA", "postal": "WV4 6UA", "pallets": 19, "delivTime": "08:00", "time": "08:00", "checkIn": "06:15", "ship": "4011313094", "customer": "Macfarlane", "runNum": 3, "runLabel": "Run 3", "multiLoad": false, "runShips": ["4011313094"]}, {"loadRef": "4011313094", "name": "Clf", "postcode": "WV10 OES", "postal": "WV10 OES", "pallets": 10, "delivTime": "09:00", "time": "09:00", "checkIn": "06:15", "ship": "4011313094", "customer": "Clf", "runNum": 3, "runLabel": "Run 3", "multiLoad": false, "runShips": ["4011313094"]}, {"loadRef": "4011313094", "name": "Ornua", "postcode": "ST13 5SP", "postal": "ST13 5SP", "pallets": 10, "delivTime": "11:00", "time": "11:00", "checkIn": "06:15", "ship": "4011313094", "customer": "Ornua", "runNum": 3, "runLabel": "Run 3", "multiLoad": false, "runShips": ["4011313094"]}, {"loadRef": "4011313094", "name": "Ornua", "postcode": "CW5 6DN", "postal": "CW5 6DN", "pallets": 7, "delivTime": "13:30", "time": "13:30", "checkIn": "06:15", "ship": "4011313094", "customer": "Ornua", "runNum": 3, "runLabel": "Run 3", "multiLoad": false, "runShips": ["4011313094"]}]}, {"area": "4011313095", "pc": "PE2,PE11,PE22,NG34,PE10", "postcodes": "PE2,PE11,PE22,NG34,PE10", "stops": 5, "pallets": 50, "weight": 10.0, "weight_t": 10.0, "runNum": 4, "runLabel": "Run 4", "multiLoad": false, "runShips": ["4011313095"], "stops_detail": [{"loadRef": "4011313095", "name": "Life health", "postcode": "PE2 6YG", "postal": "PE2 6YG", "pallets": 6, "delivTime": "07:00", "time": "07:00", "checkIn": "05:30", "ship": "4011313095", "customer": "Life health", "runNum": 4, "runLabel": "Run 4", "multiLoad": false, "runShips": ["4011313095"]}, {"loadRef": "4011313095", "name": "Bakkavor M/S", "postcode": "PE11 2BB", "postal": "PE11 2BB", "pallets": 21, "delivTime": "08:30", "time": "08:30", "checkIn": "05:30", "ship": "4011313095", "customer": "Bakkavor M/S", "runNum": 4, "runLabel": "Run 4", "multiLoad": false, "runShips": ["4011313095"]}, {"loadRef": "4011313095", "name": "T&B Containers", "postcode": "PE22 9DX", "postal": "PE22 9DX", "pallets": 6, "delivTime": "11:00", "time": "11:00", "checkIn": "05:30", "ship": "4011313095", "customer": "T&B Containers", "runNum": 4, "runLabel": "Run 4", "multiLoad": false, "runShips": ["4011313095"]}, {"loadRef": "4011313095", "name": "Pilgrim", "postcode": "NG34 9BL", "postal": "NG34 9BL", "pallets": 5, "delivTime": "13:00", "time": "13:00", "checkIn": "05:30", "ship": "4011313095", "customer": "Pilgrim", "runNum": 4, "runLabel": "Run 4", "multiLoad": false, "runShips": ["4011313095"]}, {"loadRef": "4011313095", "name": "Bourne Salads", "postcode": "PE10 0DJ", "postal": "PE10 0DJ", "pallets": 12, "delivTime": "14:00", "time": "14:00", "checkIn": "05:30", "ship": "4011313095", "customer": "Bourne Salads", "runNum": 4, "runLabel": "Run 4", "multiLoad": false, "runShips": ["4011313095"]}]}, {"area": "4011313096", "pc": "NN6,CV9", "postcodes": "NN6,CV9", "stops": 2, "pallets": 30, "weight": 6.0, "weight_t": 6.0, "runNum": 5, "runLabel": "Run 5 (2 loads: 4011313096, 4011313097)", "multiLoad": true, "runShips": ["4011313096", "4011313097"], "stops_detail": [{"loadRef": "4011313096", "name": "Warrens", "postcode": "NN6 7EB", "postal": "NN6 7EB", "pallets": 17, "delivTime": "07:00", "time": "07:00", "checkIn": "06:00", "ship": "4011313096", "customer": "Warrens", "runNum": 5, "runLabel": "Run 5 (2 loads: 4011313096, 4011313097)", "multiLoad": true, "runShips": ["4011313096", "4011313097"]}, {"loadRef": "4011313096", "name": "Greencore", "postcode": "CV9 1LQ", "postal": "CV9 1LQ", "pallets": 13, "delivTime": "09:00", "time": "09:00", "checkIn": "06:00", "ship": "4011313096", "customer": "Greencore", "runNum": 5, "runLabel": "Run 5 (2 loads: 4011313096, 4011313097)", "multiLoad": true, "runShips": ["4011313096", "4011313097"]}]}, {"area": "4011313097", "pc": "LE1,LE67", "postcodes": "LE1,LE67", "stops": 2, "pallets": 45, "weight": 9.0, "weight_t": 9.0, "runNum": 5, "runLabel": "Run 5 (2 loads: 4011313096, 4011313097)", "multiLoad": true, "runShips": ["4011313096", "4011313097"], "stops_detail": [{"loadRef": "4011313097", "name": "Kirtons", "postcode": "LE1 3NJ", "postal": "LE1 3NJ", "pallets": 1, "delivTime": "12:00", "time": "12:00", "checkIn": "06:00", "ship": "4011313097", "customer": "Kirtons", "runNum": 5, "runLabel": "Run 5 (2 loads: 4011313096, 4011313097)", "multiLoad": true, "runShips": ["4011313096", "4011313097"]}, {"loadRef": "4011313097", "name": "Premier logistics", "postcode": "LE67 1TA", "postal": "LE67 1TA", "pallets": 44, "delivTime": "12:30", "time": "12:30", "checkIn": "06:00", "ship": "4011313097", "customer": "Premier logistics", "runNum": 5, "runLabel": "Run 5 (2 loads: 4011313096, 4011313097)", "multiLoad": true, "runShips": ["4011313096", "4011313097"]}]}, {"area": "4011313098", "pc": "NW10,UB7,CV23", "postcodes": "NW10,UB7,CV23", "stops": 3, "pallets": 49, "weight": 9.8, "weight_t": 9.8, "runNum": 6, "runLabel": "Run 6", "multiLoad": false, "runShips": ["4011313098"], "stops_detail": [{"loadRef": "4011313098", "name": "Bakkavor Meals", "postcode": "NW10 7NZ", "postal": "NW10 7NZ", "pallets": 48, "delivTime": "09:00", "time": "09:00", "checkIn": "06:00", "ship": "4011313098", "customer": "Bakkavor Meals", "runNum": 6, "runLabel": "Run 6", "multiLoad": false, "runShips": ["4011313098"]}, {"loadRef": "4011313098", "name": "Greencore", "postcode": "UB7 9BL", "postal": "UB7 9BL", "pallets": 1, "delivTime": "10:00", "time": "10:00", "checkIn": "06:00", "ship": "4011313098", "customer": "Greencore", "runNum": 6, "runLabel": "Run 6", "multiLoad": false, "runShips": ["4011313098"]}, {"loadRef": "4011313098", "name": "Chep pallets", "postcode": "CV23 8YH", "postal": "CV23 8YH", "pallets": 0, "delivTime": "13:00", "time": "13:00", "checkIn": "06:00", "ship": "4011313098", "customer": "Chep pallets", "runNum": 6, "runLabel": "Run 6", "multiLoad": false, "runShips": ["4011313098"]}]}, {"area": "4011313160", "pc": "NN17", "postcodes": "NN17", "stops": 2, "pallets": 28, "weight": 5.6, "weight_t": 5.6, "runNum": 7, "runLabel": "Run 7 (2 loads: 4011313160, 4011313161)", "multiLoad": true, "runShips": ["4011313160", "4011313161"], "stops_detail": [{"loadRef": "4011313160", "name": "RPC", "postcode": "NN17 5JE", "postal": "NN17 5JE", "pallets": 22, "delivTime": "07:00", "time": "07:00", "checkIn": "06:30", "ship": "4011313160", "customer": "RPC", "runNum": 7, "runLabel": "Run 7 (2 loads: 4011313160, 4011313161)", "multiLoad": true, "runShips": ["4011313160", "4011313161"]}, {"loadRef": "4011313160", "name": "Carpenter foams", "postcode": "NN17 4JL", "postal": "NN17 4JL", "pallets": 6, "delivTime": "08:00", "time": "08:00", "checkIn": "06:30", "ship": "4011313160", "customer": "Carpenter foams", "runNum": 7, "runLabel": "Run 7 (2 loads: 4011313160, 4011313161)", "multiLoad": true, "runShips": ["4011313160", "4011313161"]}]}, {"area": "4011313161", "pc": "LE7,LE3,LE67", "postcodes": "LE7,LE3,LE67", "stops": 3, "pallets": 40, "weight": 8.0, "weight_t": 8.0, "runNum": 7, "runLabel": "Run 7 (2 loads: 4011313160, 4011313161)", "multiLoad": true, "runShips": ["4011313160", "4011313161"], "stops_detail": [{"loadRef": "4011313161", "name": "Pukka pies", "postcode": "LE7 1LD", "postal": "LE7 1LD", "pallets": 31, "delivTime": "11:35", "time": "11:35", "checkIn": "06:30", "ship": "4011313161", "customer": "Pukka pies", "runNum": 7, "runLabel": "Run 7 (2 loads: 4011313160, 4011313161)", "multiLoad": true, "runShips": ["4011313160", "4011313161"]}, {"loadRef": "4011313161", "name": "Salad Work", "postcode": "LE3 3JZ", "postal": "LE3 3JZ", "pallets": 9, "delivTime": "13:00", "time": "13:00", "checkIn": "06:30", "ship": "4011313161", "customer": "Salad Work", "runNum": 7, "runLabel": "Run 7 (2 loads: 4011313160, 4011313161)", "multiLoad": true, "runShips": ["4011313160", "4011313161"]}, {"loadRef": "4011313161", "name": "IPP pallets", "postcode": "LE67 1TZ", "postal": "LE67 1TZ", "pallets": 0, "delivTime": "14:00", "time": "14:00", "checkIn": "06:30", "ship": "4011313161", "customer": "IPP pallets", "runNum": 7, "runLabel": "Run 7 (2 loads: 4011313160, 4011313161)", "multiLoad": true, "runShips": ["4011313160", "4011313161"]}]}, {"area": "4011313162", "pc": "LE13,LE14,NG6,LN8", "postcodes": "LE13,LE14,NG6,LN8", "stops": 4, "pallets": 33, "weight": 6.6, "weight_t": 6.6, "runNum": 8, "runLabel": "Run 8", "multiLoad": false, "runShips": ["4011313162"], "stops_detail": [{"loadRef": "4011313162", "name": "Kettleby Foods", "postcode": "LE13 1GA", "postal": "LE13 1GA", "pallets": 18, "delivTime": "06:30", "time": "06:30", "checkIn": "05:00", "ship": "4011313162", "customer": "Kettleby Foods", "runNum": 8, "runLabel": "Run 8", "multiLoad": false, "runShips": ["4011313162"]}, {"loadRef": "4011313162", "name": "Long Clawson", "postcode": "LE14 4PJ", "postal": "LE14 4PJ", "pallets": 1, "delivTime": "07:30", "time": "07:30", "checkIn": "05:00", "ship": "4011313162", "customer": "Long Clawson", "runNum": 8, "runLabel": "Run 8", "multiLoad": false, "runShips": ["4011313162"]}, {"loadRef": "4011313162", "name": "S&C Dickinson", "postcode": "NG6 8US", "postal": "NG6 8US", "pallets": 9, "delivTime": "09:00", "time": "09:00", "checkIn": "05:00", "ship": "4011313162", "customer": "S&C Dickinson", "runNum": 8, "runLabel": "Run 8", "multiLoad": false, "runShips": ["4011313162"]}, {"loadRef": "4011313162", "name": "RPC", "postcode": "LN8 3HZ", "postal": "LN8 3HZ", "pallets": 5, "delivTime": "11:00", "time": "11:00", "checkIn": "05:00", "ship": "4011313162", "customer": "RPC", "runNum": 8, "runLabel": "Run 8", "multiLoad": false, "runShips": ["4011313162"]}]}, {"area": "4011313163", "pc": "NN15", "postcodes": "NN15", "stops": 1, "pallets": 29, "weight": 5.8, "weight_t": 5.8, "runNum": 9, "runLabel": "Run 9", "multiLoad": false, "runShips": ["4011313163"], "stops_detail": [{"loadRef": "4011313163", "name": "Alpro Soya", "postcode": "NN15 5YT", "postal": "NN15 5YT", "pallets": 29, "delivTime": "20:00", "time": "20:00", "checkIn": "19:30", "ship": "4011313163", "customer": "Alpro Soya", "runNum": 9, "runLabel": "Run 9", "multiLoad": false, "runShips": ["4011313163"]}]}, {"area": "4011313164", "pc": "LE4,LE1", "postcodes": "LE4,LE1", "stops": 2, "pallets": 49, "weight": 9.8, "weight_t": 9.8, "runNum": 10, "runLabel": "Run 10", "multiLoad": false, "runShips": ["4011313164"], "stops_detail": [{"loadRef": "4011313164", "name": "Bradgate Bakery", "postcode": "LE4 2AD", "postal": "LE4 2AD", "pallets": 45, "delivTime": "06:30", "time": "06:30", "checkIn": "05:00", "ship": "4011313164", "customer": "Bradgate Bakery", "runNum": 10, "runLabel": "Run 10", "multiLoad": false, "runShips": ["4011313164"]}, {"loadRef": "4011313164", "name": "Walkers Deli", "postcode": "LE1 3ER", "postal": "LE1 3ER", "pallets": 4, "delivTime": "08:00", "time": "08:00", "checkIn": "05:00", "ship": "4011313164", "customer": "Walkers Deli", "runNum": 10, "runLabel": "Run 10", "multiLoad": false, "runShips": ["4011313164"]}]}, {"area": "4011313165", "pc": "MK43,MK41,NN10", "postcodes": "MK43,MK41,NN10", "stops": 3, "pallets": 36, "weight": 7.2, "weight_t": 7.2, "runNum": 11, "runLabel": "Run 11", "multiLoad": false, "runShips": ["4011313165"], "stops_detail": [{"loadRef": "4011313165", "name": "Carlton", "postcode": "MK43 9SS", "postal": "MK43 9SS", "pallets": 10, "delivTime": "11:00", "time": "11:00", "checkIn": "10:30", "ship": "4011313165", "customer": "Carlton", "runNum": 11, "runLabel": "Run 11", "multiLoad": false, "runShips": ["4011313165"]}, {"loadRef": "4011313165", "name": "Alternative", "postcode": "MK41 0HR", "postal": "MK41 0HR", "pallets": 16, "delivTime": "12:00", "time": "12:00", "checkIn": "10:30", "ship": "4011313165", "customer": "Alternative", "runNum": 11, "runLabel": "Run 11", "multiLoad": false, "runShips": ["4011313165"]}, {"loadRef": "4011313165", "name": "RPC", "postcode": "NN10 8RP", "postal": "NN10 8RP", "pallets": 10, "delivTime": "13:30", "time": "13:30", "checkIn": "10:30", "ship": "4011313165", "customer": "RPC", "runNum": 11, "runLabel": "Run 11", "multiLoad": false, "runShips": ["4011313165"]}]}, {"area": "4011313166", "pc": "MK43", "postcodes": "MK43", "stops": 1, "pallets": 52, "weight": 10.4, "weight_t": 10.4, "runNum": 12, "runLabel": "Run 12 (2 loads: 4011313166, 4011313167)", "multiLoad": true, "runShips": ["4011313166", "4011313167"], "stops_detail": [{"loadRef": "4011313166", "name": "Carlton", "postcode": "MK43 9SS", "postal": "MK43 9SS", "pallets": 52, "delivTime": "07:00", "time": "07:00", "checkIn": "05:30", "ship": "4011313166", "customer": "Carlton", "runNum": 12, "runLabel": "Run 12 (2 loads: 4011313166, 4011313167)", "multiLoad": true, "runShips": ["4011313166", "4011313167"]}]}, {"area": "4011313167", "pc": "OX16,CV2", "postcodes": "OX16,CV2", "stops": 2, "pallets": 27, "weight": 5.4, "weight_t": 5.4, "runNum": 12, "runLabel": "Run 12 (2 loads: 4011313166, 4011313167)", "multiLoad": true, "runShips": ["4011313166", "4011313167"], "stops_detail": [{"loadRef": "4011313167", "name": "Fides Payne", "postcode": "OX16 4XS", "postal": "OX16 4XS", "pallets": 8, "delivTime": "11:30", "time": "11:30", "checkIn": "05:30", "ship": "4011313167", "customer": "Fides Payne", "runNum": 12, "runLabel": "Run 12 (2 loads: 4011313166, 4011313167)", "multiLoad": true, "runShips": ["4011313166", "4011313167"]}, {"loadRef": "4011313167", "name": "Becketts/Slam", "postcode": "CV2 2QT", "postal": "CV2 2QT", "pallets": 19, "delivTime": "13:00", "time": "13:00", "checkIn": "05:30", "ship": "4011313167", "customer": "Becketts/Slam", "runNum": 12, "runLabel": "Run 12 (2 loads: 4011313166, 4011313167)", "multiLoad": true, "runShips": ["4011313166", "4011313167"]}]}, {"area": "4011313169", "pc": "NN15", "postcodes": "NN15", "stops": 1, "pallets": 52, "weight": 10.4, "weight_t": 10.4, "runNum": 13, "runLabel": "Run 13", "multiLoad": false, "runShips": ["4011313169"], "stops_detail": [{"loadRef": "4011313169", "name": "Bunzl", "postcode": "NN15 5ZX", "postal": "NN15 5ZX", "pallets": 52, "delivTime": "07:00", "time": "07:00", "checkIn": "06:15", "ship": "4011313169", "customer": "Bunzl", "runNum": 13, "runLabel": "Run 13", "multiLoad": false, "runShips": ["4011313169"]}]}, {"area": "4011313190", "pc": "PE34", "postcodes": "PE34", "stops": 1, "pallets": 36, "weight": 7.2, "weight_t": 7.2, "runNum": 14, "runLabel": "Run 14", "multiLoad": false, "runShips": ["4011313190"], "stops_detail": [{"loadRef": "4011313190", "name": "Agile box", "postcode": "PE34 3LW", "postal": "PE34 3LW", "pallets": 36, "delivTime": "10:00", "time": "10:00", "checkIn": "", "ship": "4011313190", "customer": "Agile box", "runNum": 14, "runLabel": "Run 14", "multiLoad": false, "runShips": ["4011313190"]}]}] }
+  ];
+  allData = [...todayData];
   renderAll();
 }
 
@@ -3153,45 +3284,124 @@ function setOffline() { document.getElementById('conn-label').textContent = 'Off
 /* ══════════════════════════════════════════
    ALGORITHM
 ══════════════════════════════════════════ */
+/* ══════════════════════════════════════════
+   LOAD SHARING ALGORITHM
+   30-mile ring fence method:
+   A route is a sharing opportunity when its
+   postcode centroid falls within 30 miles of
+   another depot — regardless of capacity.
+══════════════════════════════════════════ */
+
+// Haversine formula — accurate distance in miles between two lat/lng points
+function haversineMiles(lat1, lng1, lat2, lng2) {
+  const R = 3958.8; // Earth radius in miles
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLng/2) * Math.sin(dLng/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+const RING_FENCE_MILES = 30;
+
 function computeOpps(data) {
   const map = {};
   data.forEach(e => map[e.site] = e);
   const opps = [];
-  const pcs = route => (route.pc||'').split(',').map(p=>p.trim().toUpperCase()).filter(Boolean);
 
+  // For each site's routes, check every delivery postcode against every OTHER depot
   Object.keys(map).forEach(fromId => {
-    Object.keys(map).forEach(toId => {
-      if (fromId === toId) return;
-      const from = map[fromId], to = map[toId];
-      const fU = sumStops(from) / (from.capacity||80);
-      const tU = sumStops(to)   / (to.capacity||80);
-      if (fU <= 0.75 || tU >= 0.70) return;
+    const from     = map[fromId];
+    const fromDepot = DEPOTS[fromId];
+    if (!fromDepot) return;
 
-      (from.routes||[]).forEach(route => {
-        const rPCs  = pcs(route);
-        const toPCs = new Set((to.routes||[]).flatMap(r => pcs(r)));
-        const toAll = new Set([...toPCs, ...[...toPCs].flatMap(p => PC_PROXIMITY[p]||[])]);
-        const overlap = rPCs.filter(p => toAll.has(p) || (PC_PROXIMITY[p]||[]).some(n=>toPCs.has(n)));
-        if (!overlap.length) return;
-        const saving = Math.round(overlap.length * 15 + (tU < 0.5 ? 30 : 15));
-        const urg = fU > 0.95 ? 'high' : fU > 0.85 ? 'med' : 'low';
+    (from.routes||[]).forEach(route => {
+      const routePCs = (route.pc||'').split(',').map(p => p.trim().toUpperCase()).filter(Boolean);
+
+      // Find which postcodes in this route fall within 30 miles of another depot
+      Object.keys(DEPOTS).forEach(toId => {
+        if (toId === fromId) return;
+        const toDepot = DEPOTS[toId];
+        if (!toDepot) return;
+
+        // Check each postcode in this route against the receiving depot
+        const inRingFence = routePCs.filter(pc => {
+          const coords = PC_COORDS[pc];
+          if (!coords) return false;
+          const distMiles = haversineMiles(coords[0], coords[1], toDepot.lat, toDepot.lng);
+          return distMiles <= RING_FENCE_MILES;
+        });
+
+        if (!inRingFence.length) return;
+
+        // Calculate how far these postcodes are from the SENDING depot too
+        // (to confirm it's genuinely closer to the receiving depot)
+        const closerToReceiver = inRingFence.filter(pc => {
+          const coords = PC_COORDS[pc];
+          if (!coords) return true; // assume yes if no coords
+          const distFrom = haversineMiles(coords[0], coords[1], fromDepot.lat, fromDepot.lng);
+          const distTo   = haversineMiles(coords[0], coords[1], toDepot.lat, toDepot.lng);
+          return distTo < distFrom; // only flag if genuinely closer to the other depot
+        });
+
+        if (!closerToReceiver.length) return;
+
+        // Estimate mileage saving — distance difference × stops in ring fence
+        const avgSaving = closerToReceiver.reduce((sum, pc) => {
+          const coords = PC_COORDS[pc];
+          if (!coords) return sum + 20;
+          const distFrom = haversineMiles(coords[0], coords[1], fromDepot.lat, fromDepot.lng);
+          const distTo   = haversineMiles(coords[0], coords[1], toDepot.lat, toDepot.lng);
+          return sum + Math.max(0, distFrom - distTo);
+        }, 0);
+
+        const saving = Math.round(avgSaving * 2); // round trip saving estimate
+
+        // Urgency based on how far into the ring fence the stops are
+        const avgDist = closerToReceiver.reduce((sum, pc) => {
+          const coords = PC_COORDS[pc];
+          return coords ? sum + haversineMiles(coords[0], coords[1], toDepot.lat, toDepot.lng) : sum + 20;
+        }, 0) / closerToReceiver.length;
+
+        const urg = avgDist <= 10 ? 'high' : avgDist <= 20 ? 'med' : 'low';
+
+        const fU = sumStops(from) / (from.capacity||80);
+
         opps.push({
           from: fromId, to: toId,
-          fromName: SITES_META[fromId]?.name, toName: SITES_META[toId]?.name,
-          route, overlap, saving, urgency: urg,
-          fromU: Math.round(fU*100), toU: Math.round(tU*100),
-          desc: `${SITES_META[fromId]?.name} is at ${Math.round(fU*100)}% capacity. The ${route.area} route (${route.stops} stops, ${route.pallets} pallets) overlaps postcode coverage with ${SITES_META[toId]?.name}. Transferring these drops could save an estimated ${saving} miles and balance the network.`
+          fromName: SITES_META[fromId]?.name,
+          toName:   SITES_META[toId]?.name,
+          route,
+          overlap:  closerToReceiver,
+          saving:   Math.max(saving, 5),
+          urgency:  urg,
+          fromU:    Math.round(fU * 100),
+          toU:      0,
+          avgDist:  Math.round(avgDist),
+          desc: `${SITES_META[fromId]?.name}'s ${route.area} route has ${closerToReceiver.length} stop${closerToReceiver.length!==1?'s':''} (${closerToReceiver.join(', ')}) within ${RING_FENCE_MILES} miles of ${SITES_META[toId]?.name} — and closer to ${SITES_META[toId]?.name} than to ${SITES_META[fromId]?.name}. Transferring could save ~${Math.max(saving,5)} miles.`
         });
       });
     });
   });
-  return opps.sort((a,b) => ({high:0,med:1,low:2}[a.urgency]-{high:0,med:1,low:2}[b.urgency] || b.saving-a.saving));
+
+  // Deduplicate — if same route flagged multiple times for same depot pair, keep best
+  const seen = new Set();
+  const deduped = opps.filter(o => {
+    const key = `${o.from}|${o.to}|${o.route.area}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  return deduped.sort((a,b) => ({high:0,med:1,low:2}[a.urgency]-{high:0,med:1,low:2}[b.urgency] || b.saving-a.saving));
 }
 
 /* ══════════════════════════════════════════
    RENDER
 ══════════════════════════════════════════ */
 function renderAll() {
+  try {
   const opps = computeOpps(todayData);
 
   // If data cleared — reset overview to empty state
@@ -3211,27 +3421,14 @@ function renderAll() {
       </div>`;
 
     // Site cards — all showing no data
-    document.getElementById('sites-grid').innerHTML = Object.keys(SITES_META).map(sid => {
-      const meta = SITES_META[sid];
-      const isMe = sid === currentSiteId;
-      return `<div class="site-card" style="opacity:0.6">
-        <div class="site-top-bar" style="background:${meta.color}30"></div>
-        <div class="site-hd">
-          <div><div class="site-name">${meta.name}${isMe?' <span style="font-size:11px;color:var(--accent);font-weight:400">← you</span>':''}</div><div class="site-biz">${meta.biz}</div></div>
-          <span class="cap-pill cp-none">No data</span>
-        </div>
-        <div style="text-align:center;padding:30px 0;color:var(--ink3);font-size:13px">
-          Not uploaded today
-          `<br><button class="sfbtn sfbtn-blue" style="margin-top:12px" onclick="showTab('upload')">Upload now →</button>`
-        </div>
-      </div>`;
-    }).join('');
+    renderSiteCards();
 
     // Opps mini — empty
     document.getElementById('opps-mini').innerHTML = '<div style="padding:24px;text-align:center;color:var(--ink3);font-size:13px">No delivery data uploaded yet.</div>';
 
     // Network summary — all blank
-    document.getElementById('net-summary').innerHTML = Object.keys(SITES_META).map(sid => {
+    const netEl = document.getElementById('net-summary');
+    if (netEl) netEl.innerHTML = Object.keys(SITES_META).map(sid => {
       const meta = SITES_META[sid];
       return `<div class="net-row"><div class="net-row-head"><div class="net-site-name"><div class="net-dot" style="background:${meta.color}20"></div>${meta.name}</div><span class="net-pct" style="color:var(--ink3)">—</span></div><div class="net-bar-track"></div><div class="net-stops" style="color:var(--ink3)">No data</div></div>`;
     }).join('');
@@ -3240,6 +3437,7 @@ function renderAll() {
     document.getElementById('opp-panel-count').textContent = '0';
     renderAllOpps([]);
     renderHistory();
+    loadsShowOverview();
     return;
   }
 
@@ -3250,8 +3448,14 @@ function renderAll() {
   renderNetSummary();
   renderAllOpps(opps);
   renderHistory();
+  renderLoads();
   document.getElementById('opp-badge').textContent = opps.length;
   document.getElementById('opp-panel-count').textContent = opps.length;
+  } catch(err) {
+    console.error('renderAll error:', err);
+    const sg = document.getElementById('sites-grid');
+    if (sg) sg.innerHTML = '<div style="padding:20px;color:red;font-family:monospace;font-size:12px">Render error: ' + err.message + '</div>';
+  }
 }
 
 /* ── SVG ring ── */
@@ -3345,7 +3549,7 @@ function renderSiteCards() {
         </div>
         <div class="site-card-empty">
           <div class="empty-label">No data submitted yet today</div>
-          `<button class="site-btn site-btn-navy" data-tip="Upload" onclick="showTab('upload')">Upload now →</button>`
+          <button class="site-btn site-btn-navy" data-tip="Upload" onclick="showTab('upload')">Upload now →</button>
         </div>
       </div>`;
 
@@ -3669,7 +3873,7 @@ const PAGE_TITLES = { overview:'Overview', upload:'Upload data', sharing:'Load s
 function showTab(tab) {
   ['overview','upload','sharing','history','export','kpi','admin','loads','mapview','chat','vpkimport'].forEach(t => {
     const el = document.getElementById('tab-'+t);
-    if (el) el.style.display = t===tab ? (t==='chat'?'flex':'') : 'none';
+    if (el) el.style.display = t===tab ? (t==='chat'||t==='mapview'?'flex':'') : 'none';
   });
   document.querySelectorAll('.sb-link').forEach(b => b.classList.toggle('active', b.dataset.tab===tab));
   document.getElementById('page-title').textContent = PAGE_TITLES[tab]||tab;
@@ -3800,112 +4004,147 @@ let demoAudit = [
    KPI RENDER
 ══════════════════════════════════════════ */
 function renderKPIs() {
-  if (!todayData.length) { return; } // no data — stay empty
-  const opps = computeOpps(todayData);
-  const totStops   = todayData.reduce((a,e)=>a+sumStops(e),0);
-  const totPallets = todayData.reduce((a,e)=>a+sumPallets(e),0);
-  const totWeight  = todayData.reduce((a,e)=>a+sumWeight(e),0);
-  const capSites   = todayData.filter(e=>e.capacity);
-  const avgUtil    = capSites.length ? Math.round(capSites.reduce((a,e)=>a+sumStops(e)/e.capacity,0)/capSites.length*100) : 0;
-  const totalSavings = opps.reduce((a,o)=>a+o.saving,0);
-  const uploaded   = todayData.length;
+  const kpiGrid       = document.getElementById('kpi-grid');
+  const kpiCompliance = document.getElementById('kpi-compliance');
+  const kpiBreakdown  = document.getElementById('kpi-breakdown');
+  const kpiSavings    = document.getElementById('kpi-savings');
 
-  // Simulated 7-day trend (today + 6 prev days random variation)
-  const trend = (base, variance) => Array.from({length:7},(_,i)=>
-    i===6 ? base : Math.max(0, Math.round(base * (0.75 + Math.random()*0.5))));
-
-  const stopsTrend   = trend(totStops, 10);
-  const utilTrend    = trend(avgUtil, 5);
-  const savingsTrend = trend(totalSavings || 80, 20);
-  const compTrend    = trend(uploaded*25, 5);
-
-  const kpiBarColor = (arr, col) => arr.map((v,i) => {
-    const max = Math.max(...arr, 1);
-    return `<div class="kpi-bar" style="height:${Math.round(v/max*40)+4}px;background:${i===6?col:'var(--cream3)'}"></div>`;
-  }).join('');
-
-  document.getElementById('kpi-grid').innerHTML = `
-    <div class="kpi-card">
-      <div class="kpi-accent" style="background:var(--navy)"></div>
-      <div class="kpi-eyebrow">Total stops today</div>
-      <div class="kpi-value">${totStops}</div>
-      <div class="kpi-sub">${totPallets} pallets · ${totWeight.toFixed(1)}t</div>
-      <div class="kpi-chart">${kpiBarColor(stopsTrend,'var(--navy)')}</div>
-      <div class="kpi-trend-row"><span class="kpi-trend trend-ok">7-day view</span></div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-accent" style="background:${avgUtil>=90?'var(--red)':avgUtil>=75?'var(--amber)':'var(--green)'}"></div>
-      <div class="kpi-eyebrow">Avg utilisation</div>
-      <div class="kpi-value">${avgUtil}<span>%</span></div>
-      <div class="kpi-sub">Across ${capSites.length} sites with data</div>
-      <div class="kpi-chart">${kpiBarColor(utilTrend, avgUtil>=90?'var(--red)':avgUtil>=75?'var(--amber)':'var(--green)')}</div>
-      <div class="kpi-trend-row"><span class="kpi-trend ${avgUtil>=90?'trend-bad':avgUtil>=75?'trend-warn':'trend-ok'}">${avgUtil>=90?'⚠ Over':'✓ Healthy'}</span></div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-accent" style="background:var(--teal)"></div>
-      <div class="kpi-eyebrow">Sharing savings today</div>
-      <div class="kpi-value">${totalSavings}<span> mi</span></div>
-      <div class="kpi-sub">${opps.length} opportunit${opps.length!==1?'ies':'y'} identified · est. £${Math.round(totalSavings*0.45)} saved</div>
-      <div class="kpi-chart">${kpiBarColor(savingsTrend,'var(--teal)')}</div>
-      <div class="kpi-trend-row"><span class="kpi-trend trend-ok">↑ Active</span></div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-accent" style="background:${uploaded<4?'var(--amber)':'var(--green)'}"></div>
-      <div class="kpi-eyebrow">Upload compliance</div>
-      <div class="kpi-value">${uploaded}<span>/4</span></div>
-      <div class="kpi-sub">${uploaded===4?'All sites submitted':'${4-uploaded} site(s) pending'.replace('${4-uploaded}',4-uploaded)}</div>
-      <div class="kpi-chart">${kpiBarColor(compTrend,uploaded===4?'var(--green)':'var(--amber)')}</div>
-      <div class="kpi-trend-row"><span class="kpi-trend ${uploaded===4?'trend-ok':'trend-warn'}">${uploaded===4?'✓ Complete':'⏳ Pending'}</span></div>
-    </div>`;
-
-  // Compliance grid
-  document.getElementById('kpi-compliance').innerHTML = Object.keys(SITES_META).map(sid => {
-    const meta = SITES_META[sid];
-    const has  = !!todayData.find(e=>e.site===sid);
-    return `<div class="compliance-row">
-      <div class="compliance-site"><div class="compliance-dot" style="background:${meta.color}"></div>${meta.name} <span style="font-size:11px;color:var(--ink3);font-weight:400">${meta.biz}</span></div>
-      <span class="compliance-status ${has?'cs-ok':'cs-miss'}">${has?'Submitted':'Not uploaded'}</span>
-    </div>`;
-  }).join('');
-
-  // Breakdown table
-  const maxS = Math.max(...todayData.map(e=>sumStops(e)), 1);
-  document.getElementById('kpi-breakdown').innerHTML = Object.keys(SITES_META).map(sid => {
-    const meta = SITES_META[sid], e = todayData.find(d=>d.site===sid);
-    if (!e) return `<div class="kpi-breakdown-row">
-      <div class="kpi-site-label"><div style="width:8px;height:8px;border-radius:50%;background:${meta.color}40"></div>${meta.name}</div>
-      <div class="kpi-cell" style="color:var(--ink3)" colspan="5">No data</div>
-      <div class="kpi-cell"></div><div class="kpi-cell"></div><div class="kpi-cell"></div>
-      <span class="compliance-status cs-miss" style="text-align:right;display:block">Missing</span>
-    </div>`;
-    const s=sumStops(e), p=sumPallets(e), w=sumWeight(e).toFixed(1), cap=e.capacity||80, pct=Math.round(s/cap*100);
-    const col=pct>=90?'var(--red)':pct>=75?'var(--amber)':'var(--green)';
-    return `<div class="kpi-breakdown-row">
-      <div class="kpi-site-label"><div style="width:8px;height:8px;border-radius:50%;background:${meta.color}"></div>${meta.name}</div>
-      <div class="kpi-cell">${s}<div class="inline-bar"><div class="inline-bar-fill" style="width:${Math.round(s/maxS*100)}%;background:${meta.color}"></div></div></div>
-      <div class="kpi-cell">${p}</div>
-      <div class="kpi-cell">${w}t</div>
-      <div class="kpi-cell">${pct}%<div class="inline-bar"><div class="inline-bar-fill" style="width:${Math.min(pct,100)}%;background:${col}"></div></div></div>
-      <div class="kpi-cell"><span class="compliance-status ${pct>=90?'cs-miss':pct>=75?'':'cs-ok'}" style="${pct>=75&&pct<90?'background:var(--amber-l);color:var(--amber)':''}">${pct>=90?'Over':pct>=75?'Near cap':'On track'}</span></div>
-    </div>`;
-  }).join('');
-
-  // Savings banner
-  if (!opps.length) {
-    document.getElementById('kpi-savings').innerHTML = `<div class="admin-warning"><span>✓</span><div>No load sharing opportunities identified today — the network is well balanced.</div></div>`;
+  if (!todayData.length) {
+    if (kpiGrid) kpiGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--ink3);font-size:13px">No delivery data uploaded yet. Ask each site to upload their daily plan.</div>';
+    if (kpiCompliance) kpiCompliance.innerHTML = Object.keys(SITES_META).map(sid=>{
+      const meta=SITES_META[sid];
+      return `<div class="compliance-row"><div class="compliance-site"><div class="compliance-dot" style="background:${meta.color}40"></div>${meta.name}</div><span class="compliance-status cs-miss">Not uploaded</span></div>`;
+    }).join('');
+    if (kpiBreakdown) kpiBreakdown.innerHTML = '';
+    if (kpiSavings) kpiSavings.innerHTML = '';
     return;
   }
+
+  const opps        = computeOpps(todayData);
+  const totStops    = todayData.reduce((a,e)=>a+sumStops(e),0);
+  const totPallets  = todayData.reduce((a,e)=>a+sumPallets(e),0);
+  const totWeight   = todayData.reduce((a,e)=>a+sumWeight(e),0);
+  const totLoads    = todayData.reduce((a,e)=>a+countLoads(e),0);
+  const totRuns     = todayData.reduce((a,e)=>{
+    const runs = new Set((e.routes||[]).map(r=>r.runNum||r.area));
+    return a + runs.size;
+  }, 0);
+  const capSites    = todayData.filter(e=>e.capacity);
+  const avgUtil     = capSites.length ? Math.round(capSites.reduce((a,e)=>a+sumStops(e)/(e.capacity||80),0)/capSites.length*100) : 0;
+  const totalSavings = opps.reduce((a,o)=>a+o.saving,0);
+  const uploaded    = todayData.length;
+  const overCap     = todayData.filter(e=>sumStops(e)/(e.capacity||80)>=0.9).length;
   const costPerMile = 0.45;
-  document.getElementById('kpi-savings').innerHTML = `
+
+  // ── 6 KPI cards ──
+  function kpiCard(accent, label, value, unit, sub, pill, pillColor) {
+    return `<div class="kpi-card">
+      <div class="kpi-accent" style="background:${accent}"></div>
+      <div class="kpi-eyebrow">${label}</div>
+      <div class="kpi-value">${value}${unit?`<span style="font-size:18px;font-weight:400;color:var(--ink3)"> ${unit}</span>`:''}</div>
+      <div class="kpi-sub">${sub}</div>
+      ${pill?`<div class="kpi-trend-row" style="margin-top:12px"><span class="kpi-trend" style="background:${pillColor}20;color:${pillColor}">${pill}</span></div>`:''}
+    </div>`;
+  }
+
+  const utilCol  = avgUtil>=90?'var(--red)':avgUtil>=75?'var(--amber)':'var(--green)';
+  const compCol  = uploaded===4?'var(--green)':'var(--amber)';
+  const overCol  = overCap>0?'var(--red)':'var(--green)';
+
+  if (kpiGrid) kpiGrid.innerHTML = [
+    kpiCard('var(--navy)',  'Total runs today',     totRuns,   '',    `${totLoads} loads across ${uploaded} site${uploaded!==1?'s':''}`, `${totRuns} vehicle runs`, 'var(--navy)'),
+    kpiCard('var(--navy2)', 'Total stops',          totStops,  '',    `${totPallets} pallets · ${totWeight.toFixed(1)}t estimated weight`, null, null),
+    kpiCard(utilCol,        'Avg utilisation',       avgUtil,  '%',   `Across ${capSites.length} site${capSites.length!==1?'s':''} with data`,
+      avgUtil>=90?'⚠ Over capacity':avgUtil>=75?'Near capacity':'✓ Healthy', utilCol),
+    kpiCard(overCol,        'Over capacity',         overCap,  '/'+todayData.length, overCap===0?'All sites within capacity':`${overCap} site${overCap!==1?'s':''} need attention`,
+      overCap===0?'✓ All clear':'⚠ Action needed', overCol),
+    kpiCard('var(--green)', 'Sharing opportunities', opps.length, '', `Est. ${totalSavings} miles · ~£${Math.round(totalSavings*costPerMile)} savings · 30mi ring fence`,
+      opps.length?`${opps.length} opp${opps.length!==1?'s':''}`:null, 'var(--green)'),
+    kpiCard(compCol,        'Upload compliance',     uploaded, '/4',  uploaded===4?'All sites submitted today':`${4-uploaded} site${4-uploaded!==1?'s':''} yet to upload`,
+      uploaded===4?'✓ Complete':'⏳ Pending', compCol),
+  ].join('');
+
+  // ── Site breakdown — now includes runs and loads ──
+  const maxS = Math.max(...todayData.map(e=>sumStops(e)), 1);
+  if (kpiBreakdown) kpiBreakdown.innerHTML = Object.keys(SITES_META).map(sid => {
+    const meta = SITES_META[sid];
+    const e    = todayData.find(d=>d.site===sid);
+    if (!e) return `<div class="kpi-breakdown-row">
+      <div class="kpi-site-label">
+        ${meta.logo?`<img src="${meta.logo}" style="height:20px;width:auto;object-fit:contain" alt="${meta.name}">`:`<div style="width:8px;height:8px;border-radius:50%;background:${meta.color}40"></div>`}
+        <span>${meta.name}</span>
+      </div>
+      <div class="kpi-cell" style="color:var(--ink3)">—</div>
+      <div class="kpi-cell" style="color:var(--ink3)">—</div>
+      <div class="kpi-cell" style="color:var(--ink3)">—</div>
+      <div class="kpi-cell" style="color:var(--ink3)">—</div>
+      <div class="kpi-cell" style="color:var(--ink3)">—</div>
+      <div class="kpi-cell"><span class="compliance-status cs-miss">No data</span></div>
+    </div>`;
+
+    const runs   = new Set((e.routes||[]).map(r=>r.runNum||r.area)).size;
+    const loads  = countLoads(e);
+    const s      = sumStops(e);
+    const p      = sumPallets(e);
+    const cap    = e.capacity||80;
+    const pct    = Math.round(s/cap*100);
+    const col    = pct>=90?'var(--red)':pct>=75?'var(--amber)':'var(--green)';
+    const pill   = pct>=90?'cs-miss':pct>=75?'cs-warn':'cs-ok';
+    const lbl    = pct>=90?'Over':pct>=75?'Near cap':'On track';
+
+    return `<div class="kpi-breakdown-row">
+      <div class="kpi-site-label">
+        ${meta.logo?`<img src="${meta.logo}" style="height:20px;width:auto;object-fit:contain" alt="${meta.name}">`:`<div style="width:8px;height:8px;border-radius:50%;background:${meta.color}"></div>`}
+        <span>${meta.name}</span>
+      </div>
+      <div class="kpi-cell" style="font-family:var(--font-mono);font-weight:600">${runs}</div>
+      <div class="kpi-cell" style="font-family:var(--font-mono);font-weight:600">${loads}</div>
+      <div class="kpi-cell">${s}
+        <div class="inline-bar"><div class="inline-bar-fill" style="width:${Math.round(s/maxS*100)}%;background:${meta.color}"></div></div>
+      </div>
+      <div class="kpi-cell" style="font-family:var(--font-mono)">${p}</div>
+      <div class="kpi-cell" style="font-family:var(--font-mono);color:${col};font-weight:600">${pct}%</div>
+      <div class="kpi-cell"><span class="compliance-status ${pill}">${lbl}</span></div>
+    </div>`;
+  }).join('');
+
+  // ── Compliance ──
+  if (kpiCompliance) kpiCompliance.innerHTML = Object.keys(SITES_META).map(sid => {
+    const meta = SITES_META[sid];
+    const e    = todayData.find(d=>d.site===sid);
+    const has  = !!e;
+    const runs = e ? new Set((e.routes||[]).map(r=>r.runNum||r.area)).size : 0;
+    const loads = e ? countLoads(e) : 0;
+    return `<div class="compliance-row">
+      <div class="compliance-site">
+        <div class="compliance-dot" style="background:${has?meta.color:meta.color+'40'}"></div>
+        <div>
+          <div>${meta.name} <span style="font-size:11px;color:var(--ink3);font-weight:400">${meta.biz}</span></div>
+          ${has?`<div style="font-size:11px;font-family:var(--font-mono);color:var(--ink3)">${runs} runs · ${loads} loads · ${sumStops(e)} stops</div>`:''}
+        </div>
+      </div>
+      <span class="compliance-status ${has?'cs-ok':'cs-miss'}">${has?'✓ Submitted':'Not uploaded'}</span>
+    </div>`;
+  }).join('');
+
+  // ── Sharing opportunities ──
+  if (!opps.length) {
+    if (kpiSavings) kpiSavings.innerHTML = `<div class="admin-warning"><span style="color:var(--green)">✓</span><div>No sharing opportunities today — all deliveries are closest to their sending depot. Network is well balanced.</div></div>`;
+    return;
+  }
+  if (kpiSavings) kpiSavings.innerHTML = `
     <div class="savings-banner">
       <div class="savings-main">
-        <div class="savings-eyebrow">Estimated miles saved today</div>
+        <div class="savings-eyebrow">Estimated miles saved if all opportunities taken</div>
         <div class="savings-number">${totalSavings}<span class="savings-unit"> mi</span></div>
-        <div class="savings-desc">Equivalent to approx. £${(totalSavings*costPerMile).toFixed(0)} in fuel &amp; time savings · ${opps.length} sharing opportunit${opps.length!==1?'ies':'y'}</div>
+        <div class="savings-desc">~£${(totalSavings*costPerMile).toFixed(0)} in fuel savings · ${opps.length} opportunit${opps.length!==1?'ies':'y'} · based on 30-mile ring fence</div>
       </div>
       <div class="savings-items">
-        ${opps.slice(0,3).map(o=>`<div class="savings-item">
-          <span>${o.fromName} → ${o.toName}</span>
+        ${opps.slice(0,5).map(o=>`<div class="savings-item">
+          <div>
+            <div style="font-weight:600;font-size:13px">${o.fromName} → ${o.toName}</div>
+            <div style="font-size:11px;color:var(--ink3);font-family:var(--font-mono)">${o.overlap.join(', ')} · avg ${o.avgDist||'<30'}mi from ${o.toName}</div>
+          </div>
           <span class="savings-item-val">~${o.saving} mi</span>
         </div>`).join('')}
       </div>
@@ -4074,135 +4313,424 @@ const DEPOTS = {
    postcode district used by our sites
 ══════════════════════════════════════════ */
 const PC_COORDS = {
-  // Desborough area
-  'NN14': [52.440, -0.817], 'NN9':  [52.363, -0.706], 'NN6':  [52.363, -1.020],
-  'NN7':  [52.226, -0.928], 'LE16': [52.489, -0.913], 'LE17': [52.464, -1.134],
-  // Selby area
-  'YO8':  [53.782, -1.070], 'DN14': [53.692, -0.870], 'HU15': [53.738, -0.621],
-  'HU14': [53.719, -0.530], 'LS25': [53.786, -1.327], 'WF11': [53.700, -1.328],
-  // Banbury area
-  'OX16': [52.060, -1.340], 'OX17': [52.088, -1.284], 'CV47': [52.198, -1.420],
-  'CV35': [52.226, -1.578], 'SP11': [51.305, -1.606], 'RG28': [51.270, -1.283],
-  // Wellington area
-  'TA21': [50.977, -3.227], 'TA20': [50.872, -2.953], 'EX16': [50.963, -3.513],
-  'TA22': [51.088, -3.527],
+  // ── Comprehensive UK postcode area centroids ──
+  // London & Home Counties
+  'E':  [51.520,-0.020], 'EC': [51.517,-0.096], 'N':  [51.570,-0.100],
+  'NW': [51.556,-0.178], 'SE': [51.480,-0.050], 'SW': [51.464,-0.175],
+  'W':  [51.512,-0.202], 'WC': [51.518,-0.122],
+  'BR': [51.406, 0.014], 'CR': [51.368,-0.103], 'DA': [51.445, 0.218],
+  'EN': [51.655,-0.052], 'HA': [51.580,-0.338], 'IG': [51.559, 0.085],
+  'KT': [51.393,-0.305], 'RM': [51.554, 0.188], 'SM': [51.374,-0.188],
+  'TN': [51.150, 0.260], 'TW': [51.444,-0.330], 'UB': [51.538,-0.476],
+  'WD': [51.670,-0.435],
+  // Specific London districts (from Desborough data)
+  'HA3': [51.580,-0.338], 'UB8': [51.540,-0.479], 'UB7': [51.505,-0.468],
+  'UB2': [51.499,-0.374], 'NW10':[51.540,-0.252],
+  // East Midlands (Desborough area)
+  'NN':  [52.240,-0.900], 'NN1': [52.238,-0.893], 'NN2': [52.261,-0.901],
+  'NN3': [52.266,-0.849], 'NN4': [52.215,-0.921], 'NN5': [52.244,-0.932],
+  'NN6': [52.363,-1.020], 'NN7': [52.226,-0.928], 'NN8': [52.300,-0.693],
+  'NN9': [52.363,-0.706], 'NN10':[52.285,-0.625], 'NN11':[52.241,-1.241],
+  'NN12':[52.121,-1.020], 'NN13':[52.021,-1.162], 'NN14':[52.440,-0.817],
+  'NN15':[52.397,-0.742], 'NN16':[52.405,-0.729], 'NN17':[52.505,-0.693],
+  'NN18':[52.497,-0.671], 'NN29':[52.275,-0.716],
+  // Leicestershire
+  'LE':  [52.634,-1.134], 'LE1': [52.634,-1.134], 'LE2': [52.614,-1.112],
+  'LE3': [52.628,-1.175], 'LE4': [52.661,-1.117], 'LE5': [52.639,-1.083],
+  'LE6': [52.697,-1.239], 'LE7': [52.695,-1.087], 'LE8': [52.547,-1.075],
+  'LE9': [52.598,-1.247], 'LE10':[52.536,-1.427], 'LE11':[52.773,-1.208],
+  'LE12':[52.789,-1.151], 'LE13':[52.763,-0.888], 'LE14':[52.777,-0.946],
+  'LE15':[52.660,-0.705], 'LE16':[52.489,-0.913], 'LE17':[52.464,-1.134],
+  'LE18':[52.587,-1.119], 'LE19':[52.595,-1.178], 'LE41':[52.634,-1.134],
+  'LE65':[52.746,-1.464], 'LE67':[52.714,-1.328], 'LE87':[52.634,-1.134],
+  // Peterborough & Lincolnshire
+  'PE':  [52.574,-0.241], 'PE1': [52.574,-0.241], 'PE2': [52.564,-0.256],
+  'PE3': [52.583,-0.271], 'PE4': [52.602,-0.281], 'PE6': [52.649,-0.144],
+  'PE7': [52.547,-0.159], 'PE8': [52.533,-0.477], 'PE9': [52.655,-0.474],
+  'PE10':[52.775,-0.382], 'PE11':[52.823,-0.153], 'PE12':[52.773,-0.006],
+  'PE13':[52.672, 0.100], 'PE14':[52.651, 0.218], 'PE15':[52.545, 0.068],
+  'PE16':[52.432,-0.153], 'PE19':[52.220,-0.274], 'PE20':[52.921,-0.128],
+  'PE21':[52.979,-0.022], 'PE22':[53.050, 0.048], 'PE23':[53.164, 0.125],
+  'PE24':[53.160, 0.306], 'PE25':[53.144, 0.338], 'PE26':[52.397,-0.130],
+  'PE27':[52.342,-0.066], 'PE28':[52.365,-0.276], 'PE29':[52.330,-0.176],
+  'PE30':[52.752, 0.399], 'PE31':[52.832, 0.493], 'PE32':[52.721, 0.639],
+  'PE33':[52.620, 0.428], 'PE34':[52.714, 0.427], 'PE35':[52.849, 0.498],
+  // Lincolnshire
+  'LN':  [53.234,-0.538], 'LN1': [53.234,-0.538], 'LN2': [53.282,-0.466],
+  'LN3': [53.298,-0.289], 'LN4': [53.128,-0.288], 'LN5': [53.162,-0.567],
+  'LN6': [53.178,-0.599], 'LN7': [53.437,-0.309], 'LN8': [53.381,-0.198],
+  'LN9': [53.212,-0.109], 'LN11':[53.374, 0.078], 'LN12':[53.328, 0.203],
+  // Nottinghamshire
+  'NG':  [52.954,-1.158], 'NG1': [52.954,-1.158], 'NG2': [52.934,-1.127],
+  'NG3': [52.970,-1.118], 'NG4': [52.978,-1.070], 'NG5': [52.988,-1.148],
+  'NG6': [52.998,-1.175], 'NG7': [52.944,-1.175], 'NG8': [52.944,-1.211],
+  'NG9': [52.910,-1.211], 'NG10':[52.888,-1.267], 'NG11':[52.885,-1.137],
+  'NG12':[52.896,-1.055], 'NG13':[52.950,-0.924], 'NG14':[52.984,-1.030],
+  'NG15':[53.044,-1.205], 'NG16':[53.005,-1.302], 'NG17':[53.094,-1.248],
+  'NG18':[53.154,-1.184], 'NG19':[53.168,-1.200], 'NG20':[53.235,-1.117],
+  'NG21':[53.175,-1.044], 'NG22':[53.136,-0.958], 'NG23':[53.051,-0.845],
+  'NG24':[53.070,-0.811], 'NG25':[53.019,-0.952], 'NG31':[52.927,-0.643],
+  'NG32':[52.910,-0.653], 'NG33':[52.855,-0.516], 'NG34':[52.988,-0.414],
+  // West Midlands & Warwickshire  
+  'WV':  [52.586,-2.130], 'WV1': [52.586,-2.130], 'WV2': [52.570,-2.107],
+  'WV3': [52.574,-2.162], 'WV4': [52.563,-2.096], 'WV5': [52.533,-2.166],
+  'WV6': [52.617,-2.184], 'WV7': [52.638,-2.278], 'WV8': [52.635,-2.212],
+  'WV9': [52.645,-2.148], 'WV10':[52.624,-2.122], 'WV11':[52.614,-2.068],
+  'WV12':[52.597,-2.039], 'WV13':[52.585,-2.027], 'WV14':[52.553,-2.073],
+  'CV':  [52.408,-1.510], 'CV1': [52.408,-1.510], 'CV2': [52.420,-1.480],
+  'CV3': [52.386,-1.484], 'CV4': [52.394,-1.548], 'CV5': [52.415,-1.568],
+  'CV6': [52.435,-1.502], 'CV7': [52.452,-1.577], 'CV8': [52.344,-1.572],
+  'CV9': [52.566,-1.557], 'CV10':[52.513,-1.483], 'CV11':[52.478,-1.468],
+  'CV12':[52.456,-1.441], 'CV21':[52.374,-1.266], 'CV22':[52.361,-1.299],
+  'CV23':[52.388,-1.294], 'CV31':[52.289,-1.530], 'CV32':[52.293,-1.538],
+  'CV33':[52.304,-1.451], 'CV34':[52.278,-1.567], 'CV35':[52.226,-1.578],
+  'CV36':[52.086,-1.619], 'CV37':[52.192,-1.707], 'CV47':[52.198,-1.420],
+  // Staffordshire
+  'ST':  [52.993,-2.004], 'ST1': [52.993,-2.004], 'ST4': [52.995,-2.172],
+  'ST5': [52.996,-2.232], 'ST13':[53.100,-2.030], 'ST14':[52.865,-1.840],
+  // Cheshire
+  'CW':  [53.080,-2.459], 'CW1': [53.080,-2.459], 'CW2': [53.062,-2.455],
+  'CW3': [53.010,-2.493], 'CW4': [53.142,-2.319], 'CW5': [53.030,-2.606],
+  'CW6': [53.196,-2.619], 'CW7': [53.178,-2.518], 'CW8': [53.253,-2.567],
+  'CW9': [53.260,-2.381], 'CW10':[53.169,-2.434], 'CW11':[53.092,-2.364],
+  'CW12':[53.085,-2.226],
+  // Oxfordshire
+  'OX':  [51.752,-1.258], 'OX1': [51.752,-1.258], 'OX2': [51.759,-1.284],
+  'OX3': [51.764,-1.218], 'OX4': [51.740,-1.228], 'OX5': [51.835,-1.286],
+  'OX7': [51.890,-1.595], 'OX9': [51.708,-1.005], 'OX10':[51.597,-1.072],
+  'OX11':[51.609,-1.243], 'OX12':[51.607,-1.437], 'OX13':[51.669,-1.333],
+  'OX14':[51.666,-1.291], 'OX15':[52.052,-1.417], 'OX16':[52.060,-1.340],
+  'OX17':[52.088,-1.284], 'OX18':[51.777,-1.574], 'OX20':[51.876,-1.440],
+  'OX25':[51.906,-1.175], 'OX26':[51.899,-1.142], 'OX27':[51.965,-1.031],
+  'OX28':[51.787,-1.488], 'OX29':[51.786,-1.411], 'OX39':[51.710,-0.884],
+  'OX44':[51.699,-1.120],
+  // Milton Keynes
+  'MK':  [52.040,-0.760], 'MK1': [52.020,-0.758], 'MK2': [51.999,-0.754],
+  'MK3': [52.013,-0.753], 'MK4': [52.009,-0.789], 'MK5': [52.023,-0.802],
+  'MK6': [52.040,-0.731], 'MK7': [52.029,-0.701], 'MK8': [52.041,-0.801],
+  'MK9': [52.043,-0.756], 'MK10':[52.049,-0.691], 'MK11':[52.061,-0.814],
+  'MK12':[52.054,-0.779], 'MK13':[52.055,-0.787], 'MK14':[52.070,-0.754],
+  'MK15':[52.070,-0.724], 'MK16':[52.092,-0.703], 'MK17':[51.989,-0.741],
+  'MK18':[51.988,-1.032], 'MK19':[52.111,-0.895], 'MK40':[52.144,-0.471],
+  'MK41':[52.151,-0.456], 'MK42':[52.124,-0.462], 'MK43':[52.117,-0.558],
+  'MK44':[52.164,-0.421], 'MK45':[52.028,-0.468],
+  // Yorkshire (Selby area)
+  'YO':  [53.959,-1.082], 'YO1': [53.959,-1.082], 'YO7': [54.099,-1.385],
+  'YO8': [53.782,-1.070], 'YO10':[53.949,-1.060], 'YO11':[54.275,-0.401],
+  'YO12':[54.289,-0.419], 'YO13':[54.308,-0.526], 'YO14':[54.204,-0.218],
+  'YO15':[54.102,-0.185], 'YO16':[53.999,-0.426], 'YO17':[54.137,-0.786],
+  'YO18':[54.248,-0.787], 'YO19':[53.901,-1.025], 'YO21':[54.478,-0.825],
+  'YO22':[54.446,-0.655], 'YO23':[53.928,-1.117], 'YO24':[53.945,-1.119],
+  'YO25':[53.999,-0.441], 'YO26':[53.986,-1.174], 'YO30':[54.002,-1.089],
+  'YO31':[53.972,-1.058], 'YO32':[54.019,-1.032], 'YO41':[53.936,-0.940],
+  'YO42':[53.884,-0.796], 'YO43':[53.849,-0.655], 'YO51':[54.048,-1.384],
+  'YO60':[54.092,-0.970], 'YO61':[54.109,-1.237], 'YO62':[54.244,-0.990],
+  'DN':  [53.522,-1.128], 'DN1': [53.522,-1.128], 'DN14':[53.692,-0.870],
+  'HU':  [53.744,-0.334], 'HU14':[53.719,-0.530], 'HU15':[53.738,-0.621],
+  'LS':  [53.801,-1.549], 'LS25':[53.786,-1.327],
+  'WF':  [53.682,-1.499], 'WF11':[53.700,-1.328],
+  // Wellington / Somerset / Devon
+  'TA':  [51.015,-3.101], 'TA1': [51.015,-3.101], 'TA2': [51.042,-3.085],
+  'TA3': [50.997,-3.047], 'TA4': [51.063,-3.267], 'TA6': [51.125,-2.977],
+  'TA7': [51.120,-2.863], 'TA8': [51.221,-2.963], 'TA9': [51.202,-2.900],
+  'TA10':[51.045,-2.903], 'TA11':[51.069,-2.692], 'TA12':[50.985,-2.909],
+  'TA13':[50.940,-2.787], 'TA14':[50.934,-2.737], 'TA15':[50.986,-2.767],
+  'TA16':[50.958,-2.718], 'TA17':[50.935,-2.696], 'TA18':[50.876,-2.787],
+  'TA19':[50.867,-2.862], 'TA20':[50.872,-2.953], 'TA21':[50.977,-3.227],
+  'TA22':[51.088,-3.527], 'TA23':[51.131,-3.502], 'TA24':[51.163,-3.574],
+  'EX':  [50.720,-3.534], 'EX1': [50.720,-3.534], 'EX16':[50.963,-3.513],
+  // Additional common UK areas
+  'B':   [52.480,-1.897], 'BA':  [51.382,-2.360], 'BB':  [53.748,-2.482],
+  'BD':  [53.795,-1.752], 'BH':  [50.720,-1.880], 'BL':  [53.578,-2.432],
+  'BN':  [50.829,-0.139], 'BS':  [51.454,-2.588], 'CA':  [54.895,-2.934],
+  'CB':  [52.205, 0.119], 'CF':  [51.482,-3.179], 'CH':  [53.201,-2.894],
+  'CM':  [51.736, 0.470], 'CO':  [51.889, 0.896], 'CT':  [51.280, 1.082],
+  'DE':  [52.922,-1.476], 'DH':  [54.776,-1.568], 'DL':  [54.524,-1.558],
+  'DT':  [50.714,-2.441], 'DY':  [52.513,-2.087], 'FY':  [53.818,-3.053],
+  'GL':  [51.866,-2.238], 'GU':  [51.235,-0.570], 'HD':  [53.645,-1.786],
+  'HG':  [53.988,-1.541], 'HP':  [51.753,-0.487], 'HR':  [52.056,-2.716],
+  'HX':  [53.724,-1.863], 'IP':  [52.059, 1.156], 'IV':  [57.476,-4.225],
+  'KA':  [55.610,-4.496], 'LA':  [54.046,-2.800], 'LD':  [52.244,-3.375],
+  'LL':  [52.915,-4.148], 'LN1': [53.234,-0.538], 'LU':  [51.880,-0.421],
+  'ME':  [51.272, 0.520], 'MK41':[52.151,-0.456], 'ML':  [55.779,-3.987],
+  'NE':  [54.978,-1.618], 'NP':  [51.588,-3.000], 'NR':  [52.628, 1.299],
+  'OL':  [53.541,-2.117], 'PA':  [55.835,-4.434], 'PH':  [56.396,-3.437],
+  'PL':  [50.376,-4.143], 'PO':  [50.820,-1.088], 'PR':  [53.763,-2.703],
+  'RG':  [51.455,-0.973], 'RH':  [51.221,-0.183], 'SA':  [51.621,-3.944],
+  'SK':  [53.411,-2.157], 'SL':  [51.511,-0.595], 'SN':  [51.558,-1.781],
+  'SO':  [50.904,-1.404], 'SP':  [51.070,-1.794], 'SR':  [54.906,-1.384],
+  'SS':  [51.570, 0.710], 'SY':  [52.707,-2.752], 'TD':  [55.604,-2.429],
+  'TF':  [52.678,-2.447], 'TS':  [54.571,-1.235], 'WA':  [53.390,-2.598],
+  'WN':  [53.543,-2.630], 'WR':  [52.188,-2.221], 'WS':  [52.580,-1.983],
+  'YO8': [53.782,-1.070], 'ZE':  [60.154,-1.145],
 };
+
+// ── Dynamic coord lookup — extracts area from full postcode ──
+function pcAreaCoords(fullPc) {
+  if (!fullPc) return null;
+  const pc = fullPc.trim().toUpperCase();
+  // Try exact match first (e.g. 'NN14')
+  if (PC_COORDS[pc]) return PC_COORDS[pc];
+  // Try area code extracted from full postcode (e.g. 'HA3 8NT' -> 'HA3', then 'HA')
+  const m = pc.match(/^([A-Z]{1,2})(\d{1,2})/);
+  if (!m) return null;
+  const area3 = m[1] + m[2]; // e.g. 'HA3'
+  const area1 = m[1];         // e.g. 'HA'
+  return PC_COORDS[area3] || PC_COORDS[area1] || null;
+}
 
 /* ══════════════════════════════════════════
    ALL LOADS RENDER
 ══════════════════════════════════════════ */
 let loadsFilter = 'all';
+let loadsDrillSite = null;
 
 function renderLoads() {
-  if (!todayData.length) { return; }
+  try { loadsShowOverview(); } catch(e) { console.error('renderLoads error:', e); }
+}
 
-  // Build filter buttons
-  const fEl = document.getElementById('loads-filter');
-  const allSites = ['all', ...Object.keys(SITES_META).filter(s => todayData.find(e=>e.site===s))];
-  fEl.innerHTML = allSites.map(sid => {
-    const lbl = sid === 'all' ? 'All sites' : SITES_META[sid]?.name;
-    return `<button class="loads-filter-btn${loadsFilter===sid?' active':''}" onclick="setLoadsFilter('${sid}')">${lbl}</button>`;
-  }).join('');
+function loadsShowOverview() {
+  loadsDrillSite = null;
+  document.getElementById('loads-overview-view').style.display = '';
+  document.getElementById('loads-drilldown-view').classList.remove('show');
 
-  // Summary strip
-  const filtered = loadsFilter === 'all' ? todayData : todayData.filter(e=>e.site===loadsFilter);
-  const totS = filtered.reduce((a,e)=>a+sumStops(e),0);
-  const totP = filtered.reduce((a,e)=>a+sumPallets(e),0);
-  const totW = filtered.reduce((a,e)=>a+sumWeight(e),0).toFixed(1);
-  const totRoutes = filtered.reduce((a,e)=>a+(e.routes||[]).length,0);
-
-  document.getElementById('loads-summary').innerHTML = `
-    <div class="loads-summary-card">
-      <div class="loads-summary-label">Total stops</div>
-      <div class="loads-summary-val">${totS}</div>
-      <div class="loads-summary-sub">across ${totRoutes} route${totRoutes!==1?'s':''}</div>
-    </div>
-    <div class="loads-summary-card">
-      <div class="loads-summary-label">Total pallets</div>
-      <div class="loads-summary-val">${totP}</div>
-      <div class="loads-summary-sub">${totW}t total weight</div>
-    </div>
-    <div class="loads-summary-card">
-      <div class="loads-summary-label">Sites shown</div>
-      <div class="loads-summary-val">${filtered.length}<span style="font-size:16px;font-weight:400;color:var(--ink3)">/${todayData.length}</span></div>
-      <div class="loads-summary-sub">${4 - todayData.length} site${4-todayData.length!==1?'s':''} not yet uploaded</div>
-    </div>`;
-
-  // Route groups per site
-  if (!filtered.length) {
-    document.getElementById('loads-list').innerHTML = `<div class="loads-empty">No data uploaded yet — ask each site to submit their daily plan.</div>`;
+  if (!todayData.length) {
+    document.getElementById('loads-summary').innerHTML = '';
+    document.getElementById('loads-network-grid').innerHTML = '<div class="loads-empty">No delivery data for today. Upload data from the Upload tab.</div>';
     return;
   }
 
-  document.getElementById('loads-list').innerHTML = filtered.map(e => {
-    const meta = SITES_META[e.site] || { name:e.site, biz:'', color:'#888' };
-    const s = sumStops(e), cap = e.capacity||80, pct = Math.round(s/cap*100);
-    const col = pct>=90?'var(--red)':pct>=75?'var(--amber)':'var(--green)';
-    const maxRStops = Math.max(...(e.routes||[]).map(r=>Number(r.stops||0)), 1);
+  // ── Network summary strip ──
+  const totS = todayData.reduce((a,e)=>a+sumStops(e),0);
+  const totP = todayData.reduce((a,e)=>a+sumPallets(e),0);
+  const totW = todayData.reduce((a,e)=>a+sumWeight(e),0).toFixed(1);
+  const totLoads = todayData.reduce((a,e)=>a+countLoads(e),0);
+  const sitesUp = todayData.length;
 
-    // Mini SVG ring for capacity
-    const r=14, circ=2*Math.PI*r, dash=Math.min(pct/100,1)*circ;
-    const ring = `<svg class="loads-cap-ring" viewBox="0 0 36 36">
-      <circle cx="18" cy="18" r="${r}" fill="none" stroke="var(--cream3)" stroke-width="3"/>
-      <circle cx="18" cy="18" r="${r}" fill="none" stroke="${col}" stroke-width="3"
-        stroke-dasharray="${dash} ${circ}" stroke-dashoffset="${circ/4}"
-        stroke-linecap="round" transform="rotate(-90 18 18)"/>
-      <text x="18" y="22" text-anchor="middle" font-size="8" font-weight="700" fill="${col}" font-family="IBM Plex Mono">${pct}%</text>
-    </svg>`;
+  document.getElementById('loads-summary').innerHTML = `
+    <div class="loads-summary-card"><div class="loads-summary-label">Total loads</div><div class="loads-summary-val">${totLoads}</div><div class="loads-summary-sub">across ${sitesUp} site${sitesUp!==1?'s':''}</div></div>
+    <div class="loads-summary-card"><div class="loads-summary-label">Total stops</div><div class="loads-summary-val">${totS}</div><div class="loads-summary-sub">all sites combined</div></div>
+    <div class="loads-summary-card"><div class="loads-summary-label">Total pallets</div><div class="loads-summary-val">${totP}</div><div class="loads-summary-sub">${totW}t estimated weight</div></div>
+    <div class="loads-summary-card"><div class="loads-summary-label">Sites uploaded</div><div class="loads-summary-val">${sitesUp}<span style="font-size:16px;font-weight:400;color:var(--ink3)">/4</span></div><div class="loads-summary-sub">${4-sitesUp} pending</div></div>`;
 
-    const rows = (e.routes||[]).map(r => {
-      const rPct = Math.round(Number(r.stops||0)/maxRStops*100);
-      const pcs = (r.pc||r.postcodes||'').split(',').map(p=>p.trim().toUpperCase()).filter(Boolean);
-      const reqId = `req_${sid}_${r.area.replace(/[^a-z0-9]/gi,'_')}`;
-      const alreadyReq = requestedRoutes.has(reqId);
-      // Show request button only for other sites' routes
-      const reqBtn = !isMe ? `
-        <button
-          id="${reqId}"
-          class="req-btn${alreadyReq?' requested':''}"
-          data-tip="${alreadyReq?'Request sent':'Request to take this load'}"
-          onclick="${alreadyReq?'':' requestToTake('+JSON.stringify({sid,area:r.area,stops:r.stops,pallets:r.pallets,weight:r.weight||r.weight_t||0,pcs:pcs.join(', '),siteName:meta.name,reqId}).replace(/"/g,'&quot;')+')' }">
-          ${alreadyReq
-            ? `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Requested`
-            : `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 2v8M2 6h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Request to take`
-          }
-        </button>` : '';
-      return `<tr>
-        <td>
-          <div style="font-weight:500;color:var(--ink);margin-bottom:4px">${r.area}</div>
-          <div class="loads-pc-list">${pcs.map(p=>`<span class="pc-tag">${p}</span>`).join('')}${reqBtn}</div>
-        </td>
-        <td>
-          <div style="font-family:var(--font-mono);font-size:13px;font-weight:500">${r.stops}</div>
-          <div class="loads-route-bar"><div class="loads-route-bar-fill" style="width:${rPct}%;background:${meta.color}"></div></div>
-        </td>
-        <td style="font-family:var(--font-mono);font-size:12px">${r.pallets}</td>
-        <td style="font-family:var(--font-mono);font-size:12px">${Number(r.weight||r.weight_t||0).toFixed(1)}t</td>
-      </tr>`;
-    }).join('');
-
-    return `<div class="loads-site-group">
-      <div class="loads-site-header">
-        <div class="loads-site-accent" style="background:${meta.color}"></div>
-        <div>
-          <div class="loads-site-name">${meta.name}</div>
-          <div class="loads-site-biz">${meta.biz}</div>
-        </div>
-        <div class="loads-site-meta">
-          ${ring}
-          <div style="text-align:right">
-            <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--ink)">${s} stops</div>
-            <div style="font-size:11px;color:var(--ink3);font-family:var(--font-mono)">${sumPallets(e)} pal · ${sumWeight(e).toFixed(1)}t</div>
+  // ── Site cards ──
+  document.getElementById('loads-network-grid').innerHTML = Object.keys(SITES_META).map(sid => {
+    const meta = SITES_META[sid];
+    const e = todayData.find(d=>d.site===sid);
+    if (!e) return `
+      <div class="loads-site-card" onclick="loadsDrillDown('${sid}')">
+        <div class="loads-site-card-accent" style="background:${meta.color}20"></div>
+        <div class="loads-site-card-top">
+          <div class="loads-site-card-header">
+            <div>
+              <div class="loads-site-card-name">${meta.name}</div>
+              <div class="loads-site-card-biz">${meta.biz}</div>
+            </div>
+            <span class="loads-site-card-pill" style="background:var(--cream2);color:var(--ink3)">No data</span>
           </div>
-          <span class="site-pill ${pct>=90?'pill-over':pct>=75?'pill-warn':'pill-ok'}" style="margin-left:4px">${pct>=90?'Over':pct>=75?'Near cap':'On track'}</span>
         </div>
-      </div>
-      <table class="loads-route-table">
-        <thead><tr><th>Route area / postcodes</th><th>Stops</th><th>Pallets</th><th>Weight</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
+        <div class="loads-kpi-grid">
+          <div class="loads-kpi"><div class="loads-kpi-val" style="color:var(--ink3)">—</div><div class="loads-kpi-lbl">Loads</div></div>
+          <div class="loads-kpi"><div class="loads-kpi-val" style="color:var(--ink3)">—</div><div class="loads-kpi-lbl">Stops</div></div>
+          <div class="loads-kpi"><div class="loads-kpi-val" style="color:var(--ink3)">—</div><div class="loads-kpi-lbl">Pallets</div></div>
+          <div class="loads-kpi"><div class="loads-kpi-val" style="color:var(--ink3)">—</div><div class="loads-kpi-lbl">Util</div></div>
+        </div>
+        <div class="loads-view-btn">Not uploaded today — click to view</div>
+      </div>`;
+
+    const s = sumStops(e), cap = e.capacity||80, pct = Math.round(s/cap*100);
+    const loads = countLoads(e);
+    const pillCol = pct>=90?'var(--red-l)':pct>=75?'var(--amber-l)':'var(--green-l)';
+    const pillTxt = pct>=90?'var(--red)':pct>=75?'var(--amber)':'var(--green)';
+    const pillLbl = pct>=90?'Over capacity':pct>=75?'Near capacity':'On track';
+
+    return `
+      <div class="loads-site-card" onclick="loadsDrillDown('${sid}')">
+        <div class="loads-site-card-accent" style="background:${meta.color}"></div>
+        <div class="loads-site-card-top">
+          <div class="loads-site-card-header">
+            <div>
+              ${meta.logo?`<img src="${meta.logo}" style="height:28px;width:auto;object-fit:contain;margin-bottom:6px;display:block" alt="${meta.biz}">`:
+                `<div style="font-size:11px;font-weight:700;color:${meta.color};letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px">${meta.biz}</div>`}
+              <div class="loads-site-card-name">${meta.name}</div>
+            </div>
+            <span class="loads-site-card-pill" style="background:${pillCol};color:${pillTxt}">${pillLbl}</span>
+          </div>
+        </div>
+        <div class="loads-kpi-grid">
+          <div class="loads-kpi"><div class="loads-kpi-val">${loads}</div><div class="loads-kpi-lbl">Loads</div></div>
+          <div class="loads-kpi"><div class="loads-kpi-val">${s}</div><div class="loads-kpi-lbl">Stops</div></div>
+          <div class="loads-kpi"><div class="loads-kpi-val">${sumPallets(e)}</div><div class="loads-kpi-lbl">Pallets</div></div>
+          <div class="loads-kpi"><div class="loads-kpi-val" style="color:${pillTxt}">${pct}%</div><div class="loads-kpi-lbl">Util</div></div>
+        </div>
+        <div class="loads-view-btn">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 2h7v7M12 2L2 12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          View ${loads} load${loads!==1?'s':''} · ${s} stops
+        </div>
+      </div>`;
   }).join('');
+}
+
+function loadsDrillDown(sid) {
+  loadsDrillSite = sid;
+  const meta = SITES_META[sid];
+  const e = todayData.find(d=>d.site===sid);
+  document.getElementById('loads-overview-view').style.display = 'none';
+  document.getElementById('loads-drilldown-view').classList.add('show');
+
+  if (!e) {
+    document.getElementById('loads-drilldown-content').innerHTML = `
+      <div style="text-align:center;padding:60px 20px;color:var(--ink3)">
+        <div style="font-family:var(--font-head);font-size:18px;font-weight:700;color:var(--ink);margin-bottom:8px">${meta.name} — No data uploaded today</div>
+        <div style="font-size:13px;margin-bottom:20px">Ask the ${meta.name} team to upload their daily delivery plan.</div>
+        ${sid===currentSiteId?`<button class="submit-btn" style="display:inline-block;width:auto;padding:10px 24px" onclick="showTab('upload')">Upload now →</button>`:''}
+      </div>`;
+    return;
+  }
+
+  const s = sumStops(e), cap = e.capacity||80, pct = Math.round(s/cap*100);
+  const loads = countLoads(e);
+  const pillCol = pct>=90?'var(--red)':pct>=75?'var(--amber)':'var(--green)';
+  const pillBg  = pct>=90?'var(--red-l)':pct>=75?'var(--amber-l)':'var(--green-l)';
+  const isMe = sid === currentSiteId;
+
+  // Group stops by shipment/load
+  const shipments = groupByShipment(e);
+
+  document.getElementById('loads-drilldown-content').innerHTML = `
+    <div class="loads-drilldown-header">
+      <div style="width:10px;height:10px;border-radius:50%;background:${meta.color};flex-shrink:0"></div>
+      <div>
+        <div class="loads-drilldown-title">${meta.name}</div>
+        <div class="loads-drilldown-sub">${meta.biz}</div>
+      </div>
+      <span style="padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;font-family:var(--font-mono);background:${pillBg};color:${pillCol};margin-left:auto">${pct}% utilisation</span>
+      ${isMe?`<button class="site-btn site-btn-navy" onclick="showTab('upload')" style="margin-left:8px">Edit data</button>`:''}
+    </div>
+
+    <div class="loads-drilldown-stats">
+      <div class="loads-drilldown-stat"><div class="loads-drilldown-stat-val">${loads}</div><div class="loads-drilldown-stat-lbl">Loads / Vehicles</div></div>
+      <div class="loads-drilldown-stat"><div class="loads-drilldown-stat-val">${s}</div><div class="loads-drilldown-stat-lbl">Total Stops</div></div>
+      <div class="loads-drilldown-stat"><div class="loads-drilldown-stat-val">${sumPallets(e)}</div><div class="loads-drilldown-stat-lbl">Total Pallets</div></div>
+      <div class="loads-drilldown-stat"><div class="loads-drilldown-stat-val">${cap}</div><div class="loads-drilldown-stat-lbl">Vehicle Capacity</div></div>
+    </div>
+
+    ${shipments.map((run, idx) => {
+      // run = { runKey, runNum, runLabel, multiLoad, runShips, checkIn, shipmentList }
+      const runPallets = run.shipmentList.reduce((a,sh)=>a+sh.stops.reduce((b,s)=>b+(s.pallets||0),0),0);
+      const runStops = run.shipmentList.reduce((a,sh)=>a+sh.stops.length,0);
+      const reqId = `req_${sid}_run_${run.runNum}`;
+      const alreadyReq = requestedRoutes.has(reqId);
+      const reqBtn = !isMe ? `<button id="${reqId}" class="req-btn${alreadyReq?' requested':''}"
+        data-tip="${alreadyReq?'Request sent':'Request to take this run'}"
+        onclick="${alreadyReq?'':` requestToTake(${JSON.stringify({sid,area:run.runLabel,stops:runStops,pallets:runPallets,weight:0,pcs:'',siteName:meta.name,reqId}).replace(/"/g,'&quot;')})`}">
+        ${alreadyReq?'<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Requested':'<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 2v8M2 6h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Request to take'}
+      </button>` : '';
+
+      return `<div class="loads-shipment${idx===0?' open':''}" id="ship_${sid}_${idx}">
+        <div class="loads-shipment-header" onclick="toggleShipment('ship_${sid}_${idx}')">
+          <span class="loads-shipment-num">${run.runLabel}</span>
+          ${run.multiLoad ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(232,81,10,.12);color:var(--orange);font-family:var(--font-mono);margin-left:4px;white-space:nowrap">${run.runShips.length} LOADS</span>` : ''}
+          <div class="loads-shipment-info">
+            <div class="loads-shipment-title">${runStops} stop${runStops!==1?'s':''} · ${runPallets} pallets${run.multiLoad?' · '+run.runShips.join(' + '):''}</div>
+            <div class="loads-shipment-meta">Check-in: ${run.checkIn||'—'} &nbsp;·&nbsp; First delivery: ${run.shipmentList[0]?.stops[0]?.delivTime||'—'}</div>
+          </div>
+          <div class="loads-shipment-kpis">
+            <div class="loads-shipment-kpi"><div class="loads-shipment-kpi-val">${runStops}</div><div class="loads-shipment-kpi-lbl">Stops</div></div>
+            <div class="loads-shipment-kpi"><div class="loads-shipment-kpi-val">${runPallets}</div><div class="loads-shipment-kpi-lbl">Pallets</div></div>
+          </div>
+          ${reqBtn}
+          <span class="loads-shipment-chevron">›</span>
+        </div>
+        <div class="loads-shipment-body">
+          ${run.shipmentList.map(ship => `
+            ${run.multiLoad ? `<div style="padding:8px 20px 4px;background:var(--cream);border-bottom:1px solid var(--rule);font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--navy2)">Load ${ship.number}</div>` : ''}
+            <table class="loads-stop-table">
+              <thead><tr><th>#</th><th>Customer / Destination</th><th>Postcode</th><th>Del. Time</th><th>Pallets</th></tr></thead>
+              <tbody>
+                ${ship.stops.map((stop,si)=>`<tr>
+                  <td style="font-family:var(--font-mono);font-size:11px;color:var(--ink3);width:36px">${si+1}</td>
+                  <td><div class="stop-customer">${stop.name||stop.customer||'—'}</div></td>
+                  <td><span class="stop-pc">${stop.postal||stop.postcode||'—'}</span></td>
+                  <td><span class="stop-time">${stop.delivTime||stop.time||'—'}</span></td>
+                  <td class="stop-pallets">${stop.pallets||0}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>`).join('')}
+        </div>
+      </div>`;
+    }).join('')}`;
+}
+
+function toggleShipment(id) {
+  document.getElementById(id)?.classList.toggle('open');
+}
+
+function countLoads(e) {
+  // Count unique shipment numbers
+  const ships = new Set();
+  (e.routes||[]).forEach(r => {
+    const area = r.area||'';
+    const match = area.match(/^(\d{7,})/);
+    if (match) ships.add(match[1]);
+    else if (r.stops_detail) {
+      r.stops_detail.forEach(s => { if(s.loadRef) ships.add(s.loadRef); else ships.add(area); });
+    } else {
+      ships.add(area);
+    }
+  });
+  return Math.max(ships.size, (e.routes||[]).length);
+}
+
+function groupByShipment(e) {
+  // Group by RUN first, then by shipment within each run
+  const runMap = {};
+  const runOrder = [];
+
+  (e.routes||[]).forEach(route => {
+    const area = route.area||'';
+    const runNum = route.runNum || 0;
+    const runKey = 'run_' + runNum;
+    const multiLoad = route.multiLoad || false;
+    const runLabel = route.runLabel || area;
+    const runShips = route.runShips || [area];
+
+    if (!runMap[runKey]) {
+      runMap[runKey] = {
+        runKey, runNum, runLabel, multiLoad, runShips,
+        checkIn: route.stops_detail?.[0]?.checkIn || '',
+        shipments: {}
+      };
+      runOrder.push(runKey);
+    }
+
+    const run = runMap[runKey];
+
+    if (route.stops_detail && route.stops_detail.length) {
+      route.stops_detail.forEach(stop => {
+        const ship = stop.loadRef || stop.ship || area;
+        if (!run.shipments[ship]) run.shipments[ship] = { number:ship, stops:[] };
+        run.shipments[ship].stops.push(stop);
+        if (stop.checkIn && !run.checkIn) run.checkIn = stop.checkIn;
+      });
+    } else {
+      const pcs = (route.pc||route.postcodes||'').split(',').map(p=>p.trim()).filter(Boolean);
+      if (!run.shipments[area]) run.shipments[area] = { number:area, stops:[] };
+      run.shipments[area].stops.push({
+        name:area, customer:area, postal:pcs[0]||'',
+        postcode:pcs[0]||'', pallets:route.pallets||0, delivTime:'', time:'',
+      });
+    }
+  });
+
+  // Flatten into array of runs, each with shipments array
+  return runOrder.map(rk => {
+    const run = runMap[rk];
+    return {
+      ...run,
+      shipmentList: Object.values(run.shipments)
+    };
+  });
 }
 
 function setLoadsFilter(sid) {
@@ -4243,277 +4771,489 @@ function renderMap() {
 let _leafletMap = null;
 
 function _initLeafletMap(opps) {
-  // Destroy existing map if re-entering tab
-  if (_leafletMap) {
-    _leafletMap.remove();
-    _leafletMap = null;
-  }
-
-  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (_leafletMap) { _leafletMap.remove(); _leafletMap = null; }
 
   _leafletMap = L.map('leaflet-map', {
-    center: [52.8, -1.6],
-    zoom: 7,
-    zoomControl: true,
-    attributionControl: true,
+    center: [52.4, -1.5], zoom: 7,
+    zoomControl: true, attributionControl: true,
   });
 
-  // Clean light tile layer (CartoDB Positron — no labels clutter)
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-    subdomains: 'abcd',
-    maxZoom: 19,
+  const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    subdomains: 'abcd', maxZoom: 19,
   }).addTo(_leafletMap);
 
+  tileLayer.on('tileerror', () => {
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap', subdomains: 'abc', maxZoom: 19,
+    }).addTo(_leafletMap);
+  });
+
   const urgColors = { high:'#C0392B', med:'#C27800', low:'#1A8A5A' };
-  const urgLabels = { high:'Urgent', med:'Recommended', low:'Optional' };
 
-  // ── Draw route lines: depot → postcode area centroids ──
-  todayData.forEach(e => {
-    const depot = DEPOTS[e.site];
-    if (!depot) return;
-    const meta  = SITES_META[e.site] || { color:'#888' };
+  // ── State ──
+  const activeSites   = new Set();  // which depots are "expanded" to show runs
+  const expandedRuns  = new Set();  // which runs are "expanded" to show all stops
+  const siteRunLayers = {};         // siteId → [ {runKey, firstLine, firstDot, runLabel, runMarker} ]
+  const runStopLayers = {};         // runKey → [ elements ] (full stop-by-stop lines)
 
+  // ── Helpers ──
+  function pcCoords(pc) {
+    if (!pc) return null;
+    const u = pc.trim().toUpperCase();
+    if (PC_COORDS[u]) return PC_COORDS[u];
+    const m = u.match(/^([A-Z]{1,2}\d{1,2})/);
+    if (m && PC_COORDS[m[1]]) return PC_COORDS[m[1]];
+    const m2 = u.match(/^([A-Z]{1,2})/);
+    if (m2 && PC_COORDS[m2[1]]) return PC_COORDS[m2[1]];
+    return null;
+  }
+
+  function arrowIcon(col) {
+    return L.divIcon({
+      className:'', iconSize:[14,14], iconAnchor:[7,7],
+      html:`<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M2 12L7 2L12 12L7 8.5L2 12Z" fill="${col}"/>
+      </svg>`,
+    });
+  }
+
+  function numIcon(n, col) {
+    return L.divIcon({
+      className:'', iconSize:[22,22], iconAnchor:[11,11],
+      html:`<div style="width:22px;height:22px;border-radius:50%;background:${col};
+        color:white;display:flex;align-items:center;justify-content:center;
+        font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;
+        border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.25)">${n}</div>`,
+    });
+  }
+
+  function setVisible(elements, show) {
+    elements.forEach(el => {
+      if (!el) return;
+      if (el.setStyle) el.setStyle(show
+        ? { opacity:0.9, fillOpacity:0.9, weight:2.5, dashArray:null }
+        : { opacity:0,   fillOpacity:0,   weight:0 });
+      if (el._icon) el._icon.style.opacity = show ? '1' : '0';
+      if (el._container) el._container.style.opacity = show ? '1' : '0';
+    });
+  }
+
+  // ── Build run groups from site data ──
+  function getRunGroups(e) {
+    const runMap = {};
+    const runOrder = [];
     (e.routes||[]).forEach(route => {
-      const pcs = (route.pc||route.postcodes||'').split(',').map(p=>p.trim().toUpperCase()).filter(Boolean);
-      pcs.forEach(pc => {
-        const coords = PC_COORDS[pc];
-        if (!coords) return;
+      const key = 'run_'+(route.runNum||route.area);
+      if (!runMap[key]) {
+        runMap[key] = {
+          key, runNum: route.runNum, runLabel: route.runLabel||route.area,
+          multiLoad: route.multiLoad||false, runShips: route.runShips||[route.area],
+          stops: [], checkIn: ''
+        };
+        runOrder.push(key);
+      }
+      const stops = route.stops_detail||[];
+      runMap[key].stops.push(...stops);
+      if (!runMap[key].checkIn && stops[0]?.checkIn) runMap[key].checkIn = stops[0].checkIn;
+    });
+    return runOrder.map(k => runMap[k]);
+  }
 
-        // Thin route line from depot to postcode centre
-        const routeLine = L.polyline(
-          [[depot.lat, depot.lng], coords],
-          {
-            color:   meta.color,
-            weight:  1.8,
-            opacity: 0.55,
-            dashArray: '4 5',
-            lineCap: 'round',
-          }
-        ).addTo(_leafletMap);
+  // ── Draw depot's runs (Level 2) — one line to first drop per run ──
+  function drawSiteRuns(siteId) {
+    if (siteRunLayers[siteId]) return; // already drawn
+    const e = todayData.find(d=>d.site===siteId);
+    if (!e) return;
+    const depot = DEPOTS[siteId];
+    const meta  = SITES_META[siteId]||{color:'#888',name:siteId};
+    const runs  = getRunGroups(e);
+    siteRunLayers[siteId] = [];
 
-        // Small destination dot at postcode centre
-        const dot = L.circleMarker(coords, {
-          radius:      5,
-          fillColor:   meta.color,
-          fillOpacity: 0.85,
-          color:       '#fff',
-          weight:      1.5,
-        }).addTo(_leafletMap);
+    runs.forEach(run => {
+      const firstStop = run.stops.find(s => pcCoords(s.postal||s.postcode));
+      if (!firstStop) return;
+      const firstCoords = pcCoords(firstStop.postal||firstStop.postcode);
+      if (!firstCoords) return;
 
-        // Popup on destination dot
-        dot.bindPopup(`
-          <div class="triad-popup" style="min-width:160px">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-              <div style="width:8px;height:8px;border-radius:50%;background:${meta.color}"></div>
-              <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700">${pc}</div>
-            </div>
-            <div class="triad-popup-row">
-              <span class="triad-popup-label">Site</span>
-              <span class="triad-popup-val">${meta.name || e.site}</span>
-            </div>
-            <div class="triad-popup-row">
-              <span class="triad-popup-label">Route</span>
-              <span class="triad-popup-val">${route.area}</span>
-            </div>
-            <div class="triad-popup-row">
-              <span class="triad-popup-label">Stops</span>
-              <span class="triad-popup-val">${route.stops}</span>
-            </div>
-            <div class="triad-popup-row">
-              <span class="triad-popup-label">Pallets</span>
-              <span class="triad-popup-val">${route.pallets}</span>
-            </div>
-          </div>`, { maxWidth:200, closeButton:false }
-        );
+      // Line from depot to first drop
+      const line = L.polyline([[depot.lat, depot.lng], firstCoords], {
+        color: meta.color, weight: 2.5, opacity: 0.9,
+        dashArray: null, lineCap: 'round',
+      }).addTo(_leafletMap);
 
-        routeLine.on('mouseover', function() { this.setStyle({opacity:1, weight:3}); });
-        routeLine.on('mouseout',  function() { this.setStyle({opacity:0.55, weight:1.8}); });
-        routeLine.bindPopup(`
-          <div class="triad-popup" style="min-width:160px">
-            <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin-bottom:8px">${meta.name} → ${pc}</div>
-            <div class="triad-popup-row"><span class="triad-popup-label">Route</span><span class="triad-popup-val">${route.area}</span></div>
-            <div class="triad-popup-row"><span class="triad-popup-label">Stops</span><span class="triad-popup-val">${route.stops}</span></div>
-            <div class="triad-popup-row"><span class="triad-popup-label">Pallets</span><span class="triad-popup-val">${route.pallets}</span></div>
-          </div>`, { maxWidth:200, closeButton:false }
-        );
+      // Arrow at 60% along
+      const arrowLat = depot.lat + (firstCoords[0]-depot.lat)*0.6;
+      const arrowLng = depot.lng + (firstCoords[1]-depot.lng)*0.6;
+      const arrow = L.marker([arrowLat, arrowLng], {
+        icon: arrowIcon(meta.color), interactive:false, zIndexOffset:-100,
+      }).addTo(_leafletMap);
+
+      // First drop marker
+      const dot = L.circleMarker(firstCoords, {
+        radius:7, fillColor:meta.color, fillOpacity:0.9,
+        color:'#fff', weight:2,
+      }).addTo(_leafletMap);
+
+      // Run label marker near midpoint
+      const lblLat = depot.lat + (firstCoords[0]-depot.lat)*0.38;
+      const lblLng = depot.lng + (firstCoords[1]-depot.lng)*0.38;
+      const runLbl = run.runLabel.replace('(','').replace(')','');
+      const shortLbl = runLbl.length > 14 ? runLbl.slice(0,12)+'…' : runLbl;
+      const labelMarker = L.marker([lblLat, lblLng], {
+        icon: L.divIcon({
+          className:'', iconAnchor:[36,10],
+          html:`<div style="background:white;border:1.5px solid ${meta.color};border-radius:6px;
+            padding:2px 8px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;
+            color:${meta.color};white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.12);
+            ${run.multiLoad?'background:'+meta.color+';color:white;':''}">${shortLbl}</div>`,
+        }),
+        interactive: true, zIndexOffset: 500,
+      }).addTo(_leafletMap);
+
+      // Popup on first dot showing run summary
+      const stopsHtml = run.stops.slice(0,5).map((s,i)=>`
+        <div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f0ede7">
+          <div style="width:18px;height:18px;border-radius:50%;background:${meta.color};color:white;
+            display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">${i+1}</div>
+          <div style="flex:1">
+            <div style="font-size:11px;font-weight:600;color:#0F1923">${s.name||s.customer||'—'}</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#7A8694">${s.postal||''} · ${s.delivTime||'—'} · ${s.pallets||0}p</div>
+          </div>
+        </div>`).join('') + (run.stops.length>5?`<div style="font-size:11px;color:#7A8694;padding:4px 0">…and ${run.stops.length-5} more stops</div>`:'');
+
+      const totalPallets = run.stops.reduce((a,s)=>a+(s.pallets||0),0);
+      const popupHtml = `
+        <div class="triad-popup" style="min-width:220px;padding:12px 14px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <div style="width:8px;height:8px;border-radius:50%;background:${meta.color}"></div>
+            <div>
+              <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700">${run.runLabel}</div>
+              <div style="font-size:11px;color:#7A8694">${meta.name} · Check-in: ${run.checkIn||'—'}</div>
+            </div>
+            ${run.multiLoad?`<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px;background:${meta.color};color:white;margin-left:auto">${run.runShips.length} LOADS</span>`:''}
+          </div>
+          <div class="triad-popup-row"><span class="triad-popup-label">Stops</span><span class="triad-popup-val">${run.stops.length}</span></div>
+          <div class="triad-popup-row"><span class="triad-popup-label">Pallets</span><span class="triad-popup-val">${totalPallets}</span></div>
+          <div style="margin:8px 0 4px;font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#7A8694">Delivery sequence</div>
+          <div style="max-height:150px;overflow-y:auto">${stopsHtml}</div>
+          <button onclick="_mapExpandRun('${run.key}','${siteId}')"
+            style="margin-top:10px;width:100%;padding:7px;background:${meta.color};color:white;border:none;
+            border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:'IBM Plex Sans',sans-serif">
+            Show all ${run.stops.length} drops on map →
+          </button>
+        </div>`;
+
+      dot.bindPopup(popupHtml, {maxWidth:260, closeButton:false});
+      line.bindPopup(popupHtml, {maxWidth:260, closeButton:false});
+      labelMarker.bindPopup(popupHtml, {maxWidth:260, closeButton:false});
+      line.on('mouseover', function(){ this.setStyle({weight:4}); });
+      line.on('mouseout',  function(){ this.setStyle({weight:2.5}); });
+
+      siteRunLayers[siteId].push({
+        key: run.key, elements:[line, arrow, dot, labelMarker]
       });
     });
-  });
+  }
 
-  // ── Draw opportunity arcs (polylines with slight offset for curve effect) ──
-  const pairMap = {};
-  opps.forEach(o => {
-    const key = [o.from, o.to].sort().join('|');
-    if (!pairMap[key]) pairMap[key] = { from:o.from, to:o.to, opps:[], urgency:'low', savings:0 };
-    pairMap[key].opps.push(o);
-    pairMap[key].savings += o.saving;
-    if (o.urgency==='high') pairMap[key].urgency = 'high';
-    else if (o.urgency==='med' && pairMap[key].urgency!=='high') pairMap[key].urgency = 'med';
-  });
+  // ── Expand a specific run (Level 3) — show all drops in sequence ──
+  window._mapExpandRun = function(runKey, siteId) {
+    _leafletMap.closePopup();
 
-  Object.values(pairMap).forEach(pair => {
-    const d1 = DEPOTS[pair.from], d2 = DEPOTS[pair.to];
-    if (!d1 || !d2) return;
-    const col = urgColors[pair.urgency];
-
-    // Create a curved line using intermediate points (great-circle approximation)
-    const lat1=d1.lat, lng1=d1.lng, lat2=d2.lat, lng2=d2.lng;
-    const midLat = (lat1+lat2)/2 + (Math.abs(lng2-lng1))*0.08;
-    const midLng = (lng1+lng2)/2;
-
-    const pts = [];
-    for (let t=0; t<=1; t+=0.05) {
-      const tt = 1-t;
-      const lat = tt*tt*lat1 + 2*tt*t*midLat + t*t*lat2;
-      const lng = tt*tt*lng1 + 2*tt*t*midLng + t*t*lng2;
-      pts.push([lat, lng]);
+    if (expandedRuns.has(runKey)) {
+      // Deselect this run — restore all runs for this site
+      expandedRuns.delete(runKey);
+      if (runStopLayers[runKey]) {
+        runStopLayers[runKey].forEach(el => { if (el.remove) el.remove(); });
+        delete runStopLayers[runKey];
+      }
+      // Show all runs for the site again
+      (siteRunLayers[siteId]||[]).forEach(r => setVisible(r.elements, true));
+      updatePanel();
+      return;
     }
 
-    // Glow underlay
-    L.polyline(pts, {
-      color: col, weight: 8, opacity: 0.12,
-      dashArray: null, lineCap: 'round',
-    }).addTo(_leafletMap);
+    // Hide all OTHER runs for this site — only show this one
+    (siteRunLayers[siteId]||[]).forEach(r => {
+      setVisible(r.elements, r.key === runKey);
+    });
 
-    // Main dashed line
-    const line = L.polyline(pts, {
-      color: col,
-      weight: 2.5,
-      opacity: 0.85,
-      dashArray: '8 6',
-      lineCap: 'round',
-    }).addTo(_leafletMap);
+    // Also collapse any previously expanded run for this site
+    expandedRuns.forEach(k => {
+      if (k !== runKey && runStopLayers[k]) {
+        runStopLayers[k].forEach(el => { if (el.remove) el.remove(); });
+        delete runStopLayers[k];
+        expandedRuns.delete(k);
+      }
+    });
 
-    // Mid-point label
-    const midPt = pts[Math.floor(pts.length/2)];
-    L.marker(midPt, {
-      icon: L.divIcon({
-        className: '',
-        html: `<div class="opp-line-label" style="color:${col};border-color:${col}30">~${pair.savings} mi</div>`,
-        iconAnchor: [30, 10],
-      }),
-    }).addTo(_leafletMap);
+    expandedRuns.add(runKey);
 
-    line.on('click', () => showTab('sharing'));
-    line.on('mouseover', function() { this.setStyle({weight:4, opacity:1}); });
-    line.on('mouseout',  function() { this.setStyle({weight:2.5, opacity:0.85}); });
+    const e = todayData.find(d=>d.site===siteId);
+    if (!e) return;
+    const depot = DEPOTS[siteId];
+    const meta  = SITES_META[siteId]||{color:'#888',name:siteId};
+    const runs  = getRunGroups(e);
+    const run   = runs.find(r=>r.key===runKey);
+    if (!run) return;
+
+    const layers = [];
+    const coordList = [[depot.lat, depot.lng]]; // start from depot
+
+    run.stops.forEach((stop, si) => {
+      const coords = pcCoords(stop.postal||stop.postcode);
+      if (!coords) return;
+      coordList.push(coords);
+
+      // Numbered stop marker
+      const marker = L.marker(coords, {
+        icon: numIcon(si+1, meta.color),
+        zIndexOffset: 600,
+      }).addTo(_leafletMap);
+
+      const popupHtml = `
+        <div class="triad-popup" style="padding:12px 14px;min-width:200px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="width:22px;height:22px;border-radius:50%;background:${meta.color};color:white;
+              display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${si+1}</div>
+            <div>
+              <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700">${stop.name||stop.customer||'—'}</div>
+              <div style="font-size:11px;color:#7A8694;font-family:'IBM Plex Mono',monospace">${stop.postal||''}</div>
+            </div>
+          </div>
+          <div class="triad-popup-row"><span class="triad-popup-label">Del. time</span><span class="triad-popup-val">${stop.delivTime||stop.time||'—'}</span></div>
+          <div class="triad-popup-row"><span class="triad-popup-label">Pallets</span><span class="triad-popup-val">${stop.pallets||0}</span></div>
+          <div class="triad-popup-row"><span class="triad-popup-label">Run</span><span class="triad-popup-val">${run.runLabel}</span></div>
+          <div class="triad-popup-row"><span class="triad-popup-label">Load</span><span class="triad-popup-val" style="font-family:'IBM Plex Mono',monospace">${stop.loadRef||stop.ship||'—'}</span></div>
+        </div>`;
+      marker.bindPopup(popupHtml, {maxWidth:240, closeButton:false});
+      layers.push(marker);
+    });
+
+    // Draw full route line through all stops in order
+    if (coordList.length > 1) {
+      const routeLine = L.polyline(coordList, {
+        color: meta.color, weight: 3, opacity: 0.95,
+        dashArray: null, lineCap: 'round', lineJoin: 'round',
+      }).addTo(_leafletMap);
+      layers.push(routeLine);
+
+      // Fit map to this run
+      _leafletMap.flyToBounds(L.latLngBounds(coordList).pad(0.2), {duration:0.7});
+    }
+
+    runStopLayers[runKey] = layers;
+    updatePanel();
+  };
+
+  // ── Show/hide all runs for a site ──
+  function showSiteRuns(siteId, show) {
+    drawSiteRuns(siteId); // draw if not yet drawn
+    (siteRunLayers[siteId]||[]).forEach(runObj => {
+      setVisible(runObj.elements, show);
+      // Collapse expanded stops when hiding
+      if (!show && expandedRuns.has(runObj.key)) {
+        expandedRuns.delete(runObj.key);
+        if (runStopLayers[runObj.key]) {
+          runStopLayers[runObj.key].forEach(el => { if (el.remove) el.remove(); });
+          delete runStopLayers[runObj.key];
+        }
+      }
+    });
+  }
+
+  function updateLegendButtons() { updatePanel(); }
+
+  window._mapToggleSite = function(sid) {
+    if (!todayData.find(d=>d.site===sid)) return;
+    if (activeSites.has(sid)) {
+      activeSites.delete(sid);
+      showSiteRuns(sid, false);
+    } else {
+      activeSites.add(sid);
+      showSiteRuns(sid, true);
+      const depot = DEPOTS[sid];
+      if (depot && activeSites.size === 1) {
+        _leafletMap.flyTo([depot.lat, depot.lng], 8, {duration:0.8});
+      } else if (activeSites.size > 1) {
+        const pts = [...activeSites].map(s=>DEPOTS[s]).filter(Boolean).map(d=>[d.lat,d.lng]);
+        if (pts.length) _leafletMap.flyToBounds(L.latLngBounds(pts).pad(0.3), {duration:0.8});
+      }
+    }
+    updatePanel();
+  };
+
+  window._mapShowAll = function() {
+    const sitesWithData = Object.keys(DEPOTS).filter(sid => todayData.find(d=>d.site===sid));
+    const allActive = sitesWithData.every(sid => activeSites.has(sid));
+    if (allActive) {
+      sitesWithData.forEach(sid => { activeSites.delete(sid); showSiteRuns(sid, false); });
+    } else {
+      sitesWithData.forEach(sid => { if (!activeSites.has(sid)) { activeSites.add(sid); showSiteRuns(sid, true); } });
+      const pts = sitesWithData.map(s=>DEPOTS[s]).filter(Boolean).map(d=>[d.lat,d.lng]);
+      if (pts.length) _leafletMap.flyToBounds(L.latLngBounds(pts).pad(0.3), {duration:0.8});
+    }
+    updatePanel();
+  };
+
+  // ── Update the left panel ──
+  function updatePanel() {
+    // Depot buttons
+    const depotBtns = document.getElementById('map-depot-btns');
+    if (depotBtns) {
+      depotBtns.innerHTML = Object.keys(SITES_META).map(sid => {
+        const meta = SITES_META[sid]||{color:'#888',name:sid};
+        const e = todayData.find(d=>d.site===sid);
+        const active = activeSites.has(sid);
+        const runs = e ? getRunGroups(e) : [];
+        const s = e ? sumStops(e) : 0;
+        const p = e ? sumPallets(e) : 0;
+        return `<button onclick="_mapToggleSite('${sid}')"
+          style="width:100%;padding:10px 12px;border-radius:9px;cursor:${e?'pointer':'not-allowed'};
+          border:2px solid ${meta.color};text-align:left;transition:all .2s;
+          background:${active?meta.color:'white'};opacity:${e?'1':'0.35'};
+          display:flex;align-items:center;gap:10px">
+          <div style="width:10px;height:10px;border-radius:50%;background:${active?'white':meta.color};flex-shrink:0"></div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:700;color:${active?'white':meta.color};font-family:'IBM Plex Sans',sans-serif">${meta.name}</div>
+            <div style="font-size:11px;color:${active?'rgba(255,255,255,.75)':meta.color+'99'};font-family:'IBM Plex Mono',monospace">
+              ${e ? `${runs.length} runs · ${s} stops · ${p}p` : 'No data uploaded'}
+            </div>
+          </div>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;color:${active?'white':meta.color}">
+            ${active
+              ? '<path d="M2 7h10M7 2l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
+              : '<circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/>'}
+          </svg>
+        </button>`;
+      }).join('');
+    }
+
+    // Show all button state
+    const allBtn = document.getElementById('map-show-all-btn');
+    if (allBtn) {
+      const sitesWithData = Object.keys(DEPOTS).filter(sid => todayData.find(d=>d.site===sid));
+      const allActive = sitesWithData.length > 0 && sitesWithData.every(sid => activeSites.has(sid));
+      allBtn.style.background = allActive ? 'var(--navy)' : 'white';
+      allBtn.style.color = allActive ? 'white' : 'var(--navy)';
+    }
+
+    // Run list — show runs for all active sites
+    const runsInner = document.getElementById('map-runs-inner');
+    if (!runsInner) return;
+    if (activeSites.size === 0) {
+      runsInner.innerHTML = '<div style="font-size:12px;color:var(--ink3);font-style:italic;text-align:center;padding:20px 0">Select a depot to see its runs</div>';
+      return;
+    }
+
+    let html = '';
+    [...activeSites].forEach(sid => {
+      const meta = SITES_META[sid]||{color:'#888',name:sid};
+      const e = todayData.find(d=>d.site===sid);
+      if (!e) return;
+      const runs = getRunGroups(e);
+      html += `<div style="margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:${meta.color};font-family:'IBM Plex Mono',monospace;
+          text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;display:flex;align-items:center;gap:6px">
+          <div style="width:6px;height:6px;border-radius:50%;background:${meta.color}"></div>
+          ${meta.name}
+        </div>
+        ${runs.map((run,ri) => {
+          const totalPal = run.stops.reduce((a,s)=>a+(s.pallets||0),0);
+          const firstStop = run.stops[0];
+          const isExpanded = expandedRuns.has(run.key);
+          return `<div onclick="_mapExpandRun('${run.key}','${sid}')"
+            style="padding:9px 11px;border-radius:8px;cursor:pointer;margin-bottom:4px;
+            border:1.5px solid ${isExpanded?meta.color:meta.color+'40'};
+            background:${isExpanded?meta.color+'12':'white'};
+            transition:all .15s" id="map-run-btn-${run.key}">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:${meta.color}">
+                ${run.runLabel.split('(')[0].trim()}
+              </div>
+              ${run.multiLoad?`<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:20px;
+                background:${meta.color};color:white">${run.runShips.length} LOADS</span>`:''}
+              <div style="margin-left:auto;color:${meta.color};font-size:14px">${isExpanded?'▾':'▸'}</div>
+            </div>
+            <div style="font-size:11px;color:var(--ink2)">${run.stops.length} stops · ${totalPal} pallets</div>
+            ${firstStop?`<div style="font-size:10px;color:var(--ink3);font-family:'IBM Plex Mono',monospace;margin-top:2px">
+              First: ${firstStop.name||firstStop.customer||'—'} (${firstStop.postal||'—'})
+            </div>`:''}
+            ${run.checkIn?`<div style="font-size:10px;color:var(--amber);font-family:'IBM Plex Mono',monospace">Check-in: ${run.checkIn}</div>`:''}
+          </div>`;
+        }).join('')}
+      </div>`;
+    });
+    runsInner.innerHTML = html || '<div style="font-size:12px;color:var(--ink3);text-align:center;padding:20px 0">No data for selected sites</div>';
+  }
+
+  // ── Opportunity arcs ──
+  const pairMap = {};
+  opps.forEach(o => {
+    const key = [o.from,o.to].sort().join('|');
+    if (!pairMap[key]) pairMap[key]={from:o.from,to:o.to,opps:[],urgency:'low',savings:0};
+    pairMap[key].opps.push(o); pairMap[key].savings+=o.saving;
+    if (o.urgency==='high') pairMap[key].urgency='high';
+    else if (o.urgency==='med' && pairMap[key].urgency!=='high') pairMap[key].urgency='med';
+  });
+  Object.values(pairMap).forEach(pair => {
+    const d1=DEPOTS[pair.from],d2=DEPOTS[pair.to];
+    if (!d1||!d2) return;
+    const col=urgColors[pair.urgency];
+    const lat1=d1.lat,lng1=d1.lng,lat2=d2.lat,lng2=d2.lng;
+    const midLat=(lat1+lat2)/2+(Math.abs(lng2-lng1))*0.08, midLng=(lng1+lng2)/2;
+    const pts=[];
+    for(let t=0;t<=1;t+=0.05){const tt=1-t;pts.push([tt*tt*lat1+2*tt*t*midLat+t*t*lat2,tt*tt*lng1+2*tt*t*midLng+t*t*lng2]);}
+    L.polyline(pts,{color:col,weight:8,opacity:0.08,lineCap:'round'}).addTo(_leafletMap);
+    const line=L.polyline(pts,{color:col,weight:2,opacity:0.7,dashArray:'8 6',lineCap:'round'}).addTo(_leafletMap);
+    line.on('click',()=>showTab('sharing'));
+    line.on('mouseover',function(){this.setStyle({weight:4,opacity:1});});
+    line.on('mouseout',function(){this.setStyle({weight:2,opacity:0.7});});
   });
 
   // ── Depot markers ──
   Object.keys(DEPOTS).forEach(sid => {
     const depot = DEPOTS[sid];
-    const meta  = SITES_META[sid] || { color:'#888', name:sid, biz:'' };
+    const meta  = SITES_META[sid]||{color:'#888',name:sid,biz:''};
     const e     = todayData.find(d=>d.site===sid);
-    const s     = e ? sumStops(e) : 0;
-    const p     = e ? sumPallets(e) : 0;
-    const w     = e ? sumWeight(e).toFixed(1) : '—';
-    const cap   = e ? (e.capacity||80) : 80;
+    const s     = e?sumStops(e):0, p=e?sumPallets(e):0;
+    const cap   = e?(e.capacity||80):80;
     const pct   = Math.round(s/cap*100);
     const pillCol = pct>=90?'#C0392B':pct>=75?'#C27800':'#1A8A5A';
-    const pillBg  = pct>=90?'#FDF0EE':pct>=75?'#FFF7E6':'#EAF7F1';
-    const pillLbl = pct>=90?'Over capacity':pct>=75?'Near capacity':e?'On track':'No data';
+    const size  = 48;
 
-    // SVG marker with colour ring
-    const size = 44;
-    const initial = meta.name[0];
     const markerHtml = `
-      <div style="width:${size}px;height:${size}px;position:relative">
+      <div style="width:${size}px;height:${size}px;cursor:pointer;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.22))">
         <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
           <circle cx="${size/2}" cy="${size/2}" r="${size/2-2}" fill="${meta.color}" opacity="0.15"/>
-          <circle cx="${size/2}" cy="${size/2}" r="${size/2-2}" fill="none" stroke="${meta.color}" stroke-width="2" opacity="0.3"/>
-          ${e ? `<circle cx="${size/2}" cy="${size/2}" r="${size/2-4}"
-            fill="none" stroke="${pillCol}" stroke-width="3"
-            stroke-dasharray="${(pct/100)*(Math.PI*2*(size/2-4)).toFixed(1)} ${(Math.PI*2*(size/2-4)).toFixed(1)}"
-            stroke-dashoffset="${(Math.PI*2*(size/2-4)*0.25).toFixed(1)}"
-            stroke-linecap="round"
-            transform="rotate(-90 ${size/2} ${size/2})"/>` : ''}
-          <circle cx="${size/2}" cy="${size/2}" r="14" fill="${meta.color}"/>
+          <circle cx="${size/2}" cy="${size/2}" r="${size/2-2}" fill="none" stroke="${meta.color}" stroke-width="2" opacity="0.4"/>
+          ${e?`<circle cx="${size/2}" cy="${size/2}" r="${size/2-5}"
+            fill="none" stroke="${pillCol}" stroke-width="3.5"
+            stroke-dasharray="${((pct/100)*(Math.PI*2*(size/2-5))).toFixed(1)} ${(Math.PI*2*(size/2-5)).toFixed(1)}"
+            stroke-dashoffset="${(Math.PI*2*(size/2-5)*0.25).toFixed(1)}"
+            stroke-linecap="round" transform="rotate(-90 ${size/2} ${size/2})"/>`:''}
+          <circle cx="${size/2}" cy="${size/2}" r="15" fill="${meta.color}"/>
           <text x="${size/2}" y="${size/2+5}" text-anchor="middle" fill="white"
-            font-size="13" font-weight="800" font-family="Syne,sans-serif">${initial}</text>
+            font-size="13" font-weight="800" font-family="Syne,sans-serif">${meta.name[0]}</text>
         </svg>
+        <div style="position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);white-space:nowrap;
+          font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:${meta.color};
+          background:white;padding:1px 7px;border-radius:4px;border:1px solid ${meta.color}30;
+          box-shadow:0 1px 4px rgba(0,0,0,0.1)">${meta.name}</div>
       </div>`;
 
-    const marker = L.marker([depot.lat, depot.lng], {
-      icon: L.divIcon({
-        className: 'depot-marker',
-        html: markerHtml,
-        iconSize: [size, size],
-        iconAnchor: [size/2, size/2],
-        popupAnchor: [0, -(size/2+6)],
-      }),
+    const marker = L.marker([depot.lat,depot.lng], {
+      icon: L.divIcon({className:'depot-marker',html:markerHtml,iconSize:[size,size],iconAnchor:[size/2,size/2]}),
       zIndexOffset: 1000,
     }).addTo(_leafletMap);
 
-    // Popup
-    const popupHtml = `
-      <div class="triad-popup">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-          <div style="width:10px;height:10px;border-radius:50%;background:${meta.color};flex-shrink:0"></div>
-          <div>
-            <div class="triad-popup-site">${meta.name}</div>
-            <div class="triad-popup-biz">${meta.biz}</div>
-          </div>
-        </div>
-        ${e ? `
-        <div class="triad-popup-row"><span class="triad-popup-label">Stops</span><span class="triad-popup-val">${s} / ${cap}</span></div>
-        <div class="triad-popup-row"><span class="triad-popup-label">Pallets</span><span class="triad-popup-val">${p}</span></div>
-        <div class="triad-popup-row"><span class="triad-popup-label">Weight</span><span class="triad-popup-val">${w}t</span></div>
-        <div class="triad-popup-row"><span class="triad-popup-label">Utilisation</span><span class="triad-popup-val" style="color:${pillCol}">${pct}%</span></div>
-        <div><span class="triad-popup-pill" style="background:${pillBg};color:${pillCol}">${pillLbl}</span></div>
-        ` : `<div style="color:#7A8694;font-size:13px">No data uploaded today</div>`}
-      </div>`;
-
-    marker.bindPopup(popupHtml, { maxWidth: 260, closeButton: false });
-    marker.on('click', () => marker.openPopup());
+    marker.on('click', () => _mapToggleSite(sid));
   });
 
-  // ── Legend ──
-  const legEl = document.getElementById('map-legend');
-  if (legEl) {
-    // Build per-site route legend items
-    const siteItems = todayData.map(e => {
-      const meta = SITES_META[e.site]||{color:'#888',name:e.site};
-      return `<div class="map-legend-item"><div class="map-legend-dot" style="background:${meta.color}"></div>${meta.name} routes</div>`;
-    }).join('');
-    legEl.innerHTML = siteItems + `
-      <div class="map-legend-item" style="border-left:3px solid #C0392B;padding-left:6px">Urgent transfer</div>
-      <div class="map-legend-item" style="border-left:3px solid #C27800;padding-left:6px">Recommended</div>
-      <div class="map-legend-item" style="border-left:3px solid #1A8A5A;padding-left:6px">Optional</div>`;
-  }
-
-  // ── Opportunity cards below ──
-  const oppEl = document.getElementById('map-opp-list');
-  if (!opps.length) {
-    oppEl.innerHTML = `<div class="map-opp-card" style="grid-column:1/-1;text-align:center;color:var(--ink3);padding:32px">No sharing opportunities today — network is balanced.</div>`;
-    return;
-  }
-  oppEl.innerHTML = opps.map(o => {
-    const fm = SITES_META[o.from], tm = SITES_META[o.to];
-    const uc  = urgColors[o.urgency];
-    const ulb = urgLabels[o.urgency];
-    return `<div class="map-opp-card">
-      <div class="map-opp-route">
-        <span style="color:${fm.color}">${o.fromName}</span>
-        <svg width="18" height="10" viewBox="0 0 18 10" fill="none"><path d="M1 5h14M11 1l4 4-4 4" stroke="var(--ink3)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span style="color:${tm.color}">${o.toName}</span>
-        <span style="font-size:11px;font-weight:400;color:var(--ink3)">· ${o.route.area}</span>
-      </div>
-      <div class="map-opp-desc">${o.desc}</div>
-      <div class="map-opp-chips">
-        <span class="map-opp-chip" style="background:${o.urgency==='high'?'var(--red-l)':o.urgency==='med'?'var(--amber-l)':'var(--green-l)'};color:${uc};border-color:${uc}20">${ulb}</span>
-        <span class="map-opp-chip">~${o.saving} mi saved</span>
-        <span class="map-opp-chip">${o.route.stops} stops · ${o.route.pallets} pallets</span>
-        ${o.overlap.map(pc=>`<span class="pc-tag">${pc}</span>`).join('')}
-      </div>
-    </div>`;
-  }).join('');
-
-  // Invalidate map size after tab paint
-  setTimeout(() => _leafletMap && _leafletMap.invalidateSize(), 120);
-  setTimeout(() => _leafletMap && _leafletMap.invalidateSize(), 400);
+  // ── Initialise panel ──
+  updatePanel();
+  _leafletMap.invalidateSize();
 }
-
 /* ══════════════════════════════════════════
    LIVE CHAT ENGINE
    Uses Supabase Realtime when configured,
@@ -6191,40 +6931,50 @@ function vpkParseWorksheet(ws, fname) {
   hdrs.forEach((hdr,hi)=>{
     const{r:hr,m,date}=hdr;
     const endR=hi+1<hdrs.length?hdrs[hi+1].r-1:R;
-    const raw=[];
+    // ── Use MILEAGE rows as run separators ──
+    // Each mileage row = end of one vehicle run.
+    // Multiple shipments between mileage rows = same run, multiple loads.
+    const runs=[]; let curRun={rows:[],ships:[],checkIn:''};
     for(let r=hr+1;r<=endR;r++){
       const a=cs(r,m.ha),b=cs(r,m.cu),c=cs(r,m.sh),e=cs(r,m.ti),iraw=cv(r,m.pl),k=cs(r,m.po);
       const al=a.toLowerCase(),bl=b.toLowerCase();
       if(!a&&!b&&!c&&!e&&!k)continue;
-      if(al.startsWith('mileage')||bl.startsWith('mileage'))continue;
-      if(al.startsWith('load ')||bl.startsWith('load '))continue;
       if(al==='haulier / vehicle'||bl==='customer')continue;
-      raw.push({a,b,c,e,iraw,k});
+      if(al.startsWith('load ')||bl.startsWith('load '))continue;
+      // Mileage row = run boundary
+      if(al.startsWith('mileage')||bl.startsWith('mileage')){
+        if(curRun.rows.length){runs.push(curRun);}
+        curRun={rows:[],ships:[],checkIn:''};
+        continue;
+      }
+      const t=vpkExtractTime(a);
+      if(t&&!curRun.checkIn)curRun.checkIn=t;
+      const sn=(c||'').replace(/\s/g,'');
+      if(sn&&/^\d{6,}$/.test(sn)&&!curRun.ships.includes(sn))curRun.ships.push(sn);
+      if(b||k)curRun.rows.push({a,b,c,e,iraw,k});
     }
-    // Split into load groups
-    const groups=[]; let cur=[];
-    raw.forEach(rr=>{
-      const t=vpkExtractTime(rr.a);
-      const isTruckRef=/^[A-Z]{2,5}\s*\d+/i.test(rr.a)&&rr.b;
-      const isHaulier=rr.a&&!t&&!isTruckRef&&isNaN(Number(rr.a));
-      if(isHaulier&&cur.length){groups.push(cur);cur=[];}
-      cur.push(rr);
-    });
-    if(cur.length)groups.push(cur);
+    if(curRun.rows.length)runs.push(curRun);
 
-    groups.forEach(grp=>{
-      let checkIn='';
-      for(const rr of grp){const t=vpkExtractTime(rr.a);if(t){checkIn=t;break;}}
-      let ship='';
-      for(const rr of grp){const s=(rr.c||'').replace(/\s/g,'');if(s&&/^\d{6,}$/.test(s)){ship=s;break;}}
-      grp.forEach(rr=>{
+    runs.forEach((run,ri)=>{
+      const multiLoad=run.ships.length>1;
+      const runLabel=multiLoad?`Run ${ri+1} (${run.ships.length} loads: ${run.ships.join(', ')})`:`Run ${ri+1}`;
+      let curShip=run.ships[0]||'';
+      run.rows.forEach(rr=>{
         if(!rr.b||!rr.k)return;
+        const sn=(rr.c||'').replace(/\s/g,'');
+        if(sn&&/^\d{6,}$/.test(sn))curShip=sn;
         let pal=0;
         if(rr.iraw!==null&&rr.iraw!==undefined){
           const ps=String(rr.iraw).toLowerCase().trim();
           if(ps!=='n/a'&&ps!=='na'&&ps!=='')if(!isNaN(Number(rr.iraw)))pal=Math.round(Number(rr.iraw));
         }
-        out.push({ship,checkIn,collDate:date,customer:rr.b.trim(),postal:rr.k.trim(),planDate:date,delivTime:vpkExtractFirst(rr.e),pallets:pal,netWeight:pal*200});
+        out.push({
+          ship:curShip, runNum:ri+1, runLabel, multiLoad,
+          runShips:[...run.ships], checkIn:run.checkIn,
+          collDate:date, customer:rr.b.trim(), postal:rr.k.trim(),
+          planDate:date, delivTime:vpkExtractFirst(rr.e),
+          pallets:pal, netWeight:pal*200
+        });
       });
     });
   });
@@ -6336,6 +7086,27 @@ function vpkPad(n){return String(n).padStart(2,'0')}
 function vpkFmtDate(d){return vpkPad(d.getDate())+'/'+vpkPad(d.getMonth()+1)+'/'+d.getFullYear()}
 function vpkFmtDateStr(s){try{return vpkFmtDate(new Date(s))}catch(e){return s}}
 function vpkIsDateStr(s){return/\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/.test(s)||(!isNaN(Date.parse(s))&&s.length>6)}
+
+// ── Auto-login in demo mode (runs after all functions defined) ──
+window.addEventListener('DOMContentLoaded', function() {
+  if (!isConfigured) {
+    currentUser = { email: 'demo@triad.com' };
+    currentSiteId = 'desborough';
+    enterApp();
+  }
+});
+
+// ── Map panel toggle ──
+window._mapTogglePanel = function() {
+  const panel   = document.getElementById('map-panel');
+  const restore = document.getElementById('map-panel-restore');
+  if (!panel) return;
+  const hidden = panel.style.display === 'none';
+  panel.style.display   = hidden ? 'flex'  : 'none';
+  panel.style.flexDirection = 'column';
+  if (restore) restore.style.display = hidden ? 'none' : 'block';
+  if (_leafletMap) setTimeout(() => _leafletMap.invalidateSize(), 200);
+};
 </script>
 </body>
 </html>
