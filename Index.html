@@ -3098,7 +3098,7 @@ const PC_PROXIMITY = {
 /* ══════════════════════════════════════════
    STATE
 ══════════════════════════════════════════ */
-const isConfigured = SUPABASE_URL !== 'YOUR_SUPABASE_URL';
+const isConfigured = SUPABASE_URL !== 'https://ahvyirnebbbfmktewdva.supabase.co/rest/v1/';
 const sb = isConfigured ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON) : null;
 let currentUser = null, currentSiteId = null, todayData = [], allData = [];
 let uploadTargetSite = null, rowCount = 0;
