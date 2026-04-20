@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css"/>
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@300;400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3/dist/msal-browser.min.js"></script>
 <style>
@@ -3787,7 +3787,7 @@ async function submitData() {
     const cap = Number(document.getElementById('f-cap').value)||80;
     const notes = document.getElementById('f-notes').value.trim();
     todayData = todayData.filter(e=>e.site!==uploadTargetSite);
-    todayData.push({ site:uploadTargetSite, date:todayStr(), capacity:cap, notes, uploaded_by:'demo',
+    todayData.push({ site:uploadTargetSite, date:viewDate, capacity:cap, notes, uploaded_by:'demo',
       routes: routes.map(r=>({area:r.area, pc:r.postcodes, stops:r.stops, pallets:r.pallets, weight:r.weight_t})) });
     showMsg(`✓ ${SITES_META[uploadTargetSite]?.name} data updated (demo mode).`, 'ok');
     document.getElementById('route-rows').innerHTML=''; rowCount=0; addRow();
@@ -3801,7 +3801,7 @@ async function submitData() {
   const cap = Number(document.getElementById('f-cap').value)||80;
   const notes = document.getElementById('f-notes').value.trim();
   const { data: plan, error: pe } = await sb.from('daily_plans')
-    .upsert({ site_id:uploadTargetSite, plan_date:todayStr(), capacity:cap, notes, uploaded_by:currentUser?.email||'' },
+    .upsert({ site_id:uploadTargetSite, plan_date:viewDate, capacity:cap, notes, uploaded_by:currentUser?.email||'' },
             { onConflict:'site_id,plan_date' }).select().single();
   if (pe) { showMsg('Error: '+pe.message,'err'); btn.disabled=false; btn.innerHTML='Submit today\'s data →'; return; }
   await sb.from('routes').delete().eq('plan_id', plan.id);
@@ -6153,7 +6153,7 @@ async function syncFromSheets() {
     // Save to Supabase or demo
     if (sb && isConfigured) {
       const { data: plan, error: pe } = await sb.from('daily_plans')
-        .upsert({ site_id:site, plan_date:todayStr(), capacity:cap, notes, uploaded_by: (currentUser?.email||'') + ' (Sheets)' },
+        .upsert({ site_id:site, plan_date:viewDate, capacity:cap, notes, uploaded_by: (currentUser?.email||'') + ' (Sheets)' },
                 { onConflict:'site_id,plan_date' }).select().single();
       if (!pe) {
         await sb.from('routes').delete().eq('plan_id', plan.id);
@@ -6163,7 +6163,7 @@ async function syncFromSheets() {
     } else {
       // Demo mode — update in memory
       todayData = todayData.filter(e => e.site !== site);
-      todayData.push({ site, date:todayStr(), capacity:cap, notes:notes + (notes?' ':'') + '(Sheets sync)', uploaded_by:'Sheets', routes });
+      todayData.push({ site, date:viewDate, capacity:cap, notes:notes + (notes?' ':'') + '(Sheets sync)', uploaded_by:'Sheets', routes });
     }
 
     // Update status
@@ -6309,7 +6309,7 @@ async function processCsvText(csv, sourceName) {
       const cap = Number(document.getElementById('f-cap')?.value) || 80;
       const notes = document.getElementById('f-notes')?.value.trim() || '';
       const { data: plan, error: pe } = await sb.from('daily_plans')
-        .upsert({ site_id:site, plan_date:todayStr(), capacity:cap, notes, uploaded_by:(currentUser?.email||'') + ' (File upload)' },
+        .upsert({ site_id:site, plan_date:viewDate, capacity:cap, notes, uploaded_by:(currentUser?.email||'') + ' (File upload)' },
                 { onConflict:'site_id,plan_date' }).select().single();
       if (!pe) {
         await sb.from('routes').delete().eq('plan_id', plan.id);
@@ -6317,7 +6317,7 @@ async function processCsvText(csv, sourceName) {
       }
     } else {
       todayData = todayData.filter(e => e.site !== site);
-      todayData.push({ site, date:todayStr(), capacity:80, notes:'(File upload)', uploaded_by:'File', routes });
+      todayData.push({ site, date:viewDate, capacity:80, notes:'(File upload)', uploaded_by:'File', routes });
     }
 
     const meta = SITES_META[site] || {};
