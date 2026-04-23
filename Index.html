@@ -660,6 +660,26 @@ function parseSAM(wb) {
 function pad(n){return String(n).padStart(2,'0');}
 
 
+
+/* ═══════════════════════════════
+   NESTLÉ DEPOT LOOKUP TABLE
+   Key = 3-letter code from FromDesc (e.g. 'EMG', 'HH2')
+   Values = full address details
+═══════════════════════════════ */
+const NESTLE_DEPOTS = {
+  'EMG': { name:'Nestle EMG',            address:'SEGRO East Midlands Gateway, Kegworth, DE74 2SA',  line1:'SEGRO East Midlands Gateway', city:'Kegworth',    postcode:'DE74 2SA' },
+  'HH2': { name:'Nestle Hams Hall',      address:'10A Faraday Ave, Coleshill, B46 1AL',              line1:'10A Faraday Ave',            city:'Coleshill',   postcode:'B46 1AL'  },
+  'MCE': { name:'Cereal Partners UK',    address:'Cereal Partners, Staverton, BA14 6PG',             line1:'Cereal Partners',            city:'Staverton',   postcode:'BA14 6PG' },
+  'WSP': { name:'DHL Wisbech',           address:'New Bridge Lane, Wisbech, PE14 0SE',               line1:'New Bridge Lane',            city:'Wisbech',     postcode:'PE14 0SE' },
+  'SYP': { name:'Sudbury Purina',        address:'Northern Rd, Sudbury, CO10 2XQ',                   line1:'Northern Rd',                city:'Sudbury',     postcode:'CO10 2XQ' },
+  'WSB': { name:'Buxton Waters',         address:'Waterwallows Lane, Buxton, SK17 7JD',              line1:'Waterwallows Lane',          city:'Buxton',      postcode:'SK17 7JD' },
+};
+
+function nestleDepotLookup(fromDesc) {
+  const code = String(fromDesc||'').trim().split(/\s*-\s*/)[0].trim().toUpperCase();
+  return NESTLE_DEPOTS[code] || null;
+}
+
 /* ═══════════════════════════════
    NESTLÉ PARSER
    CSV download format
@@ -704,9 +724,10 @@ function parseNestle(wb) {
     const weightT   = parseFloat(r['Weight (T)'])||0;
     const weightKg  = Math.round(weightT * 1000);
 
-    // Pickup name — strip the short code prefix e.g. "HH2 - HAMS HALL PURINA" → "HAMS HALL PURINA"
+    // Pickup — look up full address from depot code
     const fromRaw    = String(r['FromDesc']||'').trim();
     const pickupName = fromRaw.replace(/^[A-Z0-9]{2,4}\s*-\s*/,'').trim();
+    const depotInfo  = nestleDepotLookup(fromRaw);
 
     out.push({
       loadNum:        colNo,
@@ -719,11 +740,11 @@ function parseNestle(wb) {
       delivName:      String(r['ToLoc']||'').trim(),
       pickupDate:     arr.date,
       pickupTime:     arr.time,
-      pickupName:     pickupName,
-      pickupAddress:  fromRaw,
-      pickupLine1:    fromRaw,
-      pickupPostcode: '',
-      pickupCity:     pickupName,
+      pickupName:     depotInfo ? depotInfo.name : pickupName,
+      pickupAddress:  depotInfo ? depotInfo.address : fromRaw,
+      pickupLine1:    depotInfo ? depotInfo.line1 : fromRaw,
+      pickupPostcode: depotInfo ? depotInfo.postcode : '',
+      pickupCity:     depotInfo ? depotInfo.city : pickupName,
       delivDate:      del.date,
       delivTimeStart: del.time,
       delivTimeEnd:   '',
