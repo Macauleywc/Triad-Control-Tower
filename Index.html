@@ -126,7 +126,7 @@
   </div>
 </div>
 <div class="drop-zone" id="dz">
-    <input type="file" id="fi" accept=".xlsx,.xls,.xlsm"/>
+    <input type="file" id="fi" accept=".xlsx,.xls,.xlsm,.csv"/>
     <div class="di"><svg viewBox="0 0 28 28" fill="none"><path d="M14 4v14M7 11l7-7 7 7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 20v2a2 2 0 002 2h16a2 2 0 002-2v-2" stroke="white" stroke-width="2" stroke-linecap="round"/></svg></div>
     <div class="dt" id="drop-title">Drop your VPK Delivery Schedule here</div>
     <div class="ds" id="drop-sub">Drag and drop the Excel file, or click to browse</div>
@@ -164,12 +164,19 @@ fi.addEventListener('change',e=>{if(e.target.files[0])go(e.target.files[0])});
 
 function go(file){
   fname=file.name;hideErr();
+  const isCsv=file.name.toLowerCase().endsWith('.csv');
   const r=new FileReader();
   r.onload=e=>{
-    try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});parse(wb);}
+    try{
+      const wb=isCsv
+        ? XLSX.read(e.target.result,{type:'string',raw:false,cellDates:true})
+        : XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+      parse(wb);
+    }
     catch(err){showErr('Could not read file: '+err.message)}
   };
-  r.readAsArrayBuffer(file);
+  if(isCsv) r.readAsText(file,'utf-8');
+  else r.readAsArrayBuffer(file);
 }
 
 function parse(wb){
