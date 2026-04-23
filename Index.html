@@ -344,9 +344,12 @@ function dlXLSX(){
     sc(ws,r,7,String(row.ship||''));                         // order_reference_number
     sc(ws,r,36,ds(row.collDate),'n','dd/mm/yyyy');           // pickup_date
     sc(ws,r,37,tf(row.checkIn),'n','h:mm');                  // pickup_time_start
-    sc(ws,r,40,'Premier Logistics Desborough');              // pickup_name
-    sc(ws,r,44,'NN14 2AA');                                  // pickup_postcode
-    sc(ws,r,46,'GB');                                        // pickup_country
+    sc(ws,r,40,'Premier Logistics Desborough');           // pickup_name
+    sc(ws,r,41,'Desborough Depot, Desborough, Northamptonshire, NN14 2AA');         // pickup_full_address
+    sc(ws,r,42,'Desborough Depot');           // pickup_address_line_1
+    sc(ws,r,44,'NN14 2AA');        // pickup_postcode
+    sc(ws,r,45,'Desborough');            // pickup_city
+    sc(ws,r,46,'GB');         // pickup_country
     sc(ws,r,50,String(row.customer||''));                    // delivery_name
     sc(ws,r,51,ds(row.planDate||row.collDate),'n','dd/mm/yyyy'); // delivery_date
     sc(ws,r,52,tf(row.delivTime),'n','h:mm');                // delivery_time_start
@@ -394,10 +397,13 @@ function dlXLSX_Qargo(){
     sc(ws,r,36,ds(row.pickupDate||row.collDate),'n','dd/mm/yyyy'); // pickup_date
     sc(ws,r,37,tf(row.pickupTime||row.checkIn||''),'n','h:mm');    // pickup_time_start
     sc(ws,r,38,tf(row.pickupTimeEnd),'n','h:mm');                  // pickup_time_end
-    sc(ws,r,40,String(row.pickupName||'SAM Mouldings'));           // pickup_name
-    sc(ws,r,41,String(row.pickupAddress||''));                     // pickup_full_address
-    sc(ws,r,44,String(row.pickupPostcode||''));                    // pickup_postcode
-    sc(ws,r,46,'GB');                                             // pickup_country
+    // Pickup address — use row data if available (Nestle), else SAM defaults
+    sc(ws,r,40,String(row.pickupName||'SAM Mouldings'));
+    sc(ws,r,41,String(row.pickupAddress||'345 Torrington Ave, Coventry, CV4 9ZR'));
+    sc(ws,r,42,String(row.pickupLine1||'345 Torrington Ave'));
+    sc(ws,r,44,String(row.pickupPostcode||'CV4 9ZR'));
+    sc(ws,r,45,String(row.pickupCity||'Coventry'));
+    sc(ws,r,46,'GB');                                     // pickup_country
     sc(ws,r,50,String(row.customer||''));               // delivery_name
     sc(ws,r,51,ds(row.delivDate||row.collDate),'n','dd/mm/yyyy'); // delivery_date
     sc(ws,r,52,tf(row.delivTimeStart),'n','h:mm');               // delivery_time_start
@@ -635,7 +641,11 @@ function parseSAM(wb) {
         delivNotes:    block.notes||'',
         collDate:      despatchDate,
         pickupDate:    despatchDate,
-        pickupName:    'SAM Mouldings - '+despatchFrom,
+        pickupName:    'SAM Mouldings',
+      pickupAddress: '345 Torrington Ave, Coventry, CV4 9ZR',
+      pickupLine1:   '345 Torrington Ave',
+      pickupPostcode:'CV4 9ZR',
+      pickupCity:    'Coventry',
         pickupPostcode:'BT29 4NZ',
         pallets:       0,
         weightKg:      0,
@@ -663,8 +673,12 @@ function parseNestle(wb) {
   const data = XLSX.utils.sheet_to_json(ws, {defval:''});
   const out = [];
 
-  // Only process FG (loaded/delivery) rows
-  const fgRows = data.filter(r => String(r['LoadType']||'').trim().toUpperCase() === 'FG');
+  // Only process FG (loaded/delivery) rows AND exclude EL (empty leg) journey refs
+  const fgRows = data.filter(r => {
+    const loadType = String(r['LoadType']||'').trim().toUpperCase();
+    const jnyRef   = String(r['JnyRef']||'').trim().toUpperCase();
+    return loadType === 'FG' && !jnyRef.startsWith('EL');
+  });
 
   fgRows.forEach(r => {
     // Parse date and time from "DD/MM/YYYY HH:MM" format
@@ -705,7 +719,9 @@ function parseNestle(wb) {
       pickupTime:     arr.time,
       pickupName:     pickupName,
       pickupAddress:  fromRaw,
+      pickupLine1:    fromRaw,
       pickupPostcode: '',
+      pickupCity:     pickupName,
       delivDate:      del.date,
       delivTimeStart: del.time,
       delivTimeEnd:   '',
