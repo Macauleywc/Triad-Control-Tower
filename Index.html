@@ -730,10 +730,10 @@ function parseNestle(wb) {
     const depotInfo  = nestleDepotLookup(fromRaw);
 
     out.push({
-      loadNum:        colNo,
-      ship:           colNo,
+      loadNum:        loadNo||colNo,   // LoadNo = individual job (e.g. Q166354)
+      ship:           loadNo||colNo,
       jnyRef:         String(r['JnyRef']||'').trim(),
-      orderRef:       loadNo||colNo,
+      orderRef:       loadNo||colNo,   // order_reference_number = LoadNo (one job per load)
       delivRef:       String(r['BookingRef']||custRef||'').trim(),
       customer:       'Nestle',
       customerCode:   'NESTLE',
