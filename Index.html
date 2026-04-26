@@ -3177,7 +3177,13 @@ function enterApp() {
 /* ══════════════════════════════════════════
    DATA
 ══════════════════════════════════════════ */
-function todayStr() { return new Date().toISOString().split('T')[0]; }
+function todayStr() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
 
 /* ── View date — can navigate away from today ── */
 let viewDate = todayStr(); // YYYY-MM-DD
@@ -3205,7 +3211,11 @@ function updateDateNav() {
 function navDate(delta) {
   const d = viewDateObj();
   d.setDate(d.getDate() + delta);
-  viewDate = d.toISOString().split('T')[0];
+  // Use local date parts to avoid UTC timezone shift
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  viewDate = `${y}-${m}-${day}`;
   updateDateNav();
   loadDateData();
 }
