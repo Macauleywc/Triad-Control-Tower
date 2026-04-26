@@ -17,10 +17,10 @@
    TOKENS
 ══════════════════════════════════════════ */
 :root {
-  --cream:   #F7F6F2;
-  --cream2:  #EFEDE7;
-  --cream3:  #E5E2DA;
-  --ink:     #0F1923;
+  --cream:   #F2F4F7;
+  --cream2:  #E8ECF1;
+  --cream3:  #D8DDE6;
+  --ink:     #0D1825;
   --ink2:    #3A4552;
   --ink3:    #7A8694;
   --rule:    #D8D5CC;
@@ -420,7 +420,7 @@ button, input, select, textarea { font-family: var(--font-body); }
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  background: var(--cream);
+  background: #fff;
   position: sticky;
   top: 0;
   z-index: 100;
@@ -2237,7 +2237,7 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
       </div>
     </div>
 
-    <div class="sb-site-pill" id="sb-site-pill">
+    <div class="sb-site-pill" id="sb-site-pill" style="display:none">
       <img id="sb-logo-img" src="" alt="" style="height:28px;max-width:90px;object-fit:contain;display:none;filter:brightness(0) invert(1);opacity:0.85">
       <div id="sb-logo-fallback">
         <div class="sb-site-dot" id="sb-dot"></div>
@@ -3159,6 +3159,8 @@ async function doLogout() {
 );
 
 function enterApp() {
+  const pill = document.getElementById('sb-site-pill');
+  if(pill) pill.style.display = 'flex';
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   const meta = SITES_META[currentSiteId] || { name: currentSiteId, biz: '', color: '#333' };
