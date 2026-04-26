@@ -6408,15 +6408,41 @@ async function processXlsxSheet(ws, sourceName, wb) {
 }
 
 // ── Banbury weekly planner parser ──
-// Each day sheet: Row 3 col D = date, Row 7 = headers
-// Route-X rows (col 0) = new load, subsequent rows = extra stops on same load
-// Col 0=Vehicle/Route, 1=Customer, 2=Load Number, 3=Destination, 4=Booking Time, 5=Postcode, 7=Pallet Qty
 function parseBanburySheet(ws, sheetName) {
   const allRows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false, cellDates:true});
   const stops = [];
   let currentRoute = null;
   let currentLoadNum = '';
   let headerFound = false;
+  let sheetDate = ''; // Date extracted from the file
+
+  // Extract date from row 3 (index 2), col D (index 3)
+  for(let i=0; i<Math.min(8, allRows.length); i++){
+    const row = allRows[i];
+    if(!row) continue;
+    for(let c=0; c<row.length; c++){
+      const v = row[c];
+      if(String(v||'').toLowerCase().trim() === 'date'){
+        // Date is in next few columns
+        for(let d=1; d<=5; d++){
+          const dv = row[c+d];
+          if(dv instanceof Date){
+            const dy = dv.getFullYear();
+            const dm = String(dv.getMonth()+1).padStart(2,'0');
+            const dd = String(dv.getDate()).padStart(2,'0');
+            sheetDate = `${dy}-${dm}-${dd}`;
+            break;
+          } else if(dv && String(dv).match(/\d{2}\/\d{2}\/\d{4}/)){
+            const parts = String(dv).split('/');
+            sheetDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+            break;
+          }
+        }
+        break;
+      }
+    }
+    if(sheetDate) break;
+  }
 
   function fmtTime(val) {
     if(!val) return '';
@@ -6430,16 +6456,10 @@ function parseBanburySheet(ws, sheetName) {
   for(let i=0; i<allRows.length; i++){
     const row = allRows[i];
     if(!row) continue;
-
-    // Find header row — "Vehicle" in col 0
     const c0 = String(row[0]||'').trim();
     if(c0.toLowerCase() === 'vehicle') { headerFound = true; continue; }
     if(!headerFound) continue;
-
-    // Skip summary/cost rows
     if(!c0 && !row[1] && !row[2] && !row[3] && !row[5]) continue;
-
-    // New Route row — col 0 starts with 'Route'
     if(c0.toLowerCase().startsWith('route')) {
       currentRoute  = c0;
       currentLoadNum = String(row[2]||'').trim();
@@ -6448,23 +6468,22 @@ function parseBanburySheet(ws, sheetName) {
       const postcode = String(row[5]||'').toUpperCase().trim();
       const pallets  = Number(String(row[7]||'').replace(/,/g,''))||0;
       const time     = fmtTime(row[4]);
-      if(name||postcode) stops.push({loadRef:currentRoute, name, postcode, pallets, time, loadNum:currentLoadNum, dest});
+      if(name||postcode) stops.push({loadRef:currentRoute, name, postcode, pallets, time, loadNum:currentLoadNum, dest, sheetDate});
       continue;
     }
-
-    // Additional stop on same route — col 0 empty or time, col 1 = customer
     if(currentRoute && row[1] && String(row[1]).trim()) {
       const name     = String(row[1]||'').trim();
       const postcode = String(row[5]||'').toUpperCase().trim();
       const pallets  = Number(String(row[7]||'').replace(/,/g,''))||0;
       const time     = fmtTime(row[4]);
       const dest     = String(row[3]||'').trim();
-      // Skip if it looks like a note/comment row (no postcode and very long name)
       if(name.length > 80 || (!postcode && name.toLowerCase().includes('palelt'))) continue;
-      if(name||postcode) stops.push({loadRef:currentRoute, name, postcode, pallets, time, loadNum:currentLoadNum, dest});
+      if(name||postcode) stops.push({loadRef:currentRoute, name, postcode, pallets, time, loadNum:currentLoadNum, dest, sheetDate});
     }
   }
-  return stops;
+
+  // Attach the extracted date to every stop
+  return stops.map(s => ({...s, sheetDate}));
 }
 
 async function processCsvText(csv, sourceName) {
@@ -7113,38 +7132,44 @@ function vpkSplitCSV(line) {
 
 // Convert Banbury parsed stops into Triad data format and load
 function vpkLoadBanburyStops(stops) {
-  // Filter out stops with no postcode and no useful data
-  const validStops = stops.filter(s => s.postcode && s.name && !s.name.match(/^T\d{3}/) && s.name.length < 60);
-
+  const validStops = stops.filter(s => s.postcode && s.name && !s.name.match(/^T\d{3}$/) && s.name.length < 60);
   if(!validStops.length) { vpkShowMsg('No valid delivery stops found — check postcodes are filled in.', 'err'); return; }
 
-  // Build fake vpkParsedRows format grouped by route
-  const rows = validStops.map((s, i) => ({
-    ship:       s.loadNum || s.loadRef,
-    runNum:     s.loadRef,
-    runLabel:   s.loadRef,
-    multiLoad:  false,
-    runShips:   [s.loadNum || s.loadRef],
-    checkIn:    s.time || '',
-    collDate:   viewDate,
-    customer:   s.name,
-    postal:     s.postcode,
-    planDate:   viewDate,
-    delivTime:  s.time || '',
-    pallets:    s.pallets || 0,
-    netWeight:  (s.pallets || 0) * 200,
+  // Use date extracted from the file itself
+  const fileDate = (validStops[0] && validStops[0].sheetDate) ? validStops[0].sheetDate : viewDate;
+
+  const rows = validStops.map(s => ({
+    ship:      s.loadNum || s.loadRef,
+    runNum:    s.loadRef,
+    runLabel:  s.loadRef,
+    multiLoad: false,
+    runShips:  [s.loadNum || s.loadRef],
+    checkIn:   s.time || '',
+    collDate:  fileDate,
+    customer:  s.name,
+    postal:    s.postcode,
+    planDate:  fileDate,
+    delivTime: s.time || '',
+    pallets:   s.pallets || 0,
+    netWeight: (s.pallets || 0) * 200,
   }));
 
   const totalPallets = rows.reduce((a,r)=>a+r.pallets, 0);
   const loads = new Set(rows.map(r=>r.runLabel)).size;
-
   vpkParsedRows = rows;
-  document.getElementById('vpk-preview-count').textContent = `${rows.length} stops · ${totalPallets} pallets · ${loads} routes · ${viewDate}`;
+
+  // Navigate date to match file date so data saves to correct date
+  if(fileDate && fileDate !== viewDate) {
+    viewDate = fileDate;
+    updateDateNav();
+  }
+
+  document.getElementById('vpk-preview-count').textContent = `${rows.length} stops · ${totalPallets} pallets · ${loads} routes · ${fileDate}`;
   document.getElementById('vpk-preview-body').innerHTML = rows.slice(0,20).map(r=>`
     <tr><td>${r.runLabel}</td><td>${r.customer}</td><td>${r.postal}</td><td>${r.pallets}</td><td>${r.delivTime||'—'}</td></tr>
   `).join('');
   document.getElementById('vpk-preview-wrap').style.display = '';
-  vpkShowMsg('✓ Banbury plan loaded — ' + rows.length + ' stops found', 'ok');
+  vpkShowMsg('✓ Banbury plan loaded — ' + rows.length + ' stops · date: ' + fileDate, 'ok');
 }
 
 
