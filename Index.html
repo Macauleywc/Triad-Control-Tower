@@ -7291,36 +7291,62 @@ function vpkRenderPreview(rows, date, fname) {
   vpkShowMsg(`✓ ${rows.length} stops read from ${fname}`, 'ok');
 }
 
-function vpkLoadIntoTriad() {
-  if(!vpkParsedRows.length)return;
+async function vpkLoadIntoTriad() {
+  if(!vpkParsedRows.length) return;
   const site = vpkTargetSite || currentSiteId;
   const meta = SITES_META[site]||{};
 
-  // Group by load_ref (shipment) + postcode district → routes
-  const loadMap={};
-  vpkParsedRows.forEach(s=>{
-    const district=(s.postal||'').match(/^([A-Z]{1,2}[0-9]{1,2})/)?.[1]||s.postal.slice(0,4).trim()||'Other';
-    const key=(s.ship||'RUN1')+'||'+district;
-    if(!loadMap[key])loadMap[key]={ship:s.ship||'RUN1',district,area:(s.ship?s.ship+' · ':'')+district,postcodes:district,stops_list:[],pallets:0};
+  // Use date from parsed rows, not hardcoded today
+  const saveDate = vpkParsedRows[0]?.collDate
+    ? (vpkParsedRows[0].collDate.includes('/')
+        ? vpkParsedRows[0].collDate.split('/').reverse().join('-')  // DD/MM/YYYY → YYYY-MM-DD
+        : vpkParsedRows[0].collDate)
+    : viewDate;
+
+  // Group by load_ref + postcode district → routes
+  const loadMap = {};
+  vpkParsedRows.forEach(s => {
+    const district = (s.postal||'').match(/^([A-Z]{1,2}[0-9]{1,2})/)?.[1] || s.postal.slice(0,4).trim() || 'Other';
+    const key = (s.ship||s.runLabel||'RUN1') + '||' + district;
+    if(!loadMap[key]) loadMap[key] = {ship:s.ship||s.runLabel||'RUN1', district, area:(s.runLabel||s.ship||'RUN1')+' · '+district, postcodes:district, stops_list:[], pallets:0};
     loadMap[key].stops_list.push(s);
-    loadMap[key].pallets+=s.pallets;
+    loadMap[key].pallets += s.pallets;
   });
 
-  const routes=Object.values(loadMap).map(d=>({
-    site_id:site, area:d.area, postcodes:d.postcodes,
-    stops:d.stops_list.length, pallets:d.pallets, weight_t:0,
-    stops_detail:d.stops_list,
+  const routes = Object.values(loadMap).map(d => ({
+    site_id: site, area: d.area, postcodes: d.postcodes,
+    stops: d.stops_list.length, pallets: d.pallets, weight_t: 0,
+    stops_detail: d.stops_list,
   }));
 
-  // Update todayData
-  dataCleared=false;
-  todayData=todayData.filter(e=>e.site!==site);
-  todayData.push({site,date:todayStr(),capacity:80,notes:'VPK import',uploaded_by:'VPK Schedule',routes});
-  allData=allData.filter(e=>!(e.site===site&&e.date===todayStr()));
+  // Save to Supabase if connected
+  if(sb && isConfigured) {
+    try {
+      const { data: plan, error: pe } = await sb.from('daily_plans')
+        .upsert({ site_id:site, plan_date:saveDate, capacity:80, notes:'VPK import', uploaded_by:(currentUser?.email||'VPK Schedule') },
+                { onConflict:'site_id,plan_date' }).select().single();
+      if(pe) throw pe;
+      await sb.from('routes').delete().eq('plan_id', plan.id);
+      const { error: re } = await sb.from('routes').insert(routes.map(r => ({...r, plan_id: plan.id})));
+      if(re) throw re;
+      showReqToast(`✓ ${meta.name} saved to Supabase — ${vpkParsedRows.length} stops`);
+    } catch(err) {
+      console.error('Supabase save error:', err);
+      showReqToast(`⚠ Supabase error: ${err.message} — data saved locally only`);
+    }
+  }
+
+  // Always update local memory too
+  dataCleared = false;
+  viewDate = saveDate;
+  updateDateNav();
+  todayData = todayData.filter(e => e.site !== site);
+  todayData.push({site, date:saveDate, capacity:80, notes:'VPK import', uploaded_by:'VPK Schedule', routes});
+  allData = allData.filter(e => !(e.site===site && e.date===saveDate));
   allData.push(todayData[todayData.length-1]);
 
   renderAll();
-  showReqToast(`${meta.name} updated — ${vpkParsedRows.length} stops loaded from VPK schedule`);
+  showReqToast(`${meta.name} updated — ${vpkParsedRows.length} stops loaded`);
   showTab('overview');
 }
 
