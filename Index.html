@@ -7296,12 +7296,23 @@ async function vpkLoadIntoTriad() {
   const site = vpkTargetSite || currentSiteId;
   const meta = SITES_META[site]||{};
 
-  // Use date from parsed rows, not hardcoded today
-  const saveDate = vpkParsedRows[0]?.collDate
-    ? (vpkParsedRows[0].collDate.includes('/')
-        ? vpkParsedRows[0].collDate.split('/').reverse().join('-')  // DD/MM/YYYY → YYYY-MM-DD
-        : vpkParsedRows[0].collDate)
-    : viewDate;
+  // Use date from parsed rows, normalised to YYYY-MM-DD
+  function toYMD(s) {
+    if(!s) return viewDate;
+    s = String(s).trim();
+    // Already YYYY-MM-DD
+    if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    // DD/MM/YYYY
+    const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if(m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+    // DD-MM-YYYY
+    const m2 = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if(m2) return m2[3]+'-'+m2[2].padStart(2,'0')+'-'+m2[1].padStart(2,'0');
+    return viewDate;
+  }
+  const rawDate = vpkParsedRows[0]?.sheetDate || vpkParsedRows[0]?.collDate || vpkParsedRows[0]?.planDate || viewDate;
+  const saveDate = toYMD(rawDate);
+  console.log('vpkLoadIntoTriad saveDate:', saveDate, 'from raw:', rawDate);
 
   // Group by load_ref + postcode district → routes
   const loadMap = {};
