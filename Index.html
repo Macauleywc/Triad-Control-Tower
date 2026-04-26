@@ -2183,18 +2183,9 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
   <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="sb-logo">
-      <div class="sb-logo-mark">
-        <div class="sb-mark-box">
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <rect x="2" y="8" width="4" height="8" rx="1" fill="#0F2B46"/>
-            <rect x="7" y="4" width="4" height="12" rx="1" fill="#0F2B46"/>
-            <rect x="12" y="1" width="4" height="15" rx="1" fill="#0F2B46"/>
-          </svg>
-        </div>
-        <div>
-          <div class="sb-name">Control Tower</div>
-          <div class="sb-tagline">Triad Network</div>
-        </div>
+      <div style="padding:4px 0">
+        <div class="sb-name">Control Tower</div>
+        <div class="sb-tagline">Triad Network</div>
       </div>
     </div>
 
@@ -2259,28 +2250,14 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
       </button>
 
       <div class="sb-nav-label">Actions</div>
-      <button class="sb-link" data-tab="upload" onclick="showTab('upload')">
+      <button class="sb-link" data-tab="vpkimport" onclick="showTab('vpkimport')">
         <svg class="sb-link-icon" viewBox="0 0 18 18" fill="none">
           <path d="M9 12V4M5 8l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           <path d="M3 14h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
-        <span>Upload data</span>
+        <span>Import</span>
       </button>
-      <button class="sb-link" data-tab="vpkimport" onclick="showTab('vpkimport')" data-tip="VPK Import">
-        <svg class="sb-link-icon" viewBox="0 0 18 18" fill="none">
-          <rect x="2" y="3" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M6 7h6M6 10h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          <path d="M13 1v4M11 3l2-2 2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <span>VPK Import</span>
-      </button>
-      <button class="sb-link" data-tab="export" onclick="showTab('export')">
-        <svg class="sb-link-icon" viewBox="0 0 18 18" fill="none">
-          <path d="M9 3v9M5 8l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M3 14h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-        <span>Export plan</span>
-      </button>
+
 
       <div class="sb-nav-label" id="admin-nav-section" style="display:none">Admin</div>
       <button class="sb-link" data-tab="kpi" onclick="showTab('kpi')" id="sb-kpi" style="display:none">
@@ -2327,8 +2304,7 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
         </div>
       </div>
       <div class="header-actions">
-        <button class="btn" onclick="showTab('upload')">+ Upload data</button>
-        <button class="btn btn-primary" onclick="showTab('export')">Export plan →</button>
+
       </div>
     </div>
 
@@ -2668,14 +2644,11 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
 
     <!-- ─── ADMIN TAB (admin only) ─── -->
     <div id="tab-admin" class="content" style="display:none">
-      <div style="margin-bottom:20px">
-        <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:var(--ink);margin-bottom:4px">User admin</div>
-        <div style="font-size:13px;color:var(--ink3)">Only you (Desborough) can see this section. Manage who has access to Triad Control Tower.</div>
+      <div style="margin-bottom:24px">
+        <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:var(--ink);margin-bottom:4px">User Admin</div>
+        <div style="font-size:13px;color:var(--ink3)">Manage access to Triad Control Tower. Visible to Desborough only.</div>
       </div>
-      <div class="admin-warning">
-        <span style="font-size:16px;flex-shrink:0">⚠</span>
-        <div>Adding and removing users requires your <strong>Supabase Service Role key</strong> — this is not stored in the app. To manage users in production, use the <strong>Supabase dashboard</strong> (Authentication → Users). The admin panel below shows a local simulation for demo mode.</div>
-      </div>
+
       <div class="admin-grid">
         <div>
           <!-- User list -->
@@ -2689,6 +2662,7 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
               <tbody id="user-list"></tbody>
             </table>
           </div>
+
           <!-- Audit log -->
           <div class="admin-card">
             <div class="admin-card-head">
@@ -2699,8 +2673,8 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
           </div>
         </div>
 
-        <!-- Add user sidebar -->
         <div>
+          <!-- Add user -->
           <div class="admin-card">
             <div class="admin-card-head">
               <div class="admin-card-title">Add new user</div>
@@ -2720,32 +2694,21 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
               </div>
               <button class="add-user-btn" id="add-user-btn" onclick="addUser()">Add user →</button>
               <div class="upload-msg" id="add-user-msg" style="margin-top:12px"></div>
+              <div style="margin-top:14px;font-size:12px;color:var(--ink3);line-height:1.6;border-top:1px solid var(--rule);padding-top:12px">
+                To manage users directly, go to your <strong>Supabase dashboard → Authentication → Users</strong>.
+              </div>
             </div>
           </div>
 
-          <div class="admin-card" style="margin-top:0">
-            <div class="admin-card-head">
-              <div class="admin-card-title">Quick guide</div>
-            </div>
-            <div style="padding:16px 20px;font-size:13px;color:var(--ink3);line-height:1.8">
-              <div style="margin-bottom:8px"><strong style="color:var(--ink)">Add user</strong> — fills in automatically when Supabase is configured. In demo mode, updates the local list.</div>
-              <div style="margin-bottom:8px"><strong style="color:var(--ink)">Reset password</strong> — sends a reset email via Supabase Auth.</div>
-              <div style="margin-bottom:8px"><strong style="color:var(--ink)">Deactivate</strong> — immediately blocks login. Data is retained.</div>
-              <div><strong style="color:var(--ink)">Delete</strong> — permanently removes the user. Data is retained.</div>
-            </div>
-          </div>
-
-          <!-- Data management card -->
+          <!-- Data management -->
           <div class="admin-card" style="margin-top:0">
             <div class="admin-card-head">
               <div class="admin-card-title">Data management</div>
             </div>
-            <div style="padding:16px 20px;display:flex;flex-direction:column;gap:10px">
-
-              <!-- Clear today's data -->
+            <div style="padding:16px 20px;display:flex;flex-direction:column;gap:14px">
               <div>
-                <div style="font-size:13px;font-weight:500;color:var(--ink);margin-bottom:4px">Clear today's deliveries</div>
-                <div style="font-size:12px;color:var(--ink3);margin-bottom:8px">Removes all route data submitted today across all four sites. Use before a test run.</div>
+                <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px">Clear data for selected date</div>
+                <div style="font-size:12px;color:var(--ink3);margin-bottom:10px">Removes route data for the currently selected date.</div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap">
                   <select id="clear-site-sel" class="f-input" style="flex:1;font-size:12px">
                     <option value="all">All sites</option>
@@ -2754,26 +2717,25 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
                     <option value="banbury">Banbury only</option>
                     <option value="wellington">Wellington only</option>
                   </select>
-                  <button onclick="clearTodayData()" class="ua-btn ua-btn-red" style="padding:8px 14px;font-size:12px;white-space:nowrap" data-tip="Clear delivery data">
-                    Clear today's data
+                  <button onclick="clearTodayData()" class="ua-btn ua-btn-red" style="padding:8px 14px;font-size:12px;white-space:nowrap">
+                    Clear data
                   </button>
                 </div>
                 <div class="upload-msg" id="clear-msg" style="margin-top:8px"></div>
               </div>
-
-              <div style="border-top:1px solid var(--rule);padding-top:10px">
-                <div style="font-size:13px;font-weight:500;color:var(--ink);margin-bottom:4px">Clear all history</div>
-                <div style="font-size:12px;color:var(--ink3);margin-bottom:8px">Permanently deletes all delivery data for all dates. Cannot be undone.</div>
-                <button onclick="clearAllData()" class="ua-btn ua-btn-red" style="width:100%;padding:8px 14px;font-size:12px;text-align:center" data-tip="Delete all data permanently">
+              <div style="border-top:1px solid var(--rule);padding-top:14px">
+                <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px">Clear all history</div>
+                <div style="font-size:12px;color:var(--ink3);margin-bottom:10px">Permanently deletes all delivery data across all dates. Cannot be undone.</div>
+                <button onclick="clearAllData()" class="ua-btn ua-btn-red" style="width:100%;padding:8px 14px;font-size:12px;text-align:center">
                   Clear all data — permanent
                 </button>
               </div>
-
             </div>
           </div>
         </div>
       </div>
     </div>
+
 
 
     <!-- ─── ALL LOADS TAB ─── -->
@@ -3425,9 +3387,9 @@ function renderAll() {
   if (!todayData.length) {
     // Stats — all zeros
     document.getElementById('stat-strip').innerHTML = `
-      <div class="stat-item"><div class="stat-eyebrow">Total stops today</div><div class="stat-number">0</div><div class="stat-sub">no data uploaded</div></div>
-      <div class="stat-item"><div class="stat-eyebrow">Avg utilisation</div><div class="stat-number">—</div><div class="stat-sub">no data uploaded</div></div>
-      <div class="stat-item"><div class="stat-eyebrow">Over capacity</div><div class="stat-number green">0</div><div class="stat-sub">all clear</div></div>
+      <div class="stat-item"><div class="stat-eyebrow">Total runs today</div><div class="stat-number">0</div><div class="stat-sub">no data uploaded</div></div>
+      <div class="stat-item"><div class="stat-eyebrow">Avg pallets per trailer</div><div class="stat-number">—</div><div class="stat-sub">target: 40 pallets</div></div>
+      <div class="stat-item"><div class="stat-eyebrow">Sharing savings</div><div class="stat-number">0<span style="font-size:20px;font-weight:400;color:var(--ink3)"> mi</span></div><div class="stat-sub">no opportunities yet</div></div>
       <div class="stat-item"><div class="stat-eyebrow">Sites uploaded</div><div class="stat-number">0<span style="font-size:20px;font-weight:400;color:var(--ink3)">/4</span></div><div class="stat-sub">all pending</div></div>`;
 
     // Alerts — none
@@ -3490,63 +3452,117 @@ function makeRing(pct, color) {
 
 /* ── STATS ── */
 function renderStats(opps) {
-  const tS = todayData.reduce((a,e)=>a+sumStops(e),0);
-  const tP = todayData.reduce((a,e)=>a+sumPallets(e),0);
-  const tW = todayData.reduce((a,e)=>a+sumWeight(e),0).toFixed(1);
-  const over = todayData.filter(e=>e.capacity && sumStops(e)/e.capacity>=0.9).length;
-  const capSites = todayData.filter(e=>e.capacity);
-  const avgU = capSites.length ? Math.round(capSites.reduce((a,e)=>a+sumStops(e)/e.capacity,0)/capSites.length*100) : 0;
-  const up = todayData.length;
+  const TARGET_PALLETS = 40;
+  const tS   = todayData.reduce((a,e)=>a+sumStops(e),0);
+  const tP   = todayData.reduce((a,e)=>a+sumPallets(e),0);
+  const tW   = todayData.reduce((a,e)=>a+sumWeight(e),0).toFixed(1);
+  const up   = todayData.length;
+
+  // Total runs across all sites
+  const tR = todayData.reduce((a,e)=>{
+    const runs = new Set((e.routes||[]).map(r=>r.runNum||r.runLabel||r.area));
+    return a + (runs.size || (e.routes||[]).length);
+  }, 0);
+
+  // Avg pallets per trailer vs 40 target
+  const avgPal = tR > 0 ? Math.round(tP / tR) : 0;
+  const fillPct = Math.round(avgPal / TARGET_PALLETS * 100);
+  const palCol = avgPal >= TARGET_PALLETS ? 'green' : avgPal >= 30 ? 'amber' : 'red';
+  const palTrend = avgPal >= TARGET_PALLETS ? `✓ On target` : avgPal >= 30 ? `${TARGET_PALLETS-avgPal}p below target` : `${TARGET_PALLETS-avgPal}p below target`;
+
+  // Sharing savings
+  const savings = opps.reduce((a,o)=>a+o.saving,0);
+
   document.getElementById('stat-strip').innerHTML = `
     <div class="stat-item">
-      <div class="stat-eyebrow">Total stops today</div>
-      <div class="stat-number">${tS}</div>
-      <div class="stat-sub">${tP} pallets · ${tW}t</div>
+      <div class="stat-eyebrow">Total runs today</div>
+      <div class="stat-number">${tR}</div>
+      <div class="stat-sub">${tS} stops · ${tP} pallets</div>
     </div>
     <div class="stat-item">
-      <div class="stat-eyebrow">Avg utilisation</div>
-      <div class="stat-number ${avgU>=90?'red':avgU>=75?'amber':''}">${avgU}<span style="font-size:20px;font-weight:400;color:var(--ink3)">%</span></div>
-      <div class="stat-trend ${avgU>=90?'trend-bad':avgU>=75?'trend-warn':'trend-ok'}">${avgU>=90?'⚠ High':avgU>=75?'Monitor':'Balanced'}</div>
+      <div class="stat-eyebrow">Avg pallets per trailer</div>
+      <div class="stat-number ${palCol}">${avgPal}<span style="font-size:16px;font-weight:400;color:var(--ink3)"> / ${TARGET_PALLETS}</span></div>
+      <div class="stat-trend trend-${palCol==='green'?'ok':palCol==='amber'?'warn':'bad'}">${palTrend}</div>
     </div>
     <div class="stat-item">
-      <div class="stat-eyebrow">Over capacity</div>
-      <div class="stat-number ${over>0?'red':'green'}">${over}</div>
-      <div class="stat-sub">${over===0?'All sites clear':'site'+(over>1?'s':'')+' need support'}</div>
+      <div class="stat-eyebrow">Sharing savings</div>
+      <div class="stat-number ${savings>0?'green':''}">${savings}<span style="font-size:20px;font-weight:400;color:var(--ink3)"> mi</span></div>
+      <div class="stat-sub">${opps.length} opportunit${opps.length!==1?'ies':'y'} · ~£${Math.round(savings*0.45)} est.</div>
     </div>
     <div class="stat-item">
       <div class="stat-eyebrow">Sites uploaded</div>
       <div class="stat-number">${up}<span style="font-size:20px;font-weight:400;color:var(--ink3)">/4</span></div>
       <div class="stat-sub">${4-up>0?(4-up)+' pending':'All sites submitted'}</div>
     </div>`;
+
+  // Also fix the empty state
+  document.getElementById('stat-strip'); // already set above
 }
+
 
 /* ── ALERTS ── */
 function renderAlerts(opps) {
+  const TARGET_PALLETS = 40;
   const el = document.getElementById('alerts-wrap');
   const items = [];
+
+  // Over capacity alerts
   todayData.filter(e=>e.capacity&&sumStops(e)/e.capacity>=0.9).forEach(e=>{
     const p = Math.round(sumStops(e)/e.capacity*100);
     items.push({cls:'red',t:`<strong>${SITES_META[e.site]?.name}</strong> is at ${p}% capacity — ${sumStops(e)} stops against ${e.capacity} capacity.${e.notes?' Note: '+e.notes:''}`,act:'View opportunities',tab:'sharing'});
   });
+
+  // Low pallet fill alerts — flag any site averaging 30 or below
+  todayData.forEach(e => {
+    const runs = new Set((e.routes||[]).map(r=>r.runNum||r.runLabel||r.area)).size || (e.routes||[]).length;
+    const pallets = sumPallets(e);
+    const avgPal = runs > 0 ? Math.round(pallets / runs) : 0;
+    if(runs > 0 && avgPal <= 30) {
+      const meta = SITES_META[e.site]||{};
+      items.push({
+        cls: 'red',
+        t: `<strong>${meta.name}</strong> is averaging <strong>${avgPal} pallets per trailer</strong> — well below the ${TARGET_PALLETS} target. Consider consolidating loads or checking for under-loaded runs.`,
+        act: 'View loads',
+        tab: 'loads'
+      });
+    } else if(runs > 0 && avgPal < TARGET_PALLETS && avgPal > 30) {
+      const meta = SITES_META[e.site]||{};
+      items.push({
+        cls: 'amber',
+        t: `<strong>${meta.name}</strong> is averaging <strong>${avgPal} pallets per trailer</strong> — ${TARGET_PALLETS - avgPal}p below the ${TARGET_PALLETS} target.`,
+        act: 'View loads',
+        tab: 'loads'
+      });
+    }
+  });
+
+  // Pending uploads
   const pending = Object.keys(SITES_META).filter(s=>!todayData.find(e=>e.site===s));
   if (pending.length) items.push({cls:'amber',t:`<strong>${pending.map(s=>SITES_META[s]?.name).join(', ')}</strong> ${pending.length>1?'have':'has'} not uploaded today — network view may be incomplete.`});
+
+  // Sharing opps
   if (opps.length) items.push({cls:'blue',t:`<strong>${opps.length} sharing opportunit${opps.length>1?'ies':'y'}</strong> identified — estimated combined saving of <strong>${opps.reduce((a,o)=>a+o.saving,0)} miles</strong>.`,act:'View all',tab:'sharing'});
-  el.innerHTML = items.map(a=>`
+
+  el.innerHTML = items.length ? items.map(a=>`
     <div class="alert-strip ${a.cls}">
       <div class="alert-dot"></div>
       <div class="alert-text">${a.t}</div>
       ${a.act?`<button class="alert-cta" onclick="showTab('${a.tab}')">${a.act} →</button>`:''}
-    </div>`).join('');
+    </div>`).join('') : `<div class="alert-strip blue"><div class="alert-dot"></div><div class="alert-text">All sites on target — network running well.</div></div>`;
 }
 
 /* ── SITE CARDS ── */
 function renderSiteCards() {
-  const TARGET_PALLETS = 40; // target pallets per trailer
+  const TARGET_PALLETS = 40;
   const el = document.getElementById('sites-grid');
+  // Preserve collapsed state across re-renders
+  if(!window._cardCollapsed) window._cardCollapsed = {};
+
   el.innerHTML = Object.keys(SITES_META).map(sid => {
-    const meta = SITES_META[sid];
-    const e    = todayData.find(d=>d.site===sid);
-    const isMe = sid === currentSiteId;
+    const meta      = SITES_META[sid];
+    const e         = todayData.find(d=>d.site===sid);
+    const isMe      = sid === currentSiteId;
+    const collapsed = window._cardCollapsed[sid] || false;
 
     if (!e) return `
       <div class="site-card">
@@ -3567,7 +3583,7 @@ function renderSiteCards() {
         </div>
         <div class="site-card-empty">
           <div class="empty-label">No data submitted yet today</div>
-          <button class="site-btn site-btn-navy" data-tip="Upload" onclick="showTab('upload')">Upload now →</button>
+          <button class="site-btn site-btn-navy" data-tip="Upload" onclick="showTab('vpkimport')">Import →</button>
         </div>
       </div>`;
 
@@ -3590,7 +3606,7 @@ function renderSiteCards() {
 
     return `
       <div class="site-card">
-        <div class="site-card-top">
+        <div class="site-card-top" style="cursor:pointer" onclick="_toggleCard('${sid}')">
           <div class="ring-wrap" data-tip="Avg pallets per trailer vs ${TARGET_PALLETS} target">
             ${makeRing(fillPct, meta.color)}
             <div class="ring-label">
@@ -3608,7 +3624,14 @@ function renderSiteCards() {
             ${e.notes ? `<div class="site-biz"><em style="color:var(--amber)">${e.notes}</em></div>` : ''}
             <span class="site-pill ${pillCls}">${pillLbl}</span>
           </div>
+          <div style="margin-left:auto;padding:4px 8px;color:var(--ink3);font-size:18px;line-height:1;flex-shrink:0">${collapsed?'▸':'▾'}</div>
         </div>
+        ${collapsed ? `
+        <div class="site-metrics" style="border-top:1px solid var(--rule)">
+          <div class="site-metric"><div class="site-metric-val">${runs}</div><div class="site-metric-lbl">Runs</div></div>
+          <div class="site-metric"><div class="site-metric-val">${s}</div><div class="site-metric-lbl">Stops</div></div>
+          <div class="site-metric"><div class="site-metric-val">${p}</div><div class="site-metric-lbl">Pallets</div></div>
+        </div>` : `
         <div class="site-metrics">
           <div class="site-metric"><div class="site-metric-val">${runs}</div><div class="site-metric-lbl">Runs</div></div>
           <div class="site-metric"><div class="site-metric-val">${s}</div><div class="site-metric-lbl">Stops</div></div>
@@ -3632,9 +3655,9 @@ function renderSiteCards() {
           }).join('')}
         </div>
         <div class="site-footer">
-          ${isMe?`<button class="site-btn" onclick="showTab('upload')">Edit data</button>`:''}
+          ${isMe?`<button class="site-btn" onclick="showTab('vpkimport')">Import data</button>`:''}
           <button class="site-btn site-btn-navy" onclick="showTab('sharing')">Sharing opps →</button>
-        </div>
+        </div>`}
       </div>`;
   }).join('');
 }
@@ -3899,7 +3922,7 @@ async function confirmTransfer(from, to, area) {
 /* ══════════════════════════════════════════
    TABS
 ══════════════════════════════════════════ */
-const PAGE_TITLES = { overview:'Overview', upload:'Upload data', sharing:'Load sharing', history:'History', export:'Export & share', kpi:'KPIs & performance', admin:'User admin', loads:'All loads', mapview:'Network map', chat:'Live chat', vpkimport:'VPK Import' };
+const PAGE_TITLES = { overview:'Overview', upload:'Upload data', sharing:'Load sharing', history:'History', export:'Export & share', kpi:'KPIs & performance', admin:'User admin', loads:'All loads', mapview:'Network map', chat:'Live chat', vpkimport:'Import' };
 
 function showTab(tab) {
   ['overview','upload','sharing','history','export','kpi','admin','loads','mapview','chat','vpkimport'].forEach(t => {
@@ -4015,22 +4038,10 @@ window.addEventListener('load', () => {
    DEMO USER STORE (replaced by Supabase in prod)
 ══════════════════════════════════════════ */
 let demoUsers = [
-  { id:'u1', email:'desborough@triad.com', site:'desborough', status:'active', lastActive:'Today 08:14' },
-  { id:'u2', email:'selby@partnerA.com',   site:'selby',      status:'active', lastActive:'Today 07:52' },
-  { id:'u3', email:'banbury@partnerB.com', site:'banbury',    status:'active', lastActive:'Today 08:01' },
-  { id:'u4', email:'wellington@wrings.com',site:'wellington', status:'active', lastActive:'Today 06:45' },
+  { id:'u1', email:'Macauley@premier-logistics.co.uk', site:'desborough', status:'active', lastActive:'Today' },
 ];
 
-let demoAudit = [
-  { time:'Today 08:14', action:'plan_submitted',     site:'desborough', user:'desborough@triad.com',   detail:'47 stops, 3 routes' },
-  { time:'Today 08:01', action:'plan_submitted',     site:'banbury',    user:'banbury@partnerB.com',   detail:'88 stops, 3 routes' },
-  { time:'Today 07:52', action:'plan_submitted',     site:'selby',      user:'selby@partnerA.com',     detail:'31 stops, 3 routes' },
-  { time:'Today 06:45', action:'plan_submitted',     site:'wellington', user:'wellington@wrings.com',  detail:'22 stops, 2 routes' },
-  { time:'Yesterday 16:30', action:'transfer_confirmed', site:'banbury', user:'banbury@partnerB.com', detail:'CV47/CV35 → Desborough' },
-  { time:'Yesterday 09:10', action:'plan_submitted', site:'desborough', user:'desborough@triad.com',   detail:'44 stops, 3 routes' },
-  { time:'Yesterday 08:55', action:'plan_submitted', site:'banbury',    user:'banbury@partnerB.com',   detail:'91 stops, 3 routes' },
-  { time:'Yesterday 08:32', action:'plan_submitted', site:'selby',      user:'selby@partnerA.com',     detail:'28 stops, 2 routes' },
-];
+let demoAudit = [];
 
 /* ══════════════════════════════════════════
    KPI RENDER
@@ -4233,11 +4244,32 @@ async function renderAdmin() {
   renderUserList();
 }
 
-function renderUserList() {
-  const users = demoUsers;
+async function renderUserList() {
+  let users = demoUsers;
+
+  // Pull real users from Supabase if connected
+  if (sb && isConfigured) {
+    try {
+      const { data, error } = await sb.auth.admin?.listUsers?.() || {};
+      if (data?.users?.length) {
+        users = data.users.map(u => ({
+          id: u.id,
+          email: u.email,
+          site: u.app_metadata?.site_id || '—',
+          status: u.banned_until ? 'inactive' : 'active',
+          lastActive: u.last_sign_in_at
+            ? new Date(u.last_sign_in_at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})
+            : 'Never'
+        }));
+      }
+    } catch(e) {
+      // admin API not available on client — use demoUsers
+    }
+  }
+
   document.getElementById('user-count').textContent = users.length + ' user' + (users.length!==1?'s':'');
   document.getElementById('user-list').innerHTML = users.map(u => {
-    const meta = SITES_META[u.site]||{name:u.site,color:'#888'};
+    const meta = SITES_META[u.site]||{name:u.site||'Unknown',color:'#888'};
     return `<tr>
       <td><div class="user-email">${u.email}</div></td>
       <td><span class="user-site-badge"><span style="width:7px;height:7px;border-radius:50%;background:${meta.color};display:inline-block"></span>${meta.name}</span></td>
@@ -4246,7 +4278,6 @@ function renderUserList() {
       <td>
         <div class="user-action-btns">
           <button class="ua-btn" onclick="resetPassword('${u.id}','${u.email}')">Reset pw</button>
-          <button class="ua-btn" onclick="toggleUser('${u.id}')">${u.status==='active'?'Deactivate':'Activate'}</button>
           <button class="ua-btn ua-btn-red" onclick="deleteUser('${u.id}','${u.email}')">Remove</button>
         </div>
       </td>
@@ -4528,7 +4559,7 @@ function loadsShowOverview() {
 
   if (!todayData.length) {
     document.getElementById('loads-summary').innerHTML = '';
-    document.getElementById('loads-network-grid').innerHTML = '<div class="loads-empty">No delivery data for today. Upload data from the Upload tab.</div>';
+    document.getElementById('loads-network-grid').innerHTML = '<div class="loads-empty">No delivery data for today. Upload data from the Import tab.</div>';
     return;
   }
 
@@ -4615,7 +4646,7 @@ function loadsDrillDown(sid) {
       <div style="text-align:center;padding:60px 20px;color:var(--ink3)">
         <div style="font-family:var(--font-head);font-size:18px;font-weight:700;color:var(--ink);margin-bottom:8px">${meta.name} — No data uploaded today</div>
         <div style="font-size:13px;margin-bottom:20px">Ask the ${meta.name} team to upload their daily delivery plan.</div>
-        ${sid===currentSiteId?`<button class="submit-btn" style="display:inline-block;width:auto;padding:10px 24px" onclick="showTab('upload')">Upload now →</button>`:''}
+        ${sid===currentSiteId?`<button class="submit-btn" style="display:inline-block;width:auto;padding:10px 24px" onclick="showTab('vpkimport')">Import →</button>`:''}
       </div>`;
     return;
   }
@@ -4637,7 +4668,7 @@ function loadsDrillDown(sid) {
         <div class="loads-drilldown-sub">${meta.biz}</div>
       </div>
       <span style="padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;font-family:var(--font-mono);background:${pillBg};color:${pillCol};margin-left:auto">${pct}% utilisation</span>
-      ${isMe?`<button class="site-btn site-btn-navy" onclick="showTab('upload')" style="margin-left:8px">Edit data</button>`:''}
+      ${isMe?`<button class="site-btn site-btn-navy" onclick="showTab('vpkimport')" style="margin-left:8px">Import data</button>`:''}
     </div>
 
     <div class="loads-drilldown-stats">
@@ -7445,7 +7476,30 @@ window.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-// ── Map panel toggle ──
+// ── Populate login screen partner logos ──
+(function() {
+  const loginLogos = document.getElementById('login-logos');
+  if (!loginLogos) return;
+  // Show unique logos (Premier, Campeys, Wrings — deduplicate Wrings)
+  const shown = new Set();
+  Object.values(SITES_META).forEach(meta => {
+    if (!meta.logo || shown.has(meta.biz)) return;
+    shown.add(meta.biz);
+    const img = document.createElement('img');
+    img.src = meta.logo;
+    img.alt = meta.biz;
+    img.style.cssText = 'height:32px;max-width:110px;object-fit:contain;opacity:0.7;filter:brightness(0) invert(1)';
+    img.title = meta.biz;
+    loginLogos.appendChild(img);
+  });
+})();
+
+window._toggleCard = function(sid) {
+  if(!window._cardCollapsed) window._cardCollapsed = {};
+  window._cardCollapsed[sid] = !window._cardCollapsed[sid];
+  renderSiteCards();
+};
+
 window._mapTogglePanel = function() {
   const panel   = document.getElementById('map-panel');
   const restore = document.getElementById('map-panel-restore');
