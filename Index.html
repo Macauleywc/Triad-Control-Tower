@@ -3540,18 +3540,19 @@ function renderAlerts(opps) {
 
 /* ── SITE CARDS ── */
 function renderSiteCards() {
+  const TARGET_PALLETS = 40; // target pallets per trailer
   const el = document.getElementById('sites-grid');
   el.innerHTML = Object.keys(SITES_META).map(sid => {
     const meta = SITES_META[sid];
-    const e = todayData.find(d=>d.site===sid);
+    const e    = todayData.find(d=>d.site===sid);
     const isMe = sid === currentSiteId;
 
     if (!e) return `
       <div class="site-card">
         <div class="site-card-top">
-          <div class="ring-wrap" data-tip="Utilisation">
+          <div class="ring-wrap" data-tip="Avg pallets per trailer">
             ${makeRing(0, meta.color)}
-            <div class="ring-label" data-tip="Utilisation"><div class="ring-pct" style="color:var(--ink3)">—</div><div class="ring-unit">util</div></div>
+            <div class="ring-label"><div class="ring-pct" style="color:var(--ink3)">—</div><div class="ring-unit">p/tr</div></div>
           </div>
           <div class="site-info">
             <div class="site-accent-bar" style="background:${meta.color}20"></div>
@@ -3569,21 +3570,31 @@ function renderSiteCards() {
         </div>
       </div>`;
 
-    const s = sumStops(e), p = sumPallets(e), w = sumWeight(e).toFixed(1);
-    const cap = e.capacity||80, pct = Math.min(Math.round(s/cap*100), 999);
-    const pillCls = pct>=90?'pill-over':pct>=75?'pill-warn':'pill-ok';
-    const pillLbl = pct>=90?'Over capacity':pct>=75?'Near capacity':'On track';
-    const ringCol = meta.color;
-    const maxStops = Math.max(...(e.routes||[]).map(r=>Number(r.stops||0)), 1);
+    const s = sumStops(e);
+    const p = sumPallets(e);
+    const w = sumWeight(e).toFixed(1);
+
+    // Count distinct runs
+    const runSet = new Set((e.routes||[]).map(r => r.runNum||r.runLabel||r.area));
+    const runs   = runSet.size || (e.routes||[]).length;
+
+    // Avg pallets per trailer vs target of 40
+    const avgPal    = runs > 0 ? Math.round(p / runs) : 0;
+    const fillPct   = Math.min(Math.round(avgPal / TARGET_PALLETS * 100), 100);
+    const ringCol   = avgPal >= TARGET_PALLETS ? 'var(--green)' : avgPal >= 30 ? 'var(--amber)' : 'var(--red)';
+    const pillCls   = avgPal >= TARGET_PALLETS ? 'pill-ok' : avgPal >= 30 ? 'pill-warn' : 'pill-over';
+    const pillLbl   = avgPal >= TARGET_PALLETS ? `On target (${TARGET_PALLETS}p)` : avgPal >= 30 ? 'Below target' : 'Well below target';
+
+    const maxPal = Math.max(...(e.routes||[]).map(r=>Number(r.pallets||0)), 1);
 
     return `
       <div class="site-card">
         <div class="site-card-top">
-          <div class="ring-wrap">
-            ${makeRing(pct, ringCol)}
-            <div class="ring-label" data-tip="Utilisation">
-              <div class="ring-pct" style="color:${pct>=90?'var(--red)':pct>=75?'var(--amber)':meta.color}">${pct}</div>
-              <div class="ring-unit">%</div>
+          <div class="ring-wrap" data-tip="Avg pallets per trailer vs ${TARGET_PALLETS} target">
+            ${makeRing(fillPct, meta.color)}
+            <div class="ring-label">
+              <div class="ring-pct" style="color:${avgPal>=TARGET_PALLETS?meta.color:avgPal>=30?'var(--amber)':'var(--red)'}">${avgPal}</div>
+              <div class="ring-unit">p/tr</div>
             </div>
           </div>
           <div class="site-info">
@@ -3598,32 +3609,35 @@ function renderSiteCards() {
           </div>
         </div>
         <div class="site-metrics">
+          <div class="site-metric"><div class="site-metric-val">${runs}</div><div class="site-metric-lbl">Runs</div></div>
           <div class="site-metric"><div class="site-metric-val">${s}</div><div class="site-metric-lbl">Stops</div></div>
           <div class="site-metric"><div class="site-metric-val">${p}</div><div class="site-metric-lbl">Pallets</div></div>
-          <div class="site-metric"><div class="site-metric-val">${w}t</div><div class="site-metric-lbl">Weight</div></div>
         </div>
         <div class="site-routes">
-          <div class="routes-header"><span>Route area</span><span>Stops</span><span>Pallets</span><span>Weight</span></div>
+          <div class="routes-header"><span>Route</span><span>Stops</span><span>Pallets</span><span>Avg fill</span></div>
           ${(e.routes||[]).map(r => {
-            const rPct = Math.round(Number(r.stops||0)/maxStops*100);
+            const rAvg = Number(r.pallets||0);
+            const rFill = Math.round(rAvg/TARGET_PALLETS*100);
+            const rCol = rAvg>=TARGET_PALLETS?'var(--green)':rAvg>=30?'var(--amber)':'var(--red)';
             return `<div class="route-row">
               <div class="route-area">
-                <div class="route-bar"><div class="route-bar-fill" style="width:${rPct}%;background:${meta.color}"></div></div>
-                ${r.area}
+                <div class="route-bar"><div class="route-bar-fill" style="width:${Math.min(rFill,100)}%;background:${meta.color}"></div></div>
+                ${r.runLabel||r.area}
               </div>
               <div class="route-val">${r.stops}</div>
               <div class="route-val">${r.pallets}</div>
-              <div class="route-val">${Number(r.weight||0).toFixed(1)}t</div>
+              <div class="route-val" style="color:${rCol};font-weight:600">${rFill}%</div>
             </div>`;
           }).join('')}
         </div>
         <div class="site-footer">
-          ${isMe?`<button class="site-btn" data-tip="Edit" onclick="showTab('upload')">Edit data</button>`:''}
+          ${isMe?`<button class="site-btn" onclick="showTab('upload')">Edit data</button>`:''}
           <button class="site-btn site-btn-navy" onclick="showTab('sharing')">Sharing opps →</button>
         </div>
       </div>`;
   }).join('');
 }
+
 
 /* ── OPPS MINI ── */
 function renderOppsMini(opps) {
