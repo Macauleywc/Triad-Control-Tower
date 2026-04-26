@@ -2321,7 +2321,7 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
         <div class="date-nav" id="date-nav">
           <button class="date-nav-btn" id="date-prev" onclick="navDate(-1)" data-tip="Previous day">&#8249;</button>
           <div class="date-nav-label" id="page-date"></div>
-          <button class="date-nav-btn" id="date-next" onclick="navDate(1)" data-tip="Next day" disabled>&#8250;</button>
+          <button class="date-nav-btn" id="date-next" onclick="navDate(1)" data-tip="Next day">&#8250;</button>
           <span class="date-nav-today" id="date-today-btn" onclick="navToToday()" style="display:none">Today</span>
         </div>
       </div>
@@ -3209,13 +3209,15 @@ function updateDateNav() {
 }
 
 function navDate(delta) {
-  const d = viewDateObj();
+  // Parse current viewDate safely as local date
+  const parts = viewDate.split('-').map(Number);
+  const d = new Date(parts[0], parts[1]-1, parts[2]);
   d.setDate(d.getDate() + delta);
-  // Use local date parts to avoid UTC timezone shift
-  const y = d.getFullYear();
-  const m = String(d.getMonth()+1).padStart(2,'0');
+  // Build YYYY-MM-DD from local date parts only — never use toISOString (UTC drift)
+  const y   = d.getFullYear();
+  const mon = String(d.getMonth()+1).padStart(2,'0');
   const day = String(d.getDate()).padStart(2,'0');
-  viewDate = `${y}-${m}-${day}`;
+  viewDate = `${y}-${mon}-${day}`;
   updateDateNav();
   loadDateData();
 }
@@ -6292,24 +6294,26 @@ async function processXlsxSheet(ws, sourceName, wb) {
   if(badge) { badge.className = 'sheets-status syncing'; badge.textContent = 'Reading…'; }
 
   try {
-    // ── Detect Banbury weekly planner format (multiple day sheets) ──
-    const isBanbury = wb && wb.SheetNames.some(n => ['monday','tuesday','wednesday','thursday','friday'].includes(n.toLowerCase()));
+    // ── Detect Banbury planner format ──
+    const daySheetNames = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+    const isMultiDayBanbury = wb && wb.SheetNames.some(n => daySheetNames.includes(n.toLowerCase()));
+    const firstRows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false}).slice(0,12);
+    const isSingleBanbury = !isMultiDayBanbury && firstRows.some(r => r && String(r[0]||'').match(/^route/i));
 
     let stops = [];
 
-    if(isBanbury) {
-      // Parse all day sheets that match the viewDate
+    if(isMultiDayBanbury) {
       const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-      const viewDateObj = viewDate ? new Date(viewDate.split('/').reverse().join('-')) : new Date();
-      const targetDay   = dayNames[viewDateObj.getDay()].toLowerCase();
-
-      // Find the sheet matching today's date
-      const matchSheet = wb.SheetNames.find(n => n.toLowerCase() === targetDay) || wb.SheetNames.find(n => ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'].includes(n.toLowerCase()));
-
+      const parts = viewDate.split('-').map(Number);
+      const vd = new Date(parts[0], parts[1]-1, parts[2]);
+      const targetDay = dayNames[vd.getDay()].toLowerCase();
+      const matchSheet = wb.SheetNames.find(n => n.toLowerCase() === targetDay)
+        || wb.SheetNames.find(n => daySheetNames.includes(n.toLowerCase()));
       if(!matchSheet) throw new Error('No matching day sheet found for ' + targetDay);
+      stops = parseBanburySheet(wb.Sheets[matchSheet], matchSheet);
 
-      const dayWs = wb.Sheets[matchSheet];
-      stops = parseBanburySheet(dayWs, matchSheet);
+    } else if(isSingleBanbury) {
+      stops = parseBanburySheet(ws, sourceName);
 
     } else {
       // ── Generic Excel format ──
@@ -6396,7 +6400,7 @@ async function processXlsxSheet(ws, sourceName, wb) {
     }
 
     renderAll();
-    showSheetsMsg('✓ ' + stops.length + ' stops loaded from ' + sourceName + (isBanbury?' (Banbury weekly plan)':''), 'ok');
+    showSheetsMsg('✓ ' + stops.length + ' stops loaded from ' + sourceName + (isMultiDayBanbury||isSingleBanbury?' (Banbury plan)':''), 'ok');
 
   } catch(err) {
     showSheetsMsg('Error: ' + err.message, 'err');
