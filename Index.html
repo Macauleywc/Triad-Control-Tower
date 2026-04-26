@@ -3913,7 +3913,7 @@ function showTab(tab) {
   if (tab==='mapview') renderMap();
   if (tab==='chat')    initChat();
   if (tab==='vpkimport') initVpkTab();
-}
+  if (tab==='sharing') renderAllOpps(computeOpps(todayData));
 
 /* ══════════════════════════════════════════
    EXPORT
