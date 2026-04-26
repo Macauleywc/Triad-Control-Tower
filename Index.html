@@ -6416,30 +6416,38 @@ function parseBanburySheet(ws, sheetName) {
   let headerFound = false;
   let sheetDate = ''; // Date extracted from the file
 
-  // Extract date from row 3 (index 2), col D (index 3)
+  // Extract date from file — handle multiple formats
+  const MONTHS = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
   for(let i=0; i<Math.min(8, allRows.length); i++){
     const row = allRows[i];
     if(!row) continue;
     for(let c=0; c<row.length; c++){
-      const v = row[c];
-      if(String(v||'').toLowerCase().trim() === 'date'){
-        // Date is in next few columns
-        for(let d=1; d<=5; d++){
-          const dv = row[c+d];
-          if(dv instanceof Date){
-            const dy = dv.getFullYear();
-            const dm = String(dv.getMonth()+1).padStart(2,'0');
-            const dd = String(dv.getDate()).padStart(2,'0');
-            sheetDate = `${dy}-${dm}-${dd}`;
-            break;
-          } else if(dv && String(dv).match(/\d{2}\/\d{2}\/\d{4}/)){
-            const parts = String(dv).split('/');
-            sheetDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
-            break;
-          }
+      if(String(row[c]||'').toLowerCase().trim() !== 'date') continue;
+      for(let d=1; d<=5; d++){
+        const dv = row[c+d];
+        if(!dv) continue;
+        // Date object
+        if(dv instanceof Date){
+          sheetDate = dv.getFullYear()+'-'+String(dv.getMonth()+1).padStart(2,'0')+'-'+String(dv.getDate()).padStart(2,'0');
+          break;
         }
-        break;
+        const s = String(dv).trim();
+        // "20-Apr-26" or "20-Apr-2026"
+        const m1 = s.match(/^(\d{1,2})[\/\-]([A-Za-z]{3})[\/\-](\d{2,4})$/);
+        if(m1){
+          const y = m1[3].length===2 ? '20'+m1[3] : m1[3];
+          const mo = String(MONTHS[m1[2].toLowerCase()]||1).padStart(2,'0');
+          sheetDate = y+'-'+mo+'-'+m1[1].padStart(2,'0');
+          break;
+        }
+        // "20/04/2026"
+        const m2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if(m2){ sheetDate = m2[3]+'-'+m2[2].padStart(2,'0')+'-'+m2[1].padStart(2,'0'); break; }
+        // "2026-04-20"
+        const m3 = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if(m3){ sheetDate = s; break; }
       }
+      break;
     }
     if(sheetDate) break;
   }
