@@ -78,8 +78,9 @@ button, input, select, textarea { font-family: var(--font-body); }
 .login-bg {
   position: absolute; inset: 0;
   background:
-    radial-gradient(ellipse 700px 500px at 80% 20%, rgba(0,194,255,0.08) 0%, transparent 60%),
-    radial-gradient(ellipse 500px 400px at 10% 80%, rgba(0,194,255,0.05) 0%, transparent 60%);
+    radial-gradient(ellipse 800px 600px at 75% 15%, rgba(232,81,10,0.12) 0%, transparent 55%),
+    radial-gradient(ellipse 600px 500px at 15% 85%, rgba(0,194,255,0.08) 0%, transparent 55%),
+    radial-gradient(ellipse 400px 400px at 50% 50%, rgba(255,255,255,0.02) 0%, transparent 70%);
 }
 
 /* grid lines decoration */
@@ -93,12 +94,13 @@ button, input, select, textarea { font-family: var(--font-body); }
 
 .login-panel {
   position: relative; z-index: 1;
-  width: 440px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.10);
-  border-radius: var(--r-lg);
-  padding: 48px;
-  backdrop-filter: blur(20px);
+  width: 460px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px;
+  padding: 52px 48px 40px;
+  backdrop-filter: blur(24px);
+  box-shadow: 0 32px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05) inset;
 }
 
 .login-eyebrow {
@@ -2163,7 +2165,7 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
   <div class="login-bg"></div>
   <div class="login-grid"></div>
   <div class="login-panel">
-    <div class="login-eyebrow">Triad Control Tower</div>
+    <div class="login-eyebrow" style="display:flex;align-items:center;gap:8px"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--orange)"></span>Triad Control Tower</div>
     <div class="login-title">Good to see<br>you back.</div>
     <div class="login-sub">Sign in with your site credentials to access the network.</div>
     <label class="login-label">Email address</label>
@@ -2172,8 +2174,11 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
     <input type="password" class="login-input" id="login-pass" placeholder="••••••••" autocomplete="current-password">
     <button class="login-btn" id="login-btn" onclick="doLogin()">Sign in →</button>
     <div class="login-err" id="login-err">Invalid email or password. Please try again.</div>
-    <div class="login-hint">Each site has a unique login · Contact admin for access</div>
-    <div style="margin-top:28px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap" id="login-logos"></div>
+    <div class="login-hint" style="text-align:center;margin-top:16px">Each site has a unique login · Contact <a href="mailto:Macauley@premier-logistics.co.uk" style="color:rgba(255,255,255,0.4);text-decoration:none">Macauley</a> for access</div>
+    <div style="margin-top:28px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.08)">
+      <div style="text-align:center;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,0.2);margin-bottom:14px">Network partners</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap" id="login-logos"></div>
+    </div>
   </div>
 </div>
 
@@ -7488,7 +7493,7 @@ window.addEventListener('DOMContentLoaded', function() {
     const img = document.createElement('img');
     img.src = meta.logo;
     img.alt = meta.biz;
-    img.style.cssText = 'height:32px;max-width:110px;object-fit:contain;opacity:0.7;filter:brightness(0) invert(1)';
+    img.style.cssText = 'height:32px;max-width:110px;object-fit:contain;opacity:0.55;filter:grayscale(1) brightness(10)';
     img.title = meta.biz;
     loginLogos.appendChild(img);
   });
