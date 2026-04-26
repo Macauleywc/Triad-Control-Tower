@@ -3158,18 +3158,13 @@ async function doLogout() {
 );
 
 function enterApp() {
-  const pill = document.getElementById('sb-site-pill');
-  if(pill) pill.classList.add('visible');
+  // pill removed
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   const meta = SITES_META[currentSiteId] || { name: currentSiteId, biz: '', color: '#333' };
-  document.getElementById('sb-dot').style.background = meta.color;
-  document.getElementById('sb-site-name').textContent = meta.name;
-  document.getElementById('sb-site-biz').textContent = currentUser?.email || 'demo';
+  // site pill removed
   if (meta.logo) {
-    const img = document.getElementById('sb-logo-img');
-    img.src = meta.logo; img.style.display = 'block';
-    document.getElementById('sb-logo-fallback').style.display = 'none';
+    // site logo removed
   }
   viewDate = todayStr();
   updateDateNav();
@@ -4065,9 +4060,7 @@ window.addEventListener('load', () => {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     const meta = SITES_META[currentSiteId];
-    document.getElementById('sb-dot').style.background = meta.color;
-    document.getElementById('sb-site-name').textContent = meta.name;
-    document.getElementById('sb-site-biz').textContent = 'demo mode';
+    // site pill removed
     if (meta.logo) {
       const img = document.getElementById('sb-logo-img');
       img.src = meta.logo; img.style.display = 'block';
