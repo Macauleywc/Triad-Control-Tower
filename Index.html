@@ -7143,7 +7143,7 @@ function vpkLoadBanburyStops(stops) {
   document.getElementById('vpk-preview-body').innerHTML = rows.slice(0,20).map(r=>`
     <tr><td>${r.runLabel}</td><td>${r.customer}</td><td>${r.postal}</td><td>${r.pallets}</td><td>${r.delivTime||'—'}</td></tr>
   `).join('');
-  document.getElementById('vpk-preview').style.display = '';
+  document.getElementById('vpk-preview-wrap').style.display = '';
   vpkShowMsg('✓ Banbury plan loaded — ' + rows.length + ' stops found', 'ok');
 }
 
