@@ -7041,11 +7041,33 @@ function vpkHandleFile(input) {
   const reader = new FileReader();
   reader.onload = e => {
     try {
-      // Try XLSX library if available
       if (window.XLSX) {
         const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
         const ws = wb.Sheets[wb.SheetNames[0]];
-        vpkParseWorksheet(ws, file.name);
+
+        // Detect Banbury format — has Route-X pattern in col 0
+        const daySheetNames = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+        const isMultiDay = wb.SheetNames.some(n => daySheetNames.includes(n.toLowerCase()));
+        const firstRows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false}).slice(0,12);
+        const isBanbury = isMultiDay || firstRows.some(r => r && String(r[0]||'').match(/^route/i));
+
+        if(isBanbury) {
+          let parseWs = ws;
+          if(isMultiDay) {
+            const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+            const parts = viewDate.split('-').map(Number);
+            const vd = new Date(parts[0], parts[1]-1, parts[2]);
+            const targetDay = dayNames[vd.getDay()].toLowerCase();
+            const matchSheet = wb.SheetNames.find(n => n.toLowerCase() === targetDay)
+              || wb.SheetNames.find(n => daySheetNames.includes(n.toLowerCase()));
+            if(matchSheet) parseWs = wb.Sheets[matchSheet];
+          }
+          const stops = parseBanburySheet(parseWs, file.name);
+          if(!stops.length) { vpkShowMsg('No delivery rows found in Banbury plan.', 'err'); return; }
+          vpkLoadBanburyStops(stops);
+        } else {
+          vpkParseWorksheet(ws, file.name);
+        }
       } else {
         vpkShowMsg('XLSX library not loaded. Please try again.', 'err');
       }
@@ -7089,7 +7111,43 @@ function vpkSplitCSV(line) {
   return result;
 }
 
-// ── Core VPK parser (same logic as vpkimport.netlify.app) ──
+// Convert Banbury parsed stops into Triad data format and load
+function vpkLoadBanburyStops(stops) {
+  // Filter out stops with no postcode and no useful data
+  const validStops = stops.filter(s => s.postcode && s.name && !s.name.match(/^T\d{3}/) && s.name.length < 60);
+
+  if(!validStops.length) { vpkShowMsg('No valid delivery stops found — check postcodes are filled in.', 'err'); return; }
+
+  // Build fake vpkParsedRows format grouped by route
+  const rows = validStops.map((s, i) => ({
+    ship:       s.loadNum || s.loadRef,
+    runNum:     s.loadRef,
+    runLabel:   s.loadRef,
+    multiLoad:  false,
+    runShips:   [s.loadNum || s.loadRef],
+    checkIn:    s.time || '',
+    collDate:   viewDate,
+    customer:   s.name,
+    postal:     s.postcode,
+    planDate:   viewDate,
+    delivTime:  s.time || '',
+    pallets:    s.pallets || 0,
+    netWeight:  (s.pallets || 0) * 200,
+  }));
+
+  const totalPallets = rows.reduce((a,r)=>a+r.pallets, 0);
+  const loads = new Set(rows.map(r=>r.runLabel)).size;
+
+  vpkParsedRows = rows;
+  document.getElementById('vpk-preview-count').textContent = `${rows.length} stops · ${totalPallets} pallets · ${loads} routes · ${viewDate}`;
+  document.getElementById('vpk-preview-body').innerHTML = rows.slice(0,20).map(r=>`
+    <tr><td>${r.runLabel}</td><td>${r.customer}</td><td>${r.postal}</td><td>${r.pallets}</td><td>${r.delivTime||'—'}</td></tr>
+  `).join('');
+  document.getElementById('vpk-preview').style.display = '';
+  vpkShowMsg('✓ Banbury plan loaded — ' + rows.length + ' stops found', 'ok');
+}
+
+
 function vpkParseWorksheet(ws, fname) {
   if (!ws || !ws['!ref']) { vpkShowMsg('Empty worksheet.', 'err'); return; }
   const ref = XLSX.utils.decode_range(ws['!ref']);
