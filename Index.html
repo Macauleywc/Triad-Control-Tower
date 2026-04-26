@@ -6254,18 +6254,131 @@ window.setSite = function(btn, sid) {
 function handleFileUpload(input) {
   const file = input.files?.[0];
   if (!file) return;
+  const isXlsx = /\.(xlsx|xls|xlsm)$/i.test(file.name);
   const reader = new FileReader();
-  reader.onload = async (e) => {
-    const text = e.target.result;
-    // Detect if it's a binary Excel file (starts with PK or BIFF header)
-    if (text.charCodeAt(0) === 0x50 && text.charCodeAt(1) === 0x4B) {
-      showSheetsMsg('Excel .xlsx files cannot be read directly. Please save as CSV first: File → Save As → CSV (Comma delimited), then upload that file.', 'err');
-      return;
+
+  if (isXlsx) {
+    reader.onload = async (e) => {
+      try {
+        const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        await processXlsxSheet(ws, file.name);
+      } catch(err) {
+        showSheetsMsg('Could not read Excel file: ' + err.message, 'err');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    reader.onload = async (e) => {
+      await processCsvText(e.target.result, file.name);
+    };
+    reader.readAsText(file);
+  }
+  input.value = '';
+}
+
+async function processXlsxSheet(ws, sourceName) {
+  const site   = uploadTargetSite || currentSiteId;
+  const badge  = document.getElementById('sheets-status-badge');
+  const howTo  = document.getElementById('sheets-how-to');
+  if(badge) { badge.className = 'sheets-status syncing'; badge.textContent = 'Reading…'; }
+
+  try {
+    // Find header row — look for row containing 'Load Number' or 'load_ref' or 'Postcode'
+    const allRows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false});
+    
+    let headerRowIdx = -1;
+    let headers = [];
+    for(let i=0;i<allRows.length;i++){
+      const row = allRows[i].map(v=>String(v||'').toLowerCase().trim());
+      if(row.some(v=>v.includes('load') || v.includes('postcode') || v.includes('delivery'))){
+        headerRowIdx = i;
+        headers = row;
+        break;
+      }
     }
-    await processCsvText(text, file.name);
-  };
-  reader.readAsText(file);
-  input.value = ''; // reset so same file can be re-uploaded
+
+    if(headerRowIdx === -1) throw new Error('Could not find header row. Make sure the file has columns like Load Number, Customer, Postcode, Pallets.');
+
+    // Map header names to indices
+    function findCol(...names) {
+      for(const n of names){
+        const idx = headers.findIndex(h=>h.includes(n.toLowerCase()));
+        if(idx>=0) return idx;
+      }
+      return -1;
+    }
+
+    const colLoad     = findCol('load number','load_ref','load ref','load no','shipment');
+    const colCustomer = findCol('customer','delivery_name','name','ship-to','shipto');
+    const colDest     = findCol('destination','delivery_postcode','postcode','postal');
+    const colPallets  = findCol('pallet','pallets','pallet qty','qty');
+    const colTime     = findCol('booking time','delivery_time','time','del time');
+
+    const stops = [];
+    for(let i=headerRowIdx+1; i<allRows.length; i++){
+      const row = allRows[i];
+      if(!row || !row.some(v=>v)) continue;
+
+      // Skip sub-header rows
+      const firstVal = String(row[0]||'').trim();
+      if(!firstVal || firstVal.toLowerCase().includes('vehicle') || firstVal.toLowerCase().includes('order no')) continue;
+
+      const loadRef  = colLoad>=0  ? String(row[colLoad]||'').trim()  : 'RUN1';
+      const name     = colCustomer>=0 ? String(row[colCustomer]||'').trim() : '';
+      const postcode = colDest>=0  ? String(row[colDest]||'').toUpperCase().trim() : '';
+      const pallets  = colPallets>=0 ? Number(String(row[colPallets]||'').replace(/,/g,''))||0 : 0;
+      const time     = colTime>=0  ? String(row[colTime]||'').trim() : '';
+
+      if(!name && !postcode) continue;
+      if(!loadRef) continue;
+
+      stops.push({ loadRef, name, postcode, pallets, time });
+    }
+
+    if(!stops.length) throw new Error('No delivery rows found in Excel file. Check the file has Load Number, Customer and Postcode columns.');
+
+    showSheetsPreview(stops.slice(0,5));
+    if(howTo) howTo.style.display = 'none';
+
+    // Group by load ref and postcode district
+    const districtMap = {};
+    stops.forEach(s => {
+      const district = s.postcode.match(/^([A-Z]{1,2}[0-9]{1,2})/)?.[1] || s.postcode.slice(0,4).trim() || 'Other';
+      const key = s.loadRef + '||' + district;
+      if(!districtMap[key]) districtMap[key] = { loadRef:s.loadRef, district, area:s.loadRef+' · '+district, postcodes:district, stops_list:[], pallets:0 };
+      districtMap[key].stops_list.push(s);
+      districtMap[key].pallets += s.pallets;
+    });
+    const routes = Object.values(districtMap).map(d => ({
+      site_id:site, area:d.area, postcodes:d.postcodes,
+      stops:d.stops_list.length, pallets:d.pallets, weight_t:0, stops_detail:d.stops_list,
+    }));
+
+    if(sb && isConfigured){
+      const cap   = Number(document.getElementById('f-cap')?.value) || 80;
+      const notes = document.getElementById('f-notes')?.value.trim() || '';
+      const {data:plan, error:pe} = await sb.from('daily_plans')
+        .upsert({site_id:site, plan_date:viewDate, capacity:cap, notes, uploaded_by:(currentUser?.email||'') + ' (Excel upload)'},
+                {onConflict:'site_id,plan_date'}).select().single();
+      if(!pe){
+        await sb.from('routes').delete().eq('plan_id', plan.id);
+        await sb.from('routes').insert(routes.map(r=>({...r, plan_id:plan.id})));
+      }
+    } else {
+      todayData = todayData.filter(e=>e.site!==site);
+      todayData.push({site, date:viewDate, capacity:80, notes:'(Excel upload)', uploaded_by:'Excel', routes});
+      allData = allData.filter(e=>!(e.site===site&&e.date===viewDate));
+      allData.push(todayData[todayData.length-1]);
+      saveLocal();
+    }
+
+    renderAll();
+    showSheetsMsg('✓ ' + stops.length + ' stops loaded from ' + sourceName, 'ok');
+
+  } catch(err) {
+    showSheetsMsg('Error: ' + err.message, 'err');
+  }
 }
 
 async function processCsvText(csv, sourceName) {
