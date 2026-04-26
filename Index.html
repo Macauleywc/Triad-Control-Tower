@@ -17,9 +17,9 @@
    TOKENS
 ══════════════════════════════════════════ */
 :root {
-  --cream:   #F2F4F7;
-  --cream2:  #E8ECF1;
-  --cream3:  #D8DDE6;
+  --cream:   #F0F2F5;
+  --cream2:  #E4E8EE;
+  --cream3:  #D1D8E4;
   --ink:     #0D1825;
   --ink2:    #3A4552;
   --ink3:    #7A8694;
@@ -50,7 +50,7 @@
 html { scroll-behavior: smooth; }
 
 body {
-  background: var(--cream);
+  background: #ECEEF2;
   color: var(--ink);
   font-family: var(--font-body);
   font-size: 14px;
@@ -228,7 +228,7 @@ button, input, select, textarea { font-family: var(--font-body); }
   position: fixed;
   top: 0; left: 0; bottom: 0;
   width: var(--sidebar-w);
-  background: var(--navy);
+  background: #0a1e33;
   display: flex;
   flex-direction: column;
   z-index: 200;
@@ -280,9 +280,12 @@ button, input, select, textarea { font-family: var(--font-body); }
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 8px;
   padding: 10px 12px;
-  display: flex;
+  display: none;
   align-items: center;
   gap: 8px;
+}
+.sb-site-pill.visible {
+  display: flex;
 }
 
 .sb-site-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
@@ -310,8 +313,8 @@ button, input, select, textarea { font-family: var(--font-body); }
 
 .sb-nav-label {
   font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.1em;
+  font-size: 9px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(255,255,255,0.25);
   padding: 8px 12px 4px;
@@ -499,6 +502,7 @@ button, input, select, textarea { font-family: var(--font-body); }
   padding: 24px 28px;
   border-right: 1px solid var(--rule);
   position: relative;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 
 .stat-item:last-child { border-right: none; }
@@ -2194,7 +2198,7 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
   <div class="login-left">
     <div style="flex:1">
       <div style="font-family:var(--font-head);font-size:48px;font-weight:900;color:#fff;line-height:1;letter-spacing:-2px;margin-bottom:16px">Triad<br>Control<br>Tower</div>
-      <div style="font-size:14px;color:rgba(255,255,255,0.4);line-height:1.6;max-width:260px">Real-time coordination across your 3PL network. Four depots, one view.</div>
+      <div style="font-size:14px;color:rgba(255,255,255,0.4);line-height:1.6;max-width:260px">One network. Four depots. Total visibility.</div>
     </div>
     <div>
       <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,0.2);margin-bottom:16px">Network partners</div>
@@ -2230,14 +2234,19 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
 
   <!-- SIDEBAR -->
   <aside class="sidebar">
-    <div class="sb-logo">
-      <div style="padding:4px 0">
-        <div class="sb-name">Control Tower</div>
-        <div class="sb-tagline">Triad Network</div>
+    <div class="sb-logo" style="padding:20px 16px 12px;border-bottom:1px solid rgba(255,255,255,0.06)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:32px;height:32px;background:var(--orange);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="7" width="3" height="7" rx="1" fill="white"/><rect x="6" y="4" width="3" height="10" rx="1" fill="white"/><rect x="11" y="1" width="3" height="13" rx="1" fill="white"/></svg>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#fff;font-family:var(--font-head);letter-spacing:-0.2px">Control Tower</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.3);font-family:var(--font-mono);letter-spacing:.05em;text-transform:uppercase">Triad Network</div>
+        </div>
       </div>
     </div>
 
-    <div class="sb-site-pill" id="sb-site-pill" style="display:none">
+    <div class="sb-site-pill" id="sb-site-pill">
       <img id="sb-logo-img" src="" alt="" style="height:28px;max-width:90px;object-fit:contain;display:none;filter:brightness(0) invert(1);opacity:0.85">
       <div id="sb-logo-fallback">
         <div class="sb-site-dot" id="sb-dot"></div>
@@ -3160,7 +3169,7 @@ async function doLogout() {
 
 function enterApp() {
   const pill = document.getElementById('sb-site-pill');
-  if(pill) pill.style.display = 'flex';
+  if(pill) pill.classList.add('visible');
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   const meta = SITES_META[currentSiteId] || { name: currentSiteId, biz: '', color: '#333' };
