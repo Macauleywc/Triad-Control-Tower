@@ -3197,7 +3197,7 @@ function updateDateNav() {
   const el = document.getElementById('page-date');
   if (el) el.textContent = fmtViewDate();
   const nextBtn = document.getElementById('date-next');
-  if (nextBtn) nextBtn.disabled = isToday();
+  if (nextBtn) nextBtn.disabled = false;
   const todayBtn = document.getElementById('date-today-btn');
   if (todayBtn) todayBtn.style.display = isToday() ? 'none' : 'inline';
 }
@@ -3205,8 +3205,6 @@ function updateDateNav() {
 function navDate(delta) {
   const d = viewDateObj();
   d.setDate(d.getDate() + delta);
-  // Don't go into the future
-  if (d > new Date()) return;
   viewDate = d.toISOString().split('T')[0];
   updateDateNav();
   loadDateData();
@@ -6262,7 +6260,7 @@ function handleFileUpload(input) {
       try {
         const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
         const ws = wb.Sheets[wb.SheetNames[0]];
-        await processXlsxSheet(ws, file.name);
+        await processXlsxSheet(ws, file.name, wb);
       } catch(err) {
         showSheetsMsg('Could not read Excel file: ' + err.message, 'err');
       }
@@ -6277,66 +6275,80 @@ function handleFileUpload(input) {
   input.value = '';
 }
 
-async function processXlsxSheet(ws, sourceName) {
+async function processXlsxSheet(ws, sourceName, wb) {
   const site   = uploadTargetSite || currentSiteId;
   const badge  = document.getElementById('sheets-status-badge');
   const howTo  = document.getElementById('sheets-how-to');
   if(badge) { badge.className = 'sheets-status syncing'; badge.textContent = 'Reading…'; }
 
   try {
-    // Find header row — look for row containing 'Load Number' or 'load_ref' or 'Postcode'
-    const allRows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false});
-    
-    let headerRowIdx = -1;
-    let headers = [];
-    for(let i=0;i<allRows.length;i++){
-      const row = allRows[i].map(v=>String(v||'').toLowerCase().trim());
-      if(row.some(v=>v.includes('load') || v.includes('postcode') || v.includes('delivery'))){
-        headerRowIdx = i;
-        headers = row;
-        break;
+    // ── Detect Banbury weekly planner format (multiple day sheets) ──
+    const isBanbury = wb && wb.SheetNames.some(n => ['monday','tuesday','wednesday','thursday','friday'].includes(n.toLowerCase()));
+
+    let stops = [];
+
+    if(isBanbury) {
+      // Parse all day sheets that match the viewDate
+      const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      const viewDateObj = viewDate ? new Date(viewDate.split('/').reverse().join('-')) : new Date();
+      const targetDay   = dayNames[viewDateObj.getDay()].toLowerCase();
+
+      // Find the sheet matching today's date
+      const matchSheet = wb.SheetNames.find(n => n.toLowerCase() === targetDay) || wb.SheetNames.find(n => ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'].includes(n.toLowerCase()));
+
+      if(!matchSheet) throw new Error('No matching day sheet found for ' + targetDay);
+
+      const dayWs = wb.Sheets[matchSheet];
+      stops = parseBanburySheet(dayWs, matchSheet);
+
+    } else {
+      // ── Generic Excel format ──
+      const allRows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false});
+      
+      let headerRowIdx = -1;
+      let headers = [];
+      for(let i=0;i<allRows.length;i++){
+        const row = allRows[i].map(v=>String(v||'').toLowerCase().trim());
+        if(row.some(v=>v.includes('load') || v.includes('postcode') || v.includes('delivery'))){
+          headerRowIdx = i;
+          headers = row;
+          break;
+        }
+      }
+
+      if(headerRowIdx === -1) throw new Error('Could not find header row. Make sure the file has columns like Load Number, Customer, Postcode, Pallets.');
+
+      function findCol(...names) {
+        for(const n of names){
+          const idx = headers.findIndex(h=>h.includes(n.toLowerCase()));
+          if(idx>=0) return idx;
+        }
+        return -1;
+      }
+
+      const colLoad     = findCol('load number','load_ref','load ref','load no','shipment');
+      const colCustomer = findCol('customer','delivery_name','name','ship-to','shipto');
+      const colDest     = findCol('destination','delivery_postcode','postcode','postal');
+      const colPallets  = findCol('pallet','pallets','pallet qty','qty');
+      const colTime     = findCol('booking time','delivery_time','time','del time');
+
+      for(let i=headerRowIdx+1; i<allRows.length; i++){
+        const row = allRows[i];
+        if(!row || !row.some(v=>v)) continue;
+        const firstVal = String(row[0]||'').trim();
+        if(!firstVal || firstVal.toLowerCase().includes('vehicle') || firstVal.toLowerCase().includes('order no')) continue;
+        const loadRef  = colLoad>=0  ? String(row[colLoad]||'').trim()  : 'RUN1';
+        const name     = colCustomer>=0 ? String(row[colCustomer]||'').trim() : '';
+        const postcode = colDest>=0  ? String(row[colDest]||'').toUpperCase().trim() : '';
+        const pallets  = colPallets>=0 ? Number(String(row[colPallets]||'').replace(/,/g,''))||0 : 0;
+        const time     = colTime>=0  ? String(row[colTime]||'').trim() : '';
+        if(!name && !postcode) continue;
+        if(!loadRef) continue;
+        stops.push({ loadRef, name, postcode, pallets, time });
       }
     }
 
-    if(headerRowIdx === -1) throw new Error('Could not find header row. Make sure the file has columns like Load Number, Customer, Postcode, Pallets.');
-
-    // Map header names to indices
-    function findCol(...names) {
-      for(const n of names){
-        const idx = headers.findIndex(h=>h.includes(n.toLowerCase()));
-        if(idx>=0) return idx;
-      }
-      return -1;
-    }
-
-    const colLoad     = findCol('load number','load_ref','load ref','load no','shipment');
-    const colCustomer = findCol('customer','delivery_name','name','ship-to','shipto');
-    const colDest     = findCol('destination','delivery_postcode','postcode','postal');
-    const colPallets  = findCol('pallet','pallets','pallet qty','qty');
-    const colTime     = findCol('booking time','delivery_time','time','del time');
-
-    const stops = [];
-    for(let i=headerRowIdx+1; i<allRows.length; i++){
-      const row = allRows[i];
-      if(!row || !row.some(v=>v)) continue;
-
-      // Skip sub-header rows
-      const firstVal = String(row[0]||'').trim();
-      if(!firstVal || firstVal.toLowerCase().includes('vehicle') || firstVal.toLowerCase().includes('order no')) continue;
-
-      const loadRef  = colLoad>=0  ? String(row[colLoad]||'').trim()  : 'RUN1';
-      const name     = colCustomer>=0 ? String(row[colCustomer]||'').trim() : '';
-      const postcode = colDest>=0  ? String(row[colDest]||'').toUpperCase().trim() : '';
-      const pallets  = colPallets>=0 ? Number(String(row[colPallets]||'').replace(/,/g,''))||0 : 0;
-      const time     = colTime>=0  ? String(row[colTime]||'').trim() : '';
-
-      if(!name && !postcode) continue;
-      if(!loadRef) continue;
-
-      stops.push({ loadRef, name, postcode, pallets, time });
-    }
-
-    if(!stops.length) throw new Error('No delivery rows found in Excel file. Check the file has Load Number, Customer and Postcode columns.');
+    if(!stops.length) throw new Error('No delivery rows found. Check the file format.');
 
     showSheetsPreview(stops.slice(0,5));
     if(howTo) howTo.style.display = 'none';
@@ -6374,11 +6386,71 @@ async function processXlsxSheet(ws, sourceName) {
     }
 
     renderAll();
-    showSheetsMsg('✓ ' + stops.length + ' stops loaded from ' + sourceName, 'ok');
+    showSheetsMsg('✓ ' + stops.length + ' stops loaded from ' + sourceName + (isBanbury?' (Banbury weekly plan)':''), 'ok');
 
   } catch(err) {
     showSheetsMsg('Error: ' + err.message, 'err');
   }
+}
+
+// ── Banbury weekly planner parser ──
+// Each day sheet: Row 3 col D = date, Row 7 = headers
+// Route-X rows (col 0) = new load, subsequent rows = extra stops on same load
+// Col 0=Vehicle/Route, 1=Customer, 2=Load Number, 3=Destination, 4=Booking Time, 5=Postcode, 7=Pallet Qty
+function parseBanburySheet(ws, sheetName) {
+  const allRows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false, cellDates:true});
+  const stops = [];
+  let currentRoute = null;
+  let currentLoadNum = '';
+  let headerFound = false;
+
+  function fmtTime(val) {
+    if(!val) return '';
+    if(typeof val === 'string') {
+      const m = val.match(/(\d{1,2}):(\d{2})/);
+      return m ? m[1].padStart(2,'0')+':'+m[2] : val;
+    }
+    return '';
+  }
+
+  for(let i=0; i<allRows.length; i++){
+    const row = allRows[i];
+    if(!row) continue;
+
+    // Find header row — "Vehicle" in col 0
+    const c0 = String(row[0]||'').trim();
+    if(c0.toLowerCase() === 'vehicle') { headerFound = true; continue; }
+    if(!headerFound) continue;
+
+    // Skip summary/cost rows
+    if(!c0 && !row[1] && !row[2] && !row[3] && !row[5]) continue;
+
+    // New Route row — col 0 starts with 'Route'
+    if(c0.toLowerCase().startsWith('route')) {
+      currentRoute  = c0;
+      currentLoadNum = String(row[2]||'').trim();
+      const name     = String(row[1]||'').trim();
+      const dest     = String(row[3]||'').trim();
+      const postcode = String(row[5]||'').toUpperCase().trim();
+      const pallets  = Number(String(row[7]||'').replace(/,/g,''))||0;
+      const time     = fmtTime(row[4]);
+      if(name||postcode) stops.push({loadRef:currentRoute, name, postcode, pallets, time, loadNum:currentLoadNum, dest});
+      continue;
+    }
+
+    // Additional stop on same route — col 0 empty or time, col 1 = customer
+    if(currentRoute && row[1] && String(row[1]).trim()) {
+      const name     = String(row[1]||'').trim();
+      const postcode = String(row[5]||'').toUpperCase().trim();
+      const pallets  = Number(String(row[7]||'').replace(/,/g,''))||0;
+      const time     = fmtTime(row[4]);
+      const dest     = String(row[3]||'').trim();
+      // Skip if it looks like a note/comment row (no postcode and very long name)
+      if(name.length > 80 || (!postcode && name.toLowerCase().includes('palelt'))) continue;
+      if(name||postcode) stops.push({loadRef:currentRoute, name, postcode, pallets, time, loadNum:currentLoadNum, dest});
+    }
+  }
+  return stops;
 }
 
 async function processCsvText(csv, sourceName) {
