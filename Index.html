@@ -3238,7 +3238,10 @@ async function loadDateData() {
         notes: p.notes||'', uploaded_by: p.uploaded_by||'',
         routes: (p.routes||[]).map(r => ({
           area: r.area, pc: r.postcodes||'',
-          stops: r.stops, pallets: r.pallets, weight: r.weight_t
+          stops: r.stops, pallets: r.pallets, weight: r.weight_t,
+          stops_detail: r.stops_detail||[],
+          runNum: r.runNum, runLabel: r.runLabel||r.area,
+          multiLoad: r.multiLoad||false, runShips: r.runShips||[]
         }))
       }));
     }
@@ -3271,7 +3274,10 @@ async function loadFromSupabase() {
     notes: p.notes||'', uploaded_by: p.uploaded_by||'',
     routes: (p.routes||[]).map(r => ({
       area: r.area, pc: r.postcodes||'',
-      stops: r.stops, pallets: r.pallets, weight: r.weight_t
+      stops: r.stops, pallets: r.pallets, weight: r.weight_t,
+      stops_detail: r.stops_detail||[],
+      runNum: r.runNum, runLabel: r.runLabel||r.area,
+      multiLoad: r.multiLoad||false, runShips: r.runShips||[]
     }))
   }));
   allData = [...todayData]; // keep a copy for date nav in demo mode
