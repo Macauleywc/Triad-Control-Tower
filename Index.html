@@ -7173,11 +7173,18 @@ function vpkHandleFile(input) {
         const firstRows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false}).slice(0,12);
         const isBanbury = isMultiDay || firstRows.some(r => r && String(r[0]||'').match(/^route/i));
 
+        // Detect Wellington format — has 'Wrings-' in col 0
+        const isWellington = firstRows.some(r => r && String(r[0]||'').toLowerCase().startsWith('wrings'));
+
         // Detect Campeys format — has 'Selby - Delivery Schedule' in first cell
         const firstCell = ws[Object.keys(ws).filter(k=>!k.startsWith('!')).find(k=>ws[k].v&&String(ws[k].v).includes('Selby'))];
         const isCampeys = !!firstCell;
 
-        if(isCampeys) {
+        if(isWellington) {
+          const stops = parseWellington(ws);
+          if(!stops.length) { vpkShowMsg('No delivery rows found in Wellington sheet.', 'err'); return; }
+          vpkLoadBanburyStops(stops);
+        } else if(isCampeys) {
           const stops = parseCampeys(ws);
           if(!stops.length) { vpkShowMsg('No delivery rows found in Campeys sheet.', 'err'); return; }
           vpkLoadBanburyStops(stops);
@@ -7310,6 +7317,87 @@ function parseCampeys(ws) {
       checkIn: loadingTime,
       sheetDate,
     });
+  }
+  return stops;
+}
+
+// ── Wellington (Wrings) parser ──
+function parseWellington(ws) {
+  const wsN = {};
+  Object.keys(ws).forEach(k => { wsN[k.startsWith('!')?k:k.toUpperCase()] = ws[k]; });
+
+  let maxRow = 0;
+  Object.keys(wsN).filter(k=>!k.startsWith('!')).forEach(k => {
+    const r = XLSX.utils.decode_cell(k).r;
+    if(r > maxRow) maxRow = r;
+  });
+
+  function cv(r,c){ const cell=wsN[XLSX.utils.encode_cell({r,c})]; if(!cell)return null; if(cell.t==='d')return cell.v; return cell.v!==undefined?cell.v:null; }
+  function cs(r,c){ const v=cv(r,c); return v!==null&&v!==undefined?String(v).trim():''; }
+  function fmtTime(v){
+    if(!v)return '';
+    if(v instanceof Date)return String(v.getHours()).padStart(2,'0')+':'+String(v.getMinutes()).padStart(2,'0');
+    const s=String(v).trim(); const m=s.match(/(\d{1,2}):(\d{2})/);
+    return m?m[1].padStart(2,'0')+':'+m[2]:s;
+  }
+  function fmtDate(v){
+    if(!v)return '';
+    if(v instanceof Date)return String(v.getDate()).padStart(2,'0')+'/'+String(v.getMonth()+1).padStart(2,'0')+'/'+v.getFullYear();
+    return String(v).trim();
+  }
+
+  // Date at row 4 col C (r=3, c=2)
+  let sheetDate = '';
+  for(let r=0;r<8;r++){
+    for(let c=0;c<6;c++){
+      if(cs(r,c).toLowerCase()==='date'){
+        const d=cv(r+1,c); // date is on next row
+        if(d){ sheetDate=fmtDate(d); break; }
+      }
+    }
+    if(sheetDate) break;
+  }
+
+  const stops = [];
+
+  for(let r=9; r<=maxRow; r++){
+    const c0 = cs(r,0);
+    const c1 = cs(r,1);
+    const c8 = cs(r,8);
+
+    // Skip blank rows and summary rows
+    if(!c0 && !c1) continue;
+    if(c8.toLowerCase().includes('load fill')) continue;
+    if(c0.toLowerCase()==='vehicle') continue;
+
+    // Skip sub-rows (col 0 is a time or empty, col 1 is sub-name in brackets)
+    if(c0 && !c0.toLowerCase().startsWith('wrings')) {
+      // Could be a time or note row — skip
+      continue;
+    }
+
+    // Main delivery row — col 0 starts with 'Wrings'
+    if(c0.toLowerCase().startsWith('wrings')) {
+      const loadNum  = cs(r,2);
+      const customer = c1;
+      const dest     = cs(r,3);
+      const postcode = cs(r,6).toUpperCase();
+      const pallets  = Number(cv(r,7))||0;
+      const eta      = fmtTime(cv(r,4));
+
+      if(!customer && !postcode) continue;
+
+      stops.push({
+        loadRef:   c0,
+        name:      customer,
+        postcode,
+        pallets,
+        time:      eta,
+        checkIn:   '',
+        loadNum,
+        sheetDate,
+      });
+    }
   }
   return stops;
 }
