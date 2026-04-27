@@ -7241,6 +7241,79 @@ function vpkSplitCSV(line) {
   return result;
 }
 
+// ── Campeys of Selby parser ──
+function parseCampeys(ws) {
+  const wsN = {};
+  Object.keys(ws).forEach(k => { wsN[k.startsWith('!')?k:k.toUpperCase()] = ws[k]; });
+
+  let maxRow = 0;
+  Object.keys(wsN).filter(k=>!k.startsWith('!')).forEach(k => {
+    const r = XLSX.utils.decode_cell(k).r;
+    if(r > maxRow) maxRow = r;
+  });
+
+  function cv(r,c){ const cell=wsN[XLSX.utils.encode_cell({r,c})]; if(!cell)return null; if(cell.t==='d')return cell.v; return cell.v!==undefined?cell.v:null; }
+  function cs(r,c){ const v=cv(r,c); return v!==null&&v!==undefined?String(v).trim():''; }
+  function fmtTime(v){
+    if(!v)return '';
+    if(v instanceof Date)return String(v.getHours()).padStart(2,'0')+':'+String(v.getMinutes()).padStart(2,'0');
+    const s=String(v).trim(); const m=s.match(/(\d{1,2}):(\d{2})/);
+    return m?m[1].padStart(2,'0')+':'+m[2]:s;
+  }
+  function fmtDate(v){
+    if(!v)return '';
+    if(v instanceof Date)return String(v.getDate()).padStart(2,'0')+'/'+String(v.getMonth()+1).padStart(2,'0')+'/'+v.getFullYear();
+    return String(v).trim();
+  }
+
+  // Date at row 2 col H (index r=1, c=7)
+  let sheetDate = '';
+  for(let r=0;r<10;r++){
+    for(let c=0;c<12;c++){
+      if(cs(r,c).toUpperCase()==='DATE'){
+        const d=cv(r,c+1);
+        if(d){ sheetDate=fmtDate(d); break; }
+      }
+    }
+    if(sheetDate) break;
+  }
+
+  const stops = [];
+  let currentRef = '';
+  let loadingTime = '';
+
+  for(let r=11; r<=maxRow; r++){
+    const c0 = cs(r,0).toLowerCase();
+    if(!c0 && !cs(r,2) && !cs(r,4)) continue;
+    if(['collection','fc u2','us','haulier /','vehicle','selby - delivery schedule'].includes(c0)) continue;
+    if(cs(r,7).toLowerCase().startsWith('load ')) continue;
+
+    const colRef = cs(r,9);
+    if(colRef.startsWith('CV')) currentRef = colRef;
+
+    const customer = cs(r,2);
+    const postcode = cs(r,4).toUpperCase();
+    const pallets  = Number(cv(r,11))||0;
+    const delivTime = fmtTime(cv(r,10));
+    const lt = fmtTime(cv(r,1));
+    if(lt) loadingTime = lt;
+
+    if(!customer || !postcode) continue;
+    if(customer.toLowerCase()==='customer') continue;
+
+    stops.push({
+      loadRef: currentRef||'SELBY',
+      name: customer,
+      postcode,
+      pallets,
+      time: delivTime,
+      checkIn: loadingTime,
+      sheetDate,
+    });
+  }
+  return stops;
+}
+
 // Convert Banbury parsed stops into Triad data format and load
 function vpkLoadBanburyStops(stops) {
   const validStops = stops.filter(s => s.postcode && s.name && !s.name.match(/^T\d{3}$/) && s.name.length < 60);
