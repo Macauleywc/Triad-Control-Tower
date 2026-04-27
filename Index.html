@@ -7173,7 +7173,15 @@ function vpkHandleFile(input) {
         const firstRows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false}).slice(0,12);
         const isBanbury = isMultiDay || firstRows.some(r => r && String(r[0]||'').match(/^route/i));
 
-        if(isBanbury) {
+        // Detect Campeys format — has 'Selby - Delivery Schedule' in first cell
+        const firstCell = ws[Object.keys(ws).filter(k=>!k.startsWith('!')).find(k=>ws[k].v&&String(ws[k].v).includes('Selby'))];
+        const isCampeys = !!firstCell;
+
+        if(isCampeys) {
+          const stops = parseCampeys(ws);
+          if(!stops.length) { vpkShowMsg('No delivery rows found in Campeys sheet.', 'err'); return; }
+          vpkLoadBanburyStops(stops);
+        } else if(isBanbury) {
           let parseWs = ws;
           if(isMultiDay) {
             const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -7187,7 +7195,7 @@ function vpkHandleFile(input) {
           const stops = parseBanburySheet(parseWs, file.name);
           if(!stops.length) { vpkShowMsg('No delivery rows found in Banbury plan.', 'err'); return; }
           vpkLoadBanburyStops(stops);
-        } else {
+        } else if(!isCampeys) {
           vpkParseWorksheet(ws, file.name);
         }
       } else {
