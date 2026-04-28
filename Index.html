@@ -3503,6 +3503,8 @@ function renderStats(opps) {
   const up   = todayData.length;
 
   const totLoads    = todayData.reduce((a,e)=>a+countLoads(e),0);
+  // Total runs across all sites
+  const tR = todayData.reduce((a,e)=>{
     const runs = new Set((e.routes||[]).map(r=>r.runNum||r.runLabel||r.area));
     return a + (runs.size || (e.routes||[]).length);
   }, 0);
