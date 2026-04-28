@@ -3502,8 +3502,7 @@ function renderStats(opps) {
   const tW   = todayData.reduce((a,e)=>a+sumWeight(e),0).toFixed(1);
   const up   = todayData.length;
 
-  // Total runs across all sites
-  const tR = todayData.reduce((a,e)=>{
+  const totLoads    = todayData.reduce((a,e)=>a+countLoads(e),0);
     const runs = new Set((e.routes||[]).map(r=>r.runNum||r.runLabel||r.area));
     return a + (runs.size || (e.routes||[]).length);
   }, 0);
@@ -3519,9 +3518,9 @@ function renderStats(opps) {
 
   document.getElementById('stat-strip').innerHTML = `
     <div class="stat-item">
-      <div class="stat-eyebrow">Total runs today</div>
-      <div class="stat-number">${tR}</div>
-      <div class="stat-sub">${tS} stops · ${tP} pallets</div>
+      <div class="stat-eyebrow">Total loads today</div>
+      <div class="stat-number">${totLoads}</div>
+      <div class="stat-sub">${tR} trailers · ${tS} stops · ${tP} pallets</div>
     </div>
     <div class="stat-item">
       <div class="stat-eyebrow">Avg pallets per trailer</div>
@@ -3672,14 +3671,28 @@ function renderSiteCards() {
         </div>
         ${collapsed ? `
         <div class="site-metrics" style="border-top:1px solid var(--rule)">
-          <div class="site-metric"><div class="site-metric-val">${runs}</div><div class="site-metric-lbl">Runs</div></div>
-          <div class="site-metric"><div class="site-metric-val">${s}</div><div class="site-metric-lbl">Stops</div></div>
+          <div class="site-metric"><div class="site-metric-val">${countLoads(e)}</div><div class="site-metric-lbl">Loads</div></div>
+          <div class="site-metric"><div class="site-metric-val">${runs}</div><div class="site-metric-lbl">Trailers</div></div>
+          <div class="site-metric"><div class="site-metric-val">${s}</div><div class="site-metric-lbl">Del. stops</div></div>
           <div class="site-metric"><div class="site-metric-val">${p}</div><div class="site-metric-lbl">Pallets</div></div>
         </div>` : `
         <div class="site-metrics">
-          <div class="site-metric"><div class="site-metric-val">${runs}</div><div class="site-metric-lbl">Runs</div></div>
-          <div class="site-metric"><div class="site-metric-val">${s}</div><div class="site-metric-lbl">Stops</div></div>
-          <div class="site-metric"><div class="site-metric-val">${p}</div><div class="site-metric-lbl">Pallets</div></div>
+          <div class="site-metric">
+            <div class="site-metric-val">${countLoads(e)}</div>
+            <div class="site-metric-lbl">Loads</div>
+          </div>
+          <div class="site-metric">
+            <div class="site-metric-val">${runs}</div>
+            <div class="site-metric-lbl">Trailers</div>
+          </div>
+          <div class="site-metric">
+            <div class="site-metric-val">${s}</div>
+            <div class="site-metric-lbl">Del. stops</div>
+          </div>
+          <div class="site-metric">
+            <div class="site-metric-val">${p}</div>
+            <div class="site-metric-lbl">Pallets</div>
+          </div>
         </div>
         <div class="site-routes">
           <div class="routes-header"><span>Route</span><span>Stops</span><span>Pallets</span><span>Avg fill</span></div>
@@ -6886,9 +6899,9 @@ async function clearTodayData() {
   const siteLabel = siteSel === 'all' ? 'all sites' : (SITES_META[siteSel]?.name || siteSel);
   const msgEl = document.getElementById('clear-msg');
 
-  if (!confirm(`Clear today's delivery data for ${siteLabel}?\n\nThis cannot be undone.`)) return;
+  if (!confirm(`Clear data for ${siteLabel} on ${viewDate}?\n\nThis cannot be undone.`)) return;
 
-  const today = todayStr();
+  const today = viewDate;
 
   try {
     if (sb && isConfigured) {
@@ -7385,7 +7398,7 @@ function parseWellington(ws) {
       const pallets  = Number(cv(r,7))||0;
       const eta      = fmtTime(cv(r,4));
 
-      if(!customer && !postcode) continue;
+    if(!customer) continue;
 
       stops.push({
         loadRef:   c0,
@@ -7578,12 +7591,20 @@ async function vpkLoadIntoTriad() {
   const saveDate = toYMD(rawDate);
   console.log('vpkLoadIntoTriad saveDate:', saveDate, 'from raw:', rawDate);
 
-  // Group by load_ref + postcode district → routes
+  // Group stops into routes
+  // For Banbury/Wellington/Campeys: group by loadRef only (each loadRef = one trailer)
+  // For VPK: group by ship + postcode district
+  const isVpkFormat = vpkParsedRows[0]?.runNum !== undefined && vpkParsedRows[0]?.runNum !== vpkParsedRows[0]?.runLabel;
   const loadMap = {};
   vpkParsedRows.forEach(s => {
-    const district = (s.postal||'').match(/^([A-Z]{1,2}[0-9]{1,2})/)?.[1] || s.postal.slice(0,4).trim() || 'Other';
-    const key = (s.ship||s.runLabel||'RUN1') + '||' + district;
-    if(!loadMap[key]) loadMap[key] = {ship:s.ship||s.runLabel||'RUN1', district, area:(s.runLabel||s.ship||'RUN1')+' · '+district, postcodes:district, stops_list:[], pallets:0};
+    const key = isVpkFormat
+      ? ((s.ship||s.runLabel||'RUN1') + '||' + ((s.postal||'').match(/^([A-Z]{1,2}[0-9]{1,2})/)?.[1] || s.postal.slice(0,4).trim() || 'Other'))
+      : (s.loadRef || s.runLabel || s.ship || 'RUN1');
+    const label = isVpkFormat
+      ? (s.runLabel||s.ship||'RUN1') + ' · ' + ((s.postal||'').match(/^([A-Z]{1,2}[0-9]{1,2})/)?.[1] || 'Other')
+      : (s.loadRef || s.runLabel || s.ship || 'RUN1');
+    const pc = (s.postal||'').match(/^([A-Z]{1,2}[0-9]{1,2})/)?.[1] || s.postal?.slice(0,4).trim() || 'Other';
+    if(!loadMap[key]) loadMap[key] = {area: label, postcodes: pc, stops_list: [], pallets: 0};
     loadMap[key].stops_list.push(s);
     loadMap[key].pallets += s.pallets;
   });
