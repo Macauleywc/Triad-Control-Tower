@@ -3505,7 +3505,12 @@ function renderStats(opps) {
   const totLoads    = todayData.reduce((a,e)=>a+countLoads(e),0);
   // Total runs across all sites
   const tR = todayData.reduce((a,e)=>{
-    const runs = new Set((e.routes||[]).map(r => r.runNum !== undefined && r.runNum !== null ? Number(r.runNum) : (r.runLabel||r.area)));
+    const runs = new Set((e.routes||[]).map(r => {
+      if(r.runNum !== undefined && r.runNum !== null) return Number(r.runNum);
+      const firstStop = (r.stops_detail||[])[0];
+      if(firstStop && firstStop.runNum !== undefined) return Number(firstStop.runNum);
+      return r.runLabel||r.area;
+    }));
     return a + (runs.size || (e.routes||[]).length);
   }, 0);
 
@@ -3559,7 +3564,14 @@ function renderAlerts(opps) {
 
   // Low pallet fill alerts — flag any site averaging 30 or below
   todayData.forEach(e => {
-    const runs = new Set((e.routes||[]).map(r=>r.runNum||r.runLabel||r.area)).size || (e.routes||[]).length;
+    const runs = new Set((e.routes||[]).map(r => {
+      if(r.runNum !== undefined && r.runNum !== null) return Number(r.runNum);
+      // Try to get runNum from first stop in stops_detail
+      const firstStop = (r.stops_detail||[])[0];
+      if(firstStop && firstStop.runNum !== undefined) return Number(firstStop.runNum);
+      // Fall back to runLabel or area
+      return r.runLabel||r.area;
+    })).size || (e.routes||[]).length;
     const pallets = sumPallets(e);
     const avgPal = runs > 0 ? Math.round(pallets / runs) : 0;
     if(runs > 0 && avgPal <= 30) {
@@ -3723,8 +3735,13 @@ function renderSiteCards() {
     const w = sumWeight(e).toFixed(1);
 
     // Count distinct runs
-    const runSet = new Set((e.routes||[]).map(r => r.runNum !== undefined && r.runNum !== null ? Number(r.runNum) : (r.runLabel||r.area)));
-    const runs   = runSet.size || (e.routes||[]).length;
+    const runSet = new Set((e.routes||[]).map(r => {
+      if(r.runNum !== undefined && r.runNum !== null) return Number(r.runNum);
+      const firstStop = (r.stops_detail||[])[0];
+      if(firstStop && firstStop.runNum !== undefined) return Number(firstStop.runNum);
+      return r.runLabel||r.area;
+    }));
+    const runs = runSet.size || (e.routes||[]).length;
 
     // Avg pallets per load vs target of 40
     const avgPal    = runs > 0 ? Math.round(p / runs) : 0;
