@@ -3243,6 +3243,8 @@ async function loadDateData() {
       todayData = (plans||[]).map(p => ({
         site: p.site_id, date: p.plan_date, capacity: p.capacity,
         notes: p.notes||'', uploaded_by: p.uploaded_by||'',
+        total_loads: p.total_loads||null,
+        total_trailers: p.total_trailers||null,
         routes: (p.routes||[]).map(r => ({
           area: r.area, pc: r.postcodes||'',
           stops: r.stops, pallets: r.pallets, weight: r.weight_t,
@@ -3505,10 +3507,10 @@ function renderStats(opps) {
   const totLoads    = todayData.reduce((a,e)=>a+countLoads(e),0);
   // Total runs across all sites
   const tR = todayData.reduce((a,e)=>{
+    if(e.total_loads) return a + e.total_loads;
     const runs = new Set((e.routes||[]).map(r => {
       const rn = r.run_num !== undefined && r.run_num !== null ? Number(r.run_num)
-               : r.runNum !== undefined && r.runNum !== null ? Number(r.runNum)
-               : null;
+               : r.runNum !== undefined && r.runNum !== null ? Number(r.runNum) : null;
       if(rn !== null) return rn;
       const rl = r.run_label || r.runLabel || '';
       const m = rl.match(/^Run (\d+)/i);
@@ -3741,22 +3743,18 @@ function renderSiteCards() {
     const w = sumWeight(e).toFixed(1);
 
     // Count distinct runs
-    const runSet = new Set((e.routes||[]).map(r => {
-      // Use run_num (from Supabase column) or runNum (from memory)
+    // Use stored totals if available (most accurate)
+    const runs = e.total_loads || new Set((e.routes||[]).map(r => {
       const rn = r.run_num !== undefined && r.run_num !== null ? Number(r.run_num)
-               : r.runNum !== undefined && r.runNum !== null ? Number(r.runNum)
-               : null;
+               : r.runNum !== undefined && r.runNum !== null ? Number(r.runNum) : null;
       if(rn !== null) return rn;
-      // Try run_label "Run 1", "Run 2" etc
       const rl = r.run_label || r.runLabel || '';
       const m = rl.match(/^Run (\d+)/i);
       if(m) return Number(m[1]);
-      // Try stops_detail
       const firstStop = (r.stops_detail||[])[0];
       if(firstStop && firstStop.runNum !== undefined) return Number(firstStop.runNum);
       return r.runLabel||r.area;
-    }));
-    const runs = runSet.size || (e.routes||[]).length;
+    })).size || (e.routes||[]).length;
 
     // Avg pallets per load vs target of 40
     const avgPal    = runs > 0 ? Math.round(p / runs) : 0;
@@ -4925,13 +4923,13 @@ function toggleShipment(id) {
 }
 
 function countLoads(e) {
+  // Use stored total_trailers if available
+  if(e.total_trailers) return e.total_trailers;
   const ships = new Set();
   (e.routes||[]).forEach(r => {
-    // runShips is an array of shipment numbers on this trailer
     if(r.runShips && r.runShips.length) {
       r.runShips.forEach(s => ships.add(String(s)));
     } else if(r.stops_detail && r.stops_detail.length) {
-      // For Banbury/Wellington/Campeys — each loadRef is one shipment
       r.stops_detail.forEach(s => ships.add(s.loadRef || s.ship || r.area));
     } else {
       ships.add(r.area||r.runLabel||'x');
@@ -7783,7 +7781,8 @@ async function vpkLoadIntoTriad() {
       const totalShips = new Set(vpkParsedRows.map(r=>r.ship)).size;
       const { data: plan, error: pe } = await sb.from('daily_plans')
         .upsert({ site_id:site, plan_date:saveDate, capacity:80, notes:'VPK import',
-                  uploaded_by:(currentUser?.email||'VPK Schedule') },
+                  uploaded_by:(currentUser?.email||'VPK Schedule'),
+                  total_loads: totalRuns, total_trailers: totalShips },
                 { onConflict:'site_id,plan_date' }).select().single();
       if(pe) throw pe;
       await sb.from('routes').delete().eq('plan_id', plan.id);
