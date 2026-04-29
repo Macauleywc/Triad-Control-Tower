@@ -3743,15 +3743,13 @@ function renderSiteCards() {
     const w = sumWeight(e).toFixed(1);
 
     // Count distinct runs
-    // Count unique trailer runs from run_label (e.g. "Run 1", "Run 2")
-    // For Banbury/Wellington/Campeys, each route IS one trailer run
-    const isVpk = (e.routes||[]).some(r=>(r.run_label||r.runLabel||'').match(/^Run \d+/i));
-    const runs = isVpk
-      ? (e.total_loads || new Set((e.routes||[]).map(r=>{
-          const rl=r.run_label||r.runLabel||'';
-          const m=rl.match(/^Run (\d+)/i); return m?Number(m[1]):(r.runNum||r.area);
-        })).size)
-      : (e.routes||[]).length;
+    // Loads = unique mileage groups (Run 1, Run 2 etc for VPK; one per route for others)
+    const runLabelSet = new Set((e.routes||[]).map(r => {
+      const rl = r.run_label||r.runLabel||'';
+      const m = rl.match(/^Run (\d+)/i);
+      return m ? Number(m[1]) : (r.run_label||r.runLabel||r.area);
+    }));
+    const runs = e.total_loads || runLabelSet.size || (e.routes||[]).length;
 
     // Avg pallets per load vs target of 40
     const avgPal    = runs > 0 ? Math.round(p / runs) : 0;
@@ -3793,11 +3791,11 @@ function renderSiteCards() {
         </div>` : `
         <div class="site-metrics">
           <div class="site-metric">
-            <div class="site-metric-val">${countLoads(e)}</div>
+            <div class="site-metric-val">${runs}</div>
             <div class="site-metric-lbl">Loads</div>
           </div>
           <div class="site-metric">
-            <div class="site-metric-val">${runs}</div>
+            <div class="site-metric-val">${countLoads(e)}</div>
             <div class="site-metric-lbl">Trailers</div>
           </div>
           <div class="site-metric">
