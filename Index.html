@@ -3243,7 +3243,7 @@ async function loadDateData() {
       todayData = (plans||[]).map(p => ({
         site: p.site_id, date: p.plan_date, capacity: p.capacity,
         notes: p.notes||'', uploaded_by: p.uploaded_by||'',
-        total_loads: p.total_loads||null,
+        total_loads: p.total_loads != null ? p.total_loads : null,
         total_trailers: p.total_trailers||null,
         routes: (p.routes||[]).map(r => ({
           area: r.area, pc: r.postcodes||'',
