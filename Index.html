@@ -3432,7 +3432,7 @@ function renderAll() {
     // Stats — all zeros
     document.getElementById('stat-strip').innerHTML = `
       <div class="stat-item"><div class="stat-eyebrow">Total runs today</div><div class="stat-number">0</div><div class="stat-sub">no data uploaded</div></div>
-      <div class="stat-item"><div class="stat-eyebrow">Avg pallets per trailer</div><div class="stat-number">—</div><div class="stat-sub">target: 40 pallets</div></div>
+      <div class="stat-item"><div class="stat-eyebrow">Avg pallets per load</div><div class="stat-number">—</div><div class="stat-sub">target: 40 pallets per load</div></div>
       <div class="stat-item"><div class="stat-eyebrow">Sharing savings</div><div class="stat-number">0<span style="font-size:20px;font-weight:400;color:var(--ink3)"> mi</span></div><div class="stat-sub">no opportunities yet</div></div>
       <div class="stat-item"><div class="stat-eyebrow">Sites uploaded</div><div class="stat-number">0<span style="font-size:20px;font-weight:400;color:var(--ink3)">/4</span></div><div class="stat-sub">all pending</div></div>`;
 
@@ -3505,12 +3505,12 @@ function renderStats(opps) {
   const totLoads    = todayData.reduce((a,e)=>a+countLoads(e),0);
   // Total runs across all sites
   const tR = todayData.reduce((a,e)=>{
-    const runs = new Set((e.routes||[]).map(r=>r.runNum||r.runLabel||r.area));
+    const runs = new Set((e.routes||[]).map(r => r.runNum !== undefined && r.runNum !== null ? Number(r.runNum) : (r.runLabel||r.area)));
     return a + (runs.size || (e.routes||[]).length);
   }, 0);
 
-  // Avg pallets per trailer vs 40 target
-  const avgPal = tR > 0 ? Math.round(tP / tR) : 0;
+  // Avg pallets per load vs 40 target
+  const avgPal = totLoads > 0 ? Math.round(tP / totLoads) : 0;
   const fillPct = Math.round(avgPal / TARGET_PALLETS * 100);
   const palCol = avgPal >= TARGET_PALLETS ? 'green' : avgPal >= 30 ? 'amber' : 'red';
   const palTrend = avgPal >= TARGET_PALLETS ? `✓ On target` : avgPal >= 30 ? `${TARGET_PALLETS-avgPal}p below target` : `${TARGET_PALLETS-avgPal}p below target`;
@@ -3521,11 +3521,11 @@ function renderStats(opps) {
   document.getElementById('stat-strip').innerHTML = `
     <div class="stat-item">
       <div class="stat-eyebrow">Total loads today</div>
-      <div class="stat-number">${totLoads}</div>
-      <div class="stat-sub">${tR} trailers · ${tS} stops · ${tP} pallets</div>
+      <div class="stat-number">${tR}</div>
+      <div class="stat-sub">${totLoads} trailers · ${tS} stops · ${tP} pallets</div>
     </div>
     <div class="stat-item">
-      <div class="stat-eyebrow">Avg pallets per trailer</div>
+      <div class="stat-eyebrow">Avg pallets per load</div>
       <div class="stat-number ${palCol}">${avgPal}<span style="font-size:16px;font-weight:400;color:var(--ink3)"> / ${TARGET_PALLETS}</span></div>
       <div class="stat-trend trend-${palCol==='green'?'ok':palCol==='amber'?'warn':'bad'}">${palTrend}</div>
     </div>
@@ -3566,7 +3566,7 @@ function renderAlerts(opps) {
       const meta = SITES_META[e.site]||{};
       items.push({
         cls: 'red',
-        t: `<strong>${meta.name}</strong> is averaging <strong>${avgPal} pallets per trailer</strong> — well below the ${TARGET_PALLETS} target. Consider consolidating loads or checking for under-loaded runs.`,
+        t: `<strong>${meta.name}</strong> is averaging <strong>${avgPal} pallets per load</strong> — well below the ${TARGET_PALLETS} target. Consider consolidating loads or checking for under-loaded runs.`,
         act: 'View loads',
         tab: 'loads'
       });
@@ -3574,7 +3574,7 @@ function renderAlerts(opps) {
       const meta = SITES_META[e.site]||{};
       items.push({
         cls: 'amber',
-        t: `<strong>${meta.name}</strong> is averaging <strong>${avgPal} pallets per trailer</strong> — ${TARGET_PALLETS - avgPal}p below the ${TARGET_PALLETS} target.`,
+        t: `<strong>${meta.name}</strong> is averaging <strong>${avgPal} pallets per load</strong> — ${TARGET_PALLETS - avgPal}p below the ${TARGET_PALLETS} target.`,
         act: 'View loads',
         tab: 'loads'
       });
@@ -3698,7 +3698,7 @@ function renderSiteCards() {
     if (!e) return `
       <div class="site-card">
         <div class="site-card-top">
-          <div class="ring-wrap" data-tip="Avg pallets per trailer">
+          <div class="ring-wrap" data-tip="Avg pallets per load">
             ${makeRing(0, meta.color)}
             <div class="ring-label"><div class="ring-pct" style="color:var(--ink3)">—</div><div class="ring-unit">p/tr</div></div>
           </div>
@@ -3723,11 +3723,12 @@ function renderSiteCards() {
     const w = sumWeight(e).toFixed(1);
 
     // Count distinct runs
-    const runSet = new Set((e.routes||[]).map(r => r.runNum||r.runLabel||r.area));
+    const runSet = new Set((e.routes||[]).map(r => r.runNum !== undefined && r.runNum !== null ? Number(r.runNum) : (r.runLabel||r.area)));
     const runs   = runSet.size || (e.routes||[]).length;
 
-    // Avg pallets per trailer vs target of 40
-    const avgPal    = runs > 0 ? Math.round(p / runs) : 0;
+    // Avg pallets per load vs target of 40
+    const totLoads  = countLoads(e);
+    const avgPal    = totLoads > 0 ? Math.round(p / totLoads) : 0;
     const fillPct   = Math.min(Math.round(avgPal / TARGET_PALLETS * 100), 100);
     const ringCol   = avgPal >= TARGET_PALLETS ? 'var(--green)' : avgPal >= 30 ? 'var(--amber)' : 'var(--red)';
     const pillCls   = avgPal >= TARGET_PALLETS ? 'pill-ok' : avgPal >= 30 ? 'pill-warn' : 'pill-over';
@@ -3738,7 +3739,7 @@ function renderSiteCards() {
     return `
       <div class="site-card">
         <div class="site-card-top" style="cursor:pointer" onclick="_toggleCard('${sid}')">
-          <div class="ring-wrap" data-tip="Avg pallets per trailer vs ${TARGET_PALLETS} target">
+          <div class="ring-wrap" data-tip="Avg pallets per load vs ${TARGET_PALLETS} target">
             ${makeRing(fillPct, meta.color)}
             <div class="ring-label">
               <div class="ring-pct" style="color:${avgPal>=TARGET_PALLETS?meta.color:avgPal>=30?'var(--amber)':'var(--red)'}">${avgPal}</div>
@@ -3759,8 +3760,8 @@ function renderSiteCards() {
         </div>
         ${collapsed ? `
         <div class="site-metrics" style="border-top:1px solid var(--rule)">
-          <div class="site-metric"><div class="site-metric-val">${countLoads(e)}</div><div class="site-metric-lbl">Loads</div></div>
-          <div class="site-metric"><div class="site-metric-val">${runs}</div><div class="site-metric-lbl">Trailers</div></div>
+          <div class="site-metric"><div class="site-metric-val">${runs}</div><div class="site-metric-lbl">Loads</div></div>
+          <div class="site-metric"><div class="site-metric-val">${countLoads(e)}</div><div class="site-metric-lbl">Trailers</div></div>
           <div class="site-metric"><div class="site-metric-val">${s}</div><div class="site-metric-lbl">Del. stops</div></div>
           <div class="site-metric"><div class="site-metric-val">${p}</div><div class="site-metric-lbl">Pallets</div></div>
         </div>` : `
