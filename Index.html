@@ -3282,7 +3282,10 @@ async function loadFromSupabase() {
   site: p.site_id, date: p.plan_date, capacity: p.capacity,
   notes: p.notes||'', uploaded_by: p.uploaded_by||'',
   total_loads: p.total_loads,
-  total_trailers: p.total_trailers,
+  total_loads: p.total_loads,
+total_trailers: p.total_trailers,
+routes: (p.routes||[]).map(r => ({
+  area: r.area, pc: r.postcodes||'',
       area: r.area, pc: r.postcodes||'',
       stops: r.stops, pallets: r.pallets, weight: r.weight_t,
       stops_detail: r.stops_detail||[],
