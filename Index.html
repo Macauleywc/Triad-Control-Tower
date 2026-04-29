@@ -7594,8 +7594,8 @@ function vpkLoadBanburyStops(stops) {
   }));
 
   const totalPallets = rows.reduce((a,r)=>a+r.pallets, 0);
-  const loads = new Set(rows.map(r=>r.runLabel)).size;
-  vpkParsedRows = rows;
+  const loads = new Set(rows.map(r=>{ const m=(r.runLabel||'').match(/^Run (\d+)/i); return m?Number(m[1]):(r.runLabel||r.runNum||r.ship); })).size;
+  vpkParsedRows = rows;vpkParsedRows._totalLoads = loads;
 
   // Navigate date to match file date so data saves to correct date
   if(fileDate && fileDate !== viewDate) {
