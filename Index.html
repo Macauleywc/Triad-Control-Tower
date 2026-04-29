@@ -3597,6 +3597,92 @@ function renderAlerts(opps) {
 }
 
 /* ── SITE CARDS ── */
+
+// ── Transport cost calculator ──
+// Rate: £444.77 base + £0.50 per mile (round trip) for Banbury, Desborough, Wellington
+const TRANSPORT_BASE = 444.77;
+const TRANSPORT_PER_MILE = 0.50;
+const ROAD_FACTOR = 1.3; // straight-line to road miles factor
+
+const DEPOT_COORDS = {
+  desborough: { lat: 52.4406, lon: -0.8187 },
+  banbury:    { lat: 52.0607, lon: -1.3350 },
+  wellington: { lat: 50.9756, lon: -3.2247 },
+};
+
+// Postcode area centroid lookup (UK postcode districts)
+const PC_AREA_COORDS = {
+  'NN14': {lat:52.44,lon:-0.82}, 'NN15': {lat:52.37,lon:-0.73}, 'NN16': {lat:52.38,lon:-0.72},
+  'NN10': {lat:52.29,lon:-0.60}, 'NN8':  {lat:52.30,lon:-0.69}, 'NN6':  {lat:52.34,lon:-0.97},
+  'NN17': {lat:52.49,lon:-0.63}, 'NN4':  {lat:52.22,lon:-0.87}, 'NN1':  {lat:52.24,lon:-0.90},
+  'LE1':  {lat:52.63,lon:-1.13}, 'LE3':  {lat:52.63,lon:-1.19}, 'LE4':  {lat:52.67,lon:-1.12},
+  'LE7':  {lat:52.68,lon:-1.08}, 'LE13': {lat:52.77,lon:-0.89}, 'LE14': {lat:52.80,lon:-0.92},
+  'LE67': {lat:52.73,lon:-1.37}, 'LE17': {lat:52.46,lon:-1.22},
+  'PE2':  {lat:52.57,lon:-0.27}, 'PE10': {lat:52.77,lon:-0.40}, 'PE11': {lat:52.80,lon:-0.12},
+  'PE22': {lat:53.07,lon:0.17},  'PE28': {lat:52.37,lon:-0.20}, 'PE34': {lat:52.73,lon:0.47},
+  'MK43': {lat:52.16,lon:-0.54}, 'MK41': {lat:52.14,lon:-0.44},
+  'HA3':  {lat:51.59,lon:-0.33}, 'NW10': {lat:51.54,lon:-0.27},
+  'UB2':  {lat:51.49,lon:-0.37}, 'UB7':  {lat:51.51,lon:-0.47}, 'UB8':  {lat:51.54,lon:-0.48},
+  'WV4':  {lat:52.55,lon:-2.11}, 'WV10': {lat:52.62,lon:-2.08},
+  'ST13': {lat:53.10,lon:-1.98}, 'CW5':  {lat:53.06,lon:-2.44},
+  'CV2':  {lat:52.42,lon:-1.47}, 'CV9':  {lat:52.57,lon:-1.57}, 'CV23': {lat:52.35,lon:-1.27},
+  'OX16': {lat:52.06,lon:-1.34}, 'OX11': {lat:51.59,lon:-1.24},
+  'NG6':  {lat:52.99,lon:-1.20}, 'NG34': {lat:52.99,lon:-0.39},
+  'LN8':  {lat:53.38,lon:-0.27},
+  'TA21': {lat:50.98,lon:-3.22}, 'TA1':  {lat:51.01,lon:-3.10},
+  'PL17': {lat:50.53,lon:-4.28}, 'PL15': {lat:50.64,lon:-4.36},
+  'EX2':  {lat:50.71,lon:-3.52}, 'EX4':  {lat:50.73,lon:-3.53},
+  'BS1':  {lat:51.45,lon:-2.60}, 'BS23': {lat:51.34,lon:-2.98},
+  'GL1':  {lat:51.87,lon:-2.24}, 'GL50': {lat:51.90,lon:-2.08},
+  'HR4':  {lat:52.06,lon:-2.72}, 'SY1':  {lat:52.71,lon:-2.75},
+  'WR11': {lat:52.10,lon:-1.94}, 'WR5':  {lat:52.17,lon:-2.20},
+  'B78':  {lat:52.58,lon:-1.68}, 'B46':  {lat:52.48,lon:-1.73},
+  'CV4':  {lat:52.40,lon:-1.56},
+  'YO8':  {lat:53.78,lon:-1.07}, 'YO1':  {lat:53.96,lon:-1.08},
+  'HU1':  {lat:53.74,lon:-0.34}, 'DN14': {lat:53.69,lon:-0.84},
+  'SE1':  {lat:51.50,lon:-0.09}, 'E1':   {lat:51.52,lon:-0.07},
+  'N1':   {lat:51.54,lon:-0.10}, 'N17':  {lat:51.60,lon:-0.07},
+};
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLon = (lon2-lon1)*Math.PI/180;
+  const a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+    Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function kmToMiles(km) { return km * 0.621371; }
+
+function getPostcodeCoords(pc) {
+  if(!pc) return null;
+  const district = String(pc).toUpperCase().trim().match(/^([A-Z]{1,2}[0-9]{1,2})/)?.[1];
+  return district ? PC_AREA_COORDS[district] || null : null;
+}
+
+function calcRunCost(site, postcodes) {
+  const depot = DEPOT_COORDS[site];
+  if(!depot || !['desborough','banbury','wellington'].includes(site)) return null;
+
+  // Get furthest delivery point to estimate round trip
+  const pcs = String(postcodes||'').split(',').map(s=>s.trim()).filter(Boolean);
+  let maxMiles = 0;
+  pcs.forEach(pc => {
+    const coords = getPostcodeCoords(pc);
+    if(coords) {
+      const km = haversineKm(depot.lat, depot.lon, coords.lat, coords.lon);
+      const miles = kmToMiles(km) * ROAD_FACTOR;
+      if(miles > maxMiles) maxMiles = miles;
+    }
+  });
+
+  if(!maxMiles) return null;
+  const roundTrip = maxMiles * 2;
+  const cost = TRANSPORT_BASE + (TRANSPORT_PER_MILE * roundTrip);
+  return { miles: Math.round(roundTrip), cost: cost.toFixed(2) };
+}
+
 function renderSiteCards() {
   const TARGET_PALLETS = 40;
   const el = document.getElementById('sites-grid');
@@ -3697,11 +3783,13 @@ function renderSiteCards() {
           </div>
         </div>
         <div class="site-routes">
-          <div class="routes-header"><span>Route</span><span>Stops</span><span>Pallets</span><span>Avg fill</span></div>
+          <div class="routes-header"><span>Route</span><span>Stops</span><span>Pallets</span><span>Avg fill</span><span>Est. cost</span></div>
           ${(e.routes||[]).map(r => {
             const rAvg = Number(r.pallets||0);
             const rFill = Math.round(rAvg/TARGET_PALLETS*100);
             const rCol = rAvg>=TARGET_PALLETS?'var(--green)':rAvg>=30?'var(--amber)':'var(--red)';
+            const runCost = calcRunCost(sid, r.postcodes||r.pc||'');
+            const costStr = runCost ? `£${Number(runCost.cost).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}` : '—';
             return `<div class="route-row">
               <div class="route-area">
                 <div class="route-bar"><div class="route-bar-fill" style="width:${Math.min(rFill,100)}%;background:${meta.color}"></div></div>
@@ -3710,9 +3798,20 @@ function renderSiteCards() {
               <div class="route-val">${r.stops}</div>
               <div class="route-val">${r.pallets}</div>
               <div class="route-val" style="color:${rCol};font-weight:600">${rFill}%</div>
+              <div class="route-val" style="font-size:11px;color:var(--ink3)">${costStr}</div>
             </div>`;
           }).join('')}
         </div>
+        ${['desborough','banbury','wellington'].includes(sid) ? (() => {
+          const totalCost = (e.routes||[]).reduce((acc,r) => {
+            const rc = calcRunCost(sid, r.postcodes||r.pc||'');
+            return acc + (rc ? parseFloat(rc.cost) : 0);
+          }, 0);
+          return totalCost > 0 ? `<div style="padding:10px 20px;background:var(--cream2);border-top:1px solid var(--rule);font-size:12px;display:flex;justify-content:space-between;align-items:center">
+            <span style="color:var(--ink3)">Est. daily transport cost</span>
+            <span style="font-weight:700;color:var(--ink);font-size:14px">£${totalCost.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+          </div>` : '';
+        })() : ''}
         <div class="site-footer">
           ${isMe?`<button class="site-btn" onclick="showTab('vpkimport')">Import data</button>`:''}
           <button class="site-btn site-btn-navy" onclick="showTab('sharing')">Sharing opps →</button>
@@ -4787,19 +4886,19 @@ function toggleShipment(id) {
 }
 
 function countLoads(e) {
-  // Count unique shipment numbers
   const ships = new Set();
   (e.routes||[]).forEach(r => {
-    const area = r.area||'';
-    const match = area.match(/^(\d{7,})/);
-    if (match) ships.add(match[1]);
-    else if (r.stops_detail) {
-      r.stops_detail.forEach(s => { if(s.loadRef) ships.add(s.loadRef); else ships.add(area); });
+    // runShips is an array of shipment numbers on this trailer
+    if(r.runShips && r.runShips.length) {
+      r.runShips.forEach(s => ships.add(String(s)));
+    } else if(r.stops_detail && r.stops_detail.length) {
+      // For Banbury/Wellington/Campeys — each loadRef is one shipment
+      r.stops_detail.forEach(s => ships.add(s.loadRef || s.ship || r.area));
     } else {
-      ships.add(area);
+      ships.add(r.area||r.runLabel||'x');
     }
   });
-  return Math.max(ships.size, (e.routes||[]).length);
+  return ships.size || (e.routes||[]).length;
 }
 
 function groupByShipment(e) {
