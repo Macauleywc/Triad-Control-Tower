@@ -3510,7 +3510,7 @@ function renderStats(opps) {
   }, 0);
 
   // Avg pallets per load vs 40 target
-  const avgPal = totLoads > 0 ? Math.round(tP / totLoads) : 0;
+  const avgPal = tR > 0 ? Math.round(tP / tR) : 0;
   const fillPct = Math.round(avgPal / TARGET_PALLETS * 100);
   const palCol = avgPal >= TARGET_PALLETS ? 'green' : avgPal >= 30 ? 'amber' : 'red';
   const palTrend = avgPal >= TARGET_PALLETS ? `✓ On target` : avgPal >= 30 ? `${TARGET_PALLETS-avgPal}p below target` : `${TARGET_PALLETS-avgPal}p below target`;
@@ -3522,7 +3522,7 @@ function renderStats(opps) {
     <div class="stat-item">
       <div class="stat-eyebrow">Total loads today</div>
       <div class="stat-number">${tR}</div>
-      <div class="stat-sub">${totLoads} trailers · ${tS} stops · ${tP} pallets</div>
+      <div class="stat-sub">${tR} loads · ${tS} stops · ${tP} pallets</div>
     </div>
     <div class="stat-item">
       <div class="stat-eyebrow">Avg pallets per load</div>
@@ -3727,8 +3727,7 @@ function renderSiteCards() {
     const runs   = runSet.size || (e.routes||[]).length;
 
     // Avg pallets per load vs target of 40
-    const totLoads  = countLoads(e);
-    const avgPal    = totLoads > 0 ? Math.round(p / totLoads) : 0;
+    const avgPal    = runs > 0 ? Math.round(p / runs) : 0;
     const fillPct   = Math.min(Math.round(avgPal / TARGET_PALLETS * 100), 100);
     const ringCol   = avgPal >= TARGET_PALLETS ? 'var(--green)' : avgPal >= 30 ? 'var(--amber)' : 'var(--red)';
     const pillCls   = avgPal >= TARGET_PALLETS ? 'pill-ok' : avgPal >= 30 ? 'pill-warn' : 'pill-over';
