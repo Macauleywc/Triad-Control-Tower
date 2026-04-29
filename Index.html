@@ -3787,7 +3787,7 @@ function renderSiteCards() {
         ${collapsed ? `
         <div class="site-metrics" style="border-top:1px solid var(--rule)">
           <div class="site-metric"><div class="site-metric-val">${runs}</div><div class="site-metric-lbl">Loads</div></div>
-          <div class="site-metric"><div class="site-metric-val">${countLoads(e)}</div><div class="site-metric-lbl">Trailers</div></div>
+          <div class="site-metric"><div class="site-metric-val">${countTrailers(e)}</div><div class="site-metric-lbl">Trailers</div></div>
           <div class="site-metric"><div class="site-metric-val">${s}</div><div class="site-metric-lbl">Del. stops</div></div>
           <div class="site-metric"><div class="site-metric-val">${p}</div><div class="site-metric-lbl">Pallets</div></div>
         </div>` : `
@@ -4921,7 +4921,6 @@ function toggleShipment(id) {
 
 function countLoads(e) {
   if(e.total_loads != null) return e.total_loads;
-  if(e.total_trailers != null) return e.total_trailers;
   const ships = new Set();
   (e.routes||[]).forEach(r => {
     if(r.runShips && r.runShips.length) r.runShips.forEach(s => ships.add(String(s)));
@@ -4929,6 +4928,11 @@ function countLoads(e) {
     else ships.add(r.area||r.runLabel||'x');
   });
   return ships.size || (e.routes||[]).length;
+}
+
+function countTrailers(e) {
+  if(e.total_trailers != null) return e.total_trailers;
+  return countLoads(e);
 }
 
 function groupByShipment(e) {
