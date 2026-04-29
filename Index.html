@@ -3247,8 +3247,8 @@ async function loadDateData() {
           area: r.area, pc: r.postcodes||'',
           stops: r.stops, pallets: r.pallets, weight: r.weight_t,
           stops_detail: r.stops_detail||[],
-          runNum: r.runNum, runLabel: r.runLabel||r.area,
-          multiLoad: r.multiLoad||false, runShips: r.runShips||[]
+          runNum: r.run_num||r.runNum, runLabel: r.run_label||r.runLabel||r.area,
+          multiLoad: r.multi_load||r.multiLoad||false, runShips: r.run_ships||r.runShips||[]
         }))
       }));
     }
@@ -4034,7 +4034,14 @@ async function submitData() {
             { onConflict:'site_id,plan_date' }).select().single();
   if (pe) { showMsg('Error: '+pe.message,'err'); btn.disabled=false; btn.innerHTML='Submit today\'s data →'; return; }
   await sb.from('routes').delete().eq('plan_id', plan.id);
-  const { error: re } = await sb.from('routes').insert(routes.map(r=>({...r, plan_id:plan.id})));
+  const { error: re } = await sb.from('routes').insert(routes.map(r => ({
+        site_id: r.site_id, area: r.area, postcodes: r.postcodes||r.pc||'',
+        stops: r.stops, pallets: r.pallets, weight_t: r.weight_t||r.weight||0,
+        stops_detail: r.stops_detail||[],
+        run_num: r.runNum||null, run_label: r.runLabel||r.area||null,
+        multi_load: r.multiLoad||false, run_ships: r.runShips||[],
+        plan_id: plan.id,
+      })));
   if (re) { showMsg('Error: '+re.message,'err'); btn.disabled=false; btn.innerHTML='Submit today\'s data →'; return; }
   await sb.from('audit_log').insert({ action:'plan_submitted', site_id:uploadTargetSite, user_email:currentUser?.email, details:{stops:routes.reduce((a,r)=>a+r.stops,0)} });
   showMsg(`✓ ${SITES_META[uploadTargetSite]?.name} submitted — ${routes.reduce((a,r)=>a+r.stops,0)} stops saved. All sites updated.`, 'ok');
@@ -6393,7 +6400,14 @@ async function syncFromSheets() {
                 { onConflict:'site_id,plan_date' }).select().single();
       if (!pe) {
         await sb.from('routes').delete().eq('plan_id', plan.id);
-        await sb.from('routes').insert(routes.map(r => ({ ...r, plan_id: plan.id })));
+        await sb.from('routes').insert(routes.map(r => ({
+        site_id: r.site_id, area: r.area, postcodes: r.postcodes||r.pc||'',
+        stops: r.stops, pallets: r.pallets, weight_t: r.weight_t||r.weight||0,
+        stops_detail: r.stops_detail||[],
+        run_num: r.runNum||null, run_label: r.runLabel||r.area||null,
+        multi_load: r.multiLoad||false, run_ships: r.runShips||[],
+        plan_id: plan.id,
+      })));
         await sb.from('audit_log').insert({ action:'excel_sync', site_id:site, user_email:currentUser?.email, details:{ stops:stops.length, source:'onedrive_excel' } });
       }
     } else {
@@ -6615,7 +6629,14 @@ async function processXlsxSheet(ws, sourceName, wb) {
                 {onConflict:'site_id,plan_date'}).select().single();
       if(!pe){
         await sb.from('routes').delete().eq('plan_id', plan.id);
-        await sb.from('routes').insert(routes.map(r=>({...r, plan_id:plan.id})));
+        await sb.from('routes').insert(routes.map(r => ({
+        site_id: r.site_id, area: r.area, postcodes: r.postcodes||r.pc||'',
+        stops: r.stops, pallets: r.pallets, weight_t: r.weight_t||r.weight||0,
+        stops_detail: r.stops_detail||[],
+        run_num: r.runNum||null, run_label: r.runLabel||r.area||null,
+        multi_load: r.multiLoad||false, run_ships: r.runShips||[],
+        plan_id: plan.id,
+      })));
       }
     } else {
       todayData = todayData.filter(e=>e.site!==site);
@@ -6765,7 +6786,14 @@ async function processCsvText(csv, sourceName) {
                 { onConflict:'site_id,plan_date' }).select().single();
       if (!pe) {
         await sb.from('routes').delete().eq('plan_id', plan.id);
-        await sb.from('routes').insert(routes.map(r => ({ ...r, plan_id: plan.id })));
+        await sb.from('routes').insert(routes.map(r => ({
+        site_id: r.site_id, area: r.area, postcodes: r.postcodes||r.pc||'',
+        stops: r.stops, pallets: r.pallets, weight_t: r.weight_t||r.weight||0,
+        stops_detail: r.stops_detail||[],
+        run_num: r.runNum||null, run_label: r.runLabel||r.area||null,
+        multi_load: r.multiLoad||false, run_ships: r.runShips||[],
+        plan_id: plan.id,
+      })));
       }
     } else {
       todayData = todayData.filter(e => e.site !== site);
