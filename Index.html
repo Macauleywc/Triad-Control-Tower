@@ -4918,17 +4918,13 @@ function toggleShipment(id) {
 }
 
 function countLoads(e) {
-  // Use stored total_trailers if available
+  if(e.total_loads != null) return e.total_loads;
   if(e.total_trailers != null) return e.total_trailers;
   const ships = new Set();
   (e.routes||[]).forEach(r => {
-    if(r.runShips && r.runShips.length) {
-      r.runShips.forEach(s => ships.add(String(s)));
-    } else if(r.stops_detail && r.stops_detail.length) {
-      r.stops_detail.forEach(s => ships.add(s.loadRef || s.ship || r.area));
-    } else {
-      ships.add(r.area||r.runLabel||'x');
-    }
+    if(r.runShips && r.runShips.length) r.runShips.forEach(s => ships.add(String(s)));
+    else if(r.stops_detail && r.stops_detail.length) r.stops_detail.forEach(s => ships.add(s.loadRef||s.ship||r.area));
+    else ships.add(r.area||r.runLabel||'x');
   });
   return ships.size || (e.routes||[]).length;
 }
