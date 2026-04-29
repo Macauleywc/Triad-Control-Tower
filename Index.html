@@ -3506,7 +3506,13 @@ function renderStats(opps) {
   // Total runs across all sites
   const tR = todayData.reduce((a,e)=>{
     const runs = new Set((e.routes||[]).map(r => {
-      if(r.runNum !== undefined && r.runNum !== null) return Number(r.runNum);
+      const rn = r.run_num !== undefined && r.run_num !== null ? Number(r.run_num)
+               : r.runNum !== undefined && r.runNum !== null ? Number(r.runNum)
+               : null;
+      if(rn !== null) return rn;
+      const rl = r.run_label || r.runLabel || '';
+      const m = rl.match(/^Run (\d+)/i);
+      if(m) return Number(m[1]);
       const firstStop = (r.stops_detail||[])[0];
       if(firstStop && firstStop.runNum !== undefined) return Number(firstStop.runNum);
       return r.runLabel||r.area;
@@ -3736,7 +3742,16 @@ function renderSiteCards() {
 
     // Count distinct runs
     const runSet = new Set((e.routes||[]).map(r => {
-      if(r.runNum !== undefined && r.runNum !== null) return Number(r.runNum);
+      // Use run_num (from Supabase column) or runNum (from memory)
+      const rn = r.run_num !== undefined && r.run_num !== null ? Number(r.run_num)
+               : r.runNum !== undefined && r.runNum !== null ? Number(r.runNum)
+               : null;
+      if(rn !== null) return rn;
+      // Try run_label "Run 1", "Run 2" etc
+      const rl = r.run_label || r.runLabel || '';
+      const m = rl.match(/^Run (\d+)/i);
+      if(m) return Number(m[1]);
+      // Try stops_detail
       const firstStop = (r.stops_detail||[])[0];
       if(firstStop && firstStop.runNum !== undefined) return Number(firstStop.runNum);
       return r.runLabel||r.area;
@@ -7764,8 +7779,11 @@ async function vpkLoadIntoTriad() {
   // Save to Supabase if connected
   if(sb && isConfigured) {
     try {
+      const totalRuns = new Set(vpkParsedRows.map(r=>r.runNum)).size;
+      const totalShips = new Set(vpkParsedRows.map(r=>r.ship)).size;
       const { data: plan, error: pe } = await sb.from('daily_plans')
-        .upsert({ site_id:site, plan_date:saveDate, capacity:80, notes:'VPK import', uploaded_by:(currentUser?.email||'VPK Schedule') },
+        .upsert({ site_id:site, plan_date:saveDate, capacity:80, notes:'VPK import',
+                  uploaded_by:(currentUser?.email||'VPK Schedule') },
                 { onConflict:'site_id,plan_date' }).select().single();
       if(pe) throw pe;
       await sb.from('routes').delete().eq('plan_id', plan.id);
