@@ -3279,11 +3279,10 @@ async function loadFromSupabase() {
   if (error) { setOffline(); return; }
   setOnline();
   todayData = (plans||[]).map(p => ({
-    site: p.site_id, date: p.plan_date, capacity: p.capacity,
-    notes: p.notes||'', uploaded_by: p.uploaded_by||'', total_loads: p.total_loads, total_trailers: p.total_trailers,
-total_loads: p.total_loads != null ? p.total_loads : null,
-total_trailers: p.total_trailers != null ? p.total_trailers : null,
-    routes: (p.routes||[]).map(r => ({
+  site: p.site_id, date: p.plan_date, capacity: p.capacity,
+  notes: p.notes||'', uploaded_by: p.uploaded_by||'',
+  total_loads: p.total_loads,
+  total_trailers: p.total_trailers,
       area: r.area, pc: r.postcodes||'',
       stops: r.stops, pallets: r.pallets, weight: r.weight_t,
       stops_detail: r.stops_detail||[],
