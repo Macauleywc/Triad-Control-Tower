@@ -3743,18 +3743,15 @@ function renderSiteCards() {
     const w = sumWeight(e).toFixed(1);
 
     // Count distinct runs
-    // Use stored totals if available (most accurate)
-    const runs = e.total_loads || new Set((e.routes||[]).map(r => {
-      const rn = r.run_num !== undefined && r.run_num !== null ? Number(r.run_num)
-               : r.runNum !== undefined && r.runNum !== null ? Number(r.runNum) : null;
-      if(rn !== null) return rn;
-      const rl = r.run_label || r.runLabel || '';
-      const m = rl.match(/^Run (\d+)/i);
-      if(m) return Number(m[1]);
-      const firstStop = (r.stops_detail||[])[0];
-      if(firstStop && firstStop.runNum !== undefined) return Number(firstStop.runNum);
-      return r.runLabel||r.area;
-    })).size || (e.routes||[]).length;
+    // Count unique trailer runs from run_label (e.g. "Run 1", "Run 2")
+    // For Banbury/Wellington/Campeys, each route IS one trailer run
+    const isVpk = (e.routes||[]).some(r=>(r.run_label||r.runLabel||'').match(/^Run \d+/i));
+    const runs = isVpk
+      ? (e.total_loads || new Set((e.routes||[]).map(r=>{
+          const rl=r.run_label||r.runLabel||'';
+          const m=rl.match(/^Run (\d+)/i); return m?Number(m[1]):(r.runNum||r.area);
+        })).size)
+      : (e.routes||[]).length;
 
     // Avg pallets per load vs target of 40
     const avgPal    = runs > 0 ? Math.round(p / runs) : 0;
