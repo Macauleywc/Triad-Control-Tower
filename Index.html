@@ -7770,7 +7770,7 @@ async function vpkLoadIntoTriad() {
   // Save to Supabase if connected
   if(sb && isConfigured) {
     try {
-      const totalRuns = new Set(vpkParsedRows.map(r=>{ const rl=r.runLabel||''; const m=rl.match(/^Run (\d+)/i); return m?Number(m[1]):(r.runNum!=null?Number(r.runNum):rl); })).size;
+      const totalRuns = new Set(vpkParsedRows.map(r=>r.runShips[0]||r.runLabel)).size;
       const totalShips = new Set(vpkParsedRows.map(r=>r.ship)).size;
       const { data: plan, error: pe } = await sb.from('daily_plans')
         .upsert({ site_id:site, plan_date:saveDate, capacity:80, notes:'VPK import',
