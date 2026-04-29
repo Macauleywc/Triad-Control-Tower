@@ -3507,7 +3507,7 @@ function renderStats(opps) {
   const totLoads    = todayData.reduce((a,e)=>a+countLoads(e),0);
   // Total runs across all sites
   const tR = todayData.reduce((a,e)=>{
-    if(e.total_loads) return a + e.total_loads;
+    if(e.total_loads != null) return a + e.total_loads;
     const runs = new Set((e.routes||[]).map(r => {
       const rn = r.run_num !== undefined && r.run_num !== null ? Number(r.run_num)
                : r.runNum !== undefined && r.runNum !== null ? Number(r.runNum) : null;
@@ -4919,7 +4919,7 @@ function toggleShipment(id) {
 
 function countLoads(e) {
   // Use stored total_trailers if available
-  if(e.total_trailers) return e.total_trailers;
+  if(e.total_trailers != null) return e.total_trailers;
   const ships = new Set();
   (e.routes||[]).forEach(r => {
     if(r.runShips && r.runShips.length) {
