@@ -7570,7 +7570,7 @@ function parseWellington(ws) {
 }
 
 // Convert Banbury parsed stops into Triad data format and load
-function vpkLoadBanburyStops(stops) {
+function vpkLoadBanburyStops(stops, siteOverride) {
   const validStops = stops.filter(s => s.postcode && s.name && !s.name.match(/^T\d{3}$/) && s.name.length < 60);
   if(!validStops.length) { vpkShowMsg('No valid delivery stops found — check postcodes are filled in.', 'err'); return; }
 
@@ -7775,7 +7775,7 @@ async function vpkLoadIntoTriad() {
       const totalRuns = new Set(vpkParsedRows.map(r=>r.runNum)).size;
       const totalShips = new Set(vpkParsedRows.map(r=>r.ship)).size;
       const { data: plan, error: pe } = await sb.from('daily_plans')
-        .upsert({ site_id:site, plan_date:saveDate, capacity:80, notes:'VPK import',
+        .upsert({ site_id: siteOverride || site, plan_date:saveDate, capacity:80, notes:'VPK import',
                   uploaded_by:(currentUser?.email||'VPK Schedule'),
                   total_loads: totalRuns, total_trailers: totalShips },
                 { onConflict:'site_id,plan_date' }).select().single();
