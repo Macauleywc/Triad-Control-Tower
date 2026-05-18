@@ -7775,7 +7775,7 @@ async function vpkLoadIntoTriad() {
       const totalRuns = new Set(vpkParsedRows.filter(r=>(r.pallets||0)>0).map(r=>r.runShips[0]||r.runLabel)).size;
       const totalShips = new Set(vpkParsedRows.map(r=>r.ship)).size;
       const { data: plan, error: pe } = await sb.from('daily_plans')
-        .upsert({ site_id: siteOverride || site, plan_date:saveDate, capacity:80, notes:'VPK import',
+        .upsert({ site_id: site, plan_date:saveDate, capacity:80, notes:'VPK import',
                   uploaded_by:(currentUser?.email||'VPK Schedule'),
                   total_loads: totalRuns, total_trailers: totalShips },
                 { onConflict:'site_id,plan_date' }).select().single();
