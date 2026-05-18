@@ -7354,7 +7354,7 @@ function vpkHandleFile(input) {
         } else if(isCampeys) {
           const stops = parseCampeys(ws);
           if(!stops.length) { vpkShowMsg('No delivery rows found in Campeys sheet.', 'err'); return; }
-          vpkLoadBanburyStops(stops);
+          vpkLoadBanburyStops(stops, 'selby');
         } else if(isBanbury) {
           let parseWs = ws;
           if(isMultiDay) {
