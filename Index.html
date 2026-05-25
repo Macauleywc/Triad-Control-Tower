@@ -3736,6 +3736,7 @@ function oppRow(o) {
 }
 /* ── OPP ROUTE MAP ── */
 const _oppMaps = {}; // store Leaflet map instances keyed by oppKey
+const _oppDataStore = {}; // store full opp objects keyed by oppKey
 function toggleOppRoute(key) {
   const panel = document.getElementById('routepanel-' + key);
   const btn   = document.getElementById('routebtn-' + key);
@@ -3757,13 +3758,15 @@ function renderOppMap(key) {
   if (_oppMaps[key]) return; // already initialised
   const mapEl = document.getElementById('mapel-' + key);
   if (!mapEl) return;
-  // Retrieve data stored on the panel element
+  // Retrieve opp data from store
   const panel  = document.getElementById('routepanel-' + key);
   if (!panel) return;
-  const fromId = panel.dataset.from;
-  const toId   = panel.dataset.to;
-  const stops  = JSON.parse(panel.dataset.stops || '[]');
-  const overlap = (panel.dataset.overlap || '').split(',').filter(Boolean);
+  const o = _oppDataStore[key];
+  if (!o) return;
+  const fromId = o.from;
+  const toId   = o.to;
+  const stops  = o.route.stops_detail || [];
+  const overlap = o.overlap || [];
   const fromDepot = DEPOTS[fromId];
   const toDepot   = DEPOTS[toId];
   const fMeta = SITES_META[fromId]||{}, tMeta = SITES_META[toId]||{};
@@ -3895,6 +3898,7 @@ function renderAllOpps(opps) {
   const ignored = opps.filter(o =>  ignoredOpps.has(oppKey(o)));
   const cards = active.map(o => {
     const key    = oppKey(o);
+    _oppDataStore[key] = o; // store for map rendering
     const urgCls = {high:'urg-high',med:'urg-med',low:'urg-low'}[o.urgency];
     const urgLbl = {high:'URGENT',med:'RECOMMENDED',low:'OPTIONAL'}[o.urgency];
     const fMeta  = SITES_META[o.from]||{}, tMeta = SITES_META[o.to]||{};
@@ -3952,8 +3956,7 @@ function renderAllOpps(opps) {
       </button>
       <div class="opp-route-expand" id="routepanel-${key}"
            data-from="${o.from}" data-to="${o.to}"
-           data-overlap="${o.overlap.join(',')}"
-           data-stops="${JSON.stringify(o.route.stops_detail||[]).replace(/"/g,'&quot;')}">
+           data-overlap="${o.overlap.join(',')}">
         <div class="opp-route-expand-inner">
           <table class="opp-run-table">
             <thead><tr><th>#</th><th>Customer</th><th>Postcode</th><th>ETA</th><th style="text-align:right">Pallets</th></tr></thead>
