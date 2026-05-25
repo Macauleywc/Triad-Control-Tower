@@ -7024,11 +7024,26 @@ async function vpkLoadIntoTriad() {
       haulier: d.haulier,
     };
   });
-  // Correct counts — Premier only (exclude Radius / subcontractors)
-  const premierRoutes = routes.filter(r => (r.haulier||'PREMIER').toUpperCase().includes('PREMIER'));
-  const runSetKeys = new Set(premierRoutes.map(r => [...(r.runShips||[r.area])].sort().join('|')));
-  const totalLoads    = runSetKeys.size;       // distinct vehicle runs = 14
-  const totalTrailers = premierRoutes.length;  // distinct Premier shipments = 17
+  // Correct counts
+  let totalLoads, totalTrailers;
+  if (isVpkFormat) {
+    // VPK (Desborough/PLG): Premier runs only, group by runShips set
+    // Excludes Radius/subcontractor runs; multi-load runs counted as 1
+    const premierRoutes = routes.filter(r => (r.haulier||'PREMIER').toUpperCase().includes('PREMIER'));
+    const runSetKeys = new Set(premierRoutes.map(r => [...(r.runShips||[r.area])].sort().join('|')));
+    totalLoads    = runSetKeys.size;       // distinct vehicle runs  e.g. 14
+    totalTrailers = premierRoutes.length;  // distinct shipments     e.g. 17
+  } else {
+    // Banbury/Wellington/Campeys: group by route letter base
+    // Route C1 + Route C2 = same truck = 1 load, 2 trailers
+    const activeRoutes = routes.filter(r => (r.pallets||0) > 0);
+    const loadBaseKeys = new Set(activeRoutes.map(r => {
+      const m = String(r.area||r.runLabel||'').match(/^Route[- ]?([A-Za-z]+)/i);
+      return m ? m[1].toUpperCase() : (r.area||r.runLabel||'x');
+    }));
+    totalLoads    = loadBaseKeys.size;    // distinct vehicle runs  e.g. 18
+    totalTrailers = activeRoutes.length;  // distinct shipments     e.g. 23
+  }
   // Save to Supabase if connected
   if(sb && isConfigured) {
     try {
