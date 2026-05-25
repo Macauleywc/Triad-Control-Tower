@@ -3056,8 +3056,9 @@ async function doLogin() {
   btn.disabled = false; btn.innerHTML = 'Sign in →';
   if (error) { err.style.display = 'block'; return; }
   currentUser = data.user;
-  isSuperUser  = data.user?.app_metadata?.role === 'superadmin' || data.user?.app_metadata?.site_id === 'admin';
-  currentSiteId = isSuperUser ? 'desborough' : (data.user?.app_metadata?.site_id || Object.keys(SITES_META)[0]);
+  const appMeta = data.user?.app_metadata || {};
+  isSuperUser   = appMeta.role === 'superadmin' || appMeta.site_id === 'admin' || appMeta.site_id === 'desborough';
+  currentSiteId = isSuperUser ? 'desborough' : (appMeta.site_id || Object.keys(SITES_META)[0]);
   enterApp();
 }
 async function doLogout() {
