@@ -2283,7 +2283,7 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
         <span>Import</span>
       </button>
       <div class="sb-nav-label" id="admin-nav-section" style="display:none">Admin</div>
-      <button class="sb-link" data-tab="kpi" onclick="showTab('kpi')" id="sb-kpi" style="display:none">
+      <button class="sb-link" data-tab="kpi" onclick="showTab('kpi')" id="sb-kpi">
         <svg class="sb-link-icon" viewBox="0 0 18 18" fill="none">
           <path d="M2 14l4-5 3 3 3-4 4 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
@@ -3082,8 +3082,10 @@ function enterApp() {
   buildSiteSelector();
   addRow();
   buildSiteRadios();
-  // Show admin/KPI nav only for superuser
-  ['admin-nav-section','sb-kpi','sb-admin'].forEach(id => {
+  // KPIs visible to all; User Admin only for superuser
+  const kpiEl = document.getElementById('sb-kpi');
+  if (kpiEl) kpiEl.style.display = '';
+  ['admin-nav-section','sb-admin'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = isSuperUser ? '' : 'none';
   });
@@ -4252,7 +4254,7 @@ window.addEventListener('load', () => {
     viewDate = todayStr();
     updateDateNav();
     buildSiteSelector(); addRow(); buildSiteRadios();
-    ['admin-nav-section','sb-kpi','sb-admin'].forEach(id => {
+    ['admin-nav-section','sb-admin'].forEach(id => {
       const el = document.getElementById(id); if (el) el.style.display = '';
     });
     renderAll();
