@@ -1110,14 +1110,16 @@ button, input, select, textarea { font-family: var(--font-body); }
   border-radius: var(--r-lg);
   overflow: hidden;
   margin-bottom: 12px;
-  transition: box-shadow 0.2s;
+  transition: box-shadow 0.2s, opacity 0.3s, transform 0.3s;
 }
-.opp-full-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+.opp-full-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.07); }
+.opp-full-card.dismissed { opacity: 0; transform: translateY(-6px); pointer-events: none; }
+.opp-full-card.transferred { border-color: var(--green); }
 .opp-full-head {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 18px 24px;
+  gap: 12px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--rule);
 }
 .opp-urg-pill {
@@ -1126,33 +1128,108 @@ button, input, select, textarea { font-family: var(--font-body); }
   font-weight: 500;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  padding: 4px 10px;
+  padding: 3px 9px;
   border-radius: 20px;
+  flex-shrink: 0;
 }
 .urg-high { background: var(--red-l);   color: var(--red); }
 .urg-med  { background: var(--amber-l); color: var(--amber); }
 .urg-low  { background: var(--green-l); color: var(--green); }
 .opp-full-route {
   font-family: var(--font-head);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
-  color: var(--ink);
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex: 1;
+  min-width: 0;
 }
-.opp-full-body { padding: 18px 24px; }
+.opp-route-name { font-size: 13px; color: var(--ink3); font-weight: 400; white-space: nowrap; }
+.opp-saving-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--green);
+  background: var(--green-l);
+  border: 1px solid rgba(26,138,90,0.2);
+  padding: 3px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.opp-dismiss-x {
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; background: transparent;
+  color: var(--ink3); font-size: 16px;
+  cursor: pointer; border-radius: 6px;
+  flex-shrink: 0; transition: background 0.15s;
+}
+.opp-dismiss-x:hover { background: var(--cream2); color: var(--ink); }
+.opp-full-body { padding: 18px 20px; }
 .opp-full-desc {
   font-size: 13px;
   color: var(--ink2);
-  line-height: 1.7;
+  line-height: 1.65;
   margin-bottom: 14px;
+}
+.opp-pc-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.opp-depot-pair {
+  display: grid;
+  grid-template-columns: 1fr 32px 1fr;
+  align-items: center;
+  gap: 0;
+  background: var(--cream);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.opp-depot-box {
+  padding: 14px 16px;
+}
+.opp-depot-role {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink3);
+  margin-bottom: 4px;
+}
+.opp-depot-name {
+  font-family: var(--font-head);
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.opp-depot-stats {
+  font-size: 12px;
+  color: var(--ink3);
+}
+.opp-depot-util-bar {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--rule);
+  margin-top: 8px;
+  overflow: hidden;
+}
+.opp-depot-util-fill { height: 100%; border-radius: 2px; }
+.opp-depot-arrow-col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink3);
+  font-size: 18px;
+  background: var(--cream2);
+  height: 100%;
+  min-height: 80px;
 }
 .opp-full-meta {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 .opp-meta-chip {
@@ -1161,12 +1238,25 @@ button, input, select, textarea { font-family: var(--font-body); }
   color: var(--ink3);
   background: var(--cream);
   border: 1px solid var(--rule);
-  padding: 4px 10px;
+  padding: 3px 10px;
   border-radius: 20px;
 }
+.opp-action-btns { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.opp-ignore-btn {
+  padding: 8px 14px;
+  background: transparent;
+  color: var(--ink3);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font-body);
+}
+.opp-ignore-btn:hover { background: var(--cream); color: var(--ink); }
 .opp-confirm-btn {
-  margin-left: auto;
-  padding: 9px 18px;
+  padding: 8px 16px;
   background: var(--navy);
   color: #fff;
   border: none;
@@ -1178,6 +1268,50 @@ button, input, select, textarea { font-family: var(--font-body); }
   font-family: var(--font-head);
 }
 .opp-confirm-btn:hover { background: var(--navy2); }
+.opp-confirm-btn.done { background: var(--green); cursor: default; }
+.opp-confirm-panel {
+  margin-top: 14px;
+  padding: 16px;
+  background: var(--cream);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--ink2);
+  display: none;
+}
+.opp-confirm-panel p { margin: 0 0 12px; line-height: 1.6; }
+.opp-confirm-yes {
+  padding: 8px 16px;
+  background: var(--green);
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-head);
+  margin-right: 8px;
+}
+.opp-confirm-yes:hover { opacity: 0.85; }
+.opp-confirm-cancel {
+  padding: 8px 14px;
+  background: transparent;
+  color: var(--ink3);
+  border: 1px solid var(--rule);
+  border-radius: 7px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: var(--font-body);
+}
+.opp-confirm-cancel:hover { background: var(--cream2); }
+.opp-dismissed-section {
+  text-align: center;
+  padding: 12px;
+  font-size: 12px;
+  color: var(--ink3);
+  cursor: pointer;
+}
+.opp-dismissed-section:hover { color: var(--ink2); }
 /* ══════════════════════════════════════════
    HISTORY TAB
 ══════════════════════════════════════════ */
@@ -2808,6 +2942,7 @@ const PC_PROXIMITY = {
 const isConfigured = SUPABASE_URL !== 'YOUR_SUPABASE_URL';
 const sb = isConfigured ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON) : null;
 let currentUser = null, currentSiteId = null, todayData = [], allData = [];
+const ignoredOpps = new Set(); // keys: 'from|to|area'
 let uploadTargetSite = null, rowCount = 0;
 let lastExportContent = '', lastExportExt = 'txt';
 /* ══════════════════════════════════════════
@@ -3058,6 +3193,8 @@ function computeOpps(data) {
         }, 0) / closerToReceiver.length;
         const urg = avgDist <= 10 ? 'high' : avgDist <= 20 ? 'med' : 'low';
         const fU = sumStops(from) / (from.capacity||80);
+        const toEntry = map[toId];
+        const tU = toEntry ? sumStops(toEntry) / (toEntry.capacity||80) : 0;
         opps.push({
           from: fromId, to: toId,
           fromName: SITES_META[fromId]?.name,
@@ -3067,7 +3204,7 @@ function computeOpps(data) {
           saving:   Math.max(saving, 5),
           urgency:  urg,
           fromU:    Math.round(fU * 100),
-          toU:      0,
+          toU:      Math.round(tU * 100),
           avgDist:  Math.round(avgDist),
           desc: `${SITES_META[fromId]?.name}'s ${route.area} route has ${closerToReceiver.length} stop${closerToReceiver.length!==1?'s':''} (${closerToReceiver.join(', ')}) within ${RING_FENCE_MILES} miles of ${SITES_META[toId]?.name} — and closer to ${SITES_META[toId]?.name} than to ${SITES_META[fromId]?.name}. Transferring could save ~${Math.max(saving,5)} miles.`
         });
@@ -3083,6 +3220,7 @@ function computeOpps(data) {
     return true;
   });
   return deduped.sort((a,b) => ({high:0,med:1,low:2}[a.urgency]-{high:0,med:1,low:2}[b.urgency] || b.saving-a.saving));
+  // Note: ignored opps are filtered in renderAllOpps, not here, so badge counts remain accurate
 }
 /* ══════════════════════════════════════════
    RENDER
@@ -3129,8 +3267,9 @@ function renderAll() {
   renderAllOpps(opps);
   renderHistory();
   renderLoads();
-  document.getElementById('opp-badge').textContent = opps.length;
-  document.getElementById('opp-panel-count').textContent = opps.length;
+  const activeCount = opps.filter(o=>!ignoredOpps.has(o.from+'|'+o.to+'|'+o.route.area)).length;
+  document.getElementById('opp-badge').textContent = activeCount;
+  document.getElementById('opp-panel-count').textContent = activeCount;
   } catch(err) {
     console.error('renderAll error:', err);
     const sg = document.getElementById('sites-grid');
@@ -3498,51 +3637,132 @@ function oppRow(o) {
   </div>`;
 }
 /* ── ALL OPPS ── */
+function oppKey(o) { return o.from+'|'+o.to+'|'+o.route.area; }
+function ignoreOpp(key) {
+  ignoredOpps.add(key);
+  const card = document.querySelector('[data-opp-key="'+key+'"]');
+  if (card) { card.classList.add('dismissed'); setTimeout(()=>renderAllOpps(computeOpps(todayData)), 320); }
+}
+function restoreOpp(key) {
+  ignoredOpps.delete(key);
+  renderAllOpps(computeOpps(todayData));
+}
+function showOppConfirm(key) {
+  const panel = document.getElementById('cpanel-'+key);
+  const btn   = document.getElementById('cbtn-'+key);
+  if (!panel) return;
+  const open = panel.style.display === 'block';
+  panel.style.display = open ? 'none' : 'block';
+  if (btn) btn.textContent = open ? 'Confirm transfer →' : 'Cancel ✕';
+}
+async function doConfirmTransfer(key, from, to, area) {
+  const fName = SITES_META[from]?.name, tName = SITES_META[to]?.name;
+  const card = document.querySelector('[data-opp-key="'+key+'"]');
+  const btn  = document.getElementById('cbtn-'+key);
+  if (btn) { btn.textContent = '✓ Transfer confirmed'; btn.classList.add('done'); btn.disabled = true; }
+  // Log to Supabase
+  if (sb) {
+    try { await sb.from('audit_log').insert({ action:'transfer_confirmed', site_id:from, user_email:currentUser?.email||'demo', details:{from,to,area,confirmedAt:new Date().toISOString()} }); } catch(e){}
+  }
+  // Post to Live Chat
+  const ch = (typeof CHAT_CHANNELS !== 'undefined') ? (CHAT_CHANNELS.find(c=>c.private&&c.sites?.includes(from)&&c.sites?.includes(to))?.id||'network') : 'network';
+  if (!chatMessages[ch]) chatMessages[ch] = [];
+  const msg = { id:'xfer_'+Date.now(), channel:ch, site:currentSiteId, sender:currentUser?.email||'System',
+    text:`✅ Transfer confirmed: ${fName}'s ${area} route → ${tName}. Both sites please update your plans.`,
+    urgent:true, replyTo:null, ts:Date.now() };
+  chatMessages[ch].push(msg);
+  if (typeof broadcastMsg === 'function') broadcastMsg(msg);
+  chatUnread[ch] = (chatUnread[ch]||0)+1;
+  if (typeof updateUnreadBadges === 'function') updateUnreadBadges();
+  // Animate card out
+  if (card) { card.style.borderColor = 'var(--green)'; card.style.background = 'var(--green-l)'; }
+  showReqToast('Transfer confirmed — both sites notified via Live Chat');
+  setTimeout(() => { if(card) card.classList.add('dismissed'); setTimeout(()=>renderAllOpps(computeOpps(todayData)),320); }, 1800);
+}
 function renderAllOpps(opps) {
   const el = document.getElementById('all-opps');
-  if (!opps.length) {
+  if (!opps.length && !ignoredOpps.size) {
     if (!todayData.length) {
       el.innerHTML = `<div class="hist-table-wrap" style="padding:48px;text-align:center;color:var(--ink3)">
         <div style="font-size:32px;margin-bottom:12px">📋</div>
         <div style="font-family:var(--font-head);font-size:18px;font-weight:700;color:var(--ink);margin-bottom:6px">No delivery data yet</div>
-        <div style="font-size:13px">Upload today's deliveries from the Upload tab — sharing opportunities will appear here automatically.</div>
+        <div style="font-size:13px">Upload today's deliveries from the Import tab — sharing opportunities appear automatically.</div>
       </div>`;
     } else {
       el.innerHTML = `<div class="hist-table-wrap" style="padding:48px;text-align:center;color:var(--ink3)">
         <div style="font-size:32px;margin-bottom:12px">✓</div>
         <div style="font-family:var(--font-head);font-size:18px;font-weight:700;color:var(--ink);margin-bottom:6px">Network balanced</div>
-        <div style="font-size:13px">No load sharing opportunities identified today. All sites are within healthy capacity.</div>
+        <div style="font-size:13px">No load sharing opportunities identified today — all sites within healthy capacity.</div>
       </div>`;
     }
     return;
   }
-  el.innerHTML = opps.map(o => {
+  // Active opps (not ignored)
+  const active  = opps.filter(o => !ignoredOpps.has(oppKey(o)));
+  const ignored = opps.filter(o =>  ignoredOpps.has(oppKey(o)));
+  const cards = active.map(o => {
+    const key    = oppKey(o);
     const urgCls = {high:'urg-high',med:'urg-med',low:'urg-low'}[o.urgency];
-    const urgLbl = {high:'Urgent',med:'Recommended',low:'Optional'}[o.urgency];
-    const fMeta  = SITES_META[o.from], tMeta = SITES_META[o.to];
-    return `<div class="opp-full-card">
+    const urgLbl = {high:'URGENT',med:'RECOMMENDED',low:'OPTIONAL'}[o.urgency];
+    const fMeta  = SITES_META[o.from]||{}, tMeta = SITES_META[o.to]||{};
+    const fPct   = o.fromU, tPct = o.toU;
+    const fCol   = fPct>=80?'var(--red)':fPct>=60?'var(--amber)':'var(--green)';
+    const tCol   = tPct>=80?'var(--red)':tPct>=60?'var(--amber)':'var(--green)';
+    const shortDesc = `${o.fromName}'s <strong>${o.route.area}</strong> has ${o.overlap.length} stop${o.overlap.length!==1?'s':''} (${o.overlap.join(', ')}) within ${RING_FENCE_MILES} miles of ${o.toName} — and closer to ${o.toName}. Transferring saves ~${o.saving} miles.`;
+    return `<div class="opp-full-card" data-opp-key="${key}">
       <div class="opp-full-head">
         <span class="opp-urg-pill ${urgCls}">${urgLbl}</span>
         <div class="opp-full-route">
-          <span style="color:${fMeta.color}">${o.fromName}</span>
-          <svg width="20" height="12" viewBox="0 0 20 12" fill="none"><path d="M1 6h16M13 2l4 4-4 4" stroke="var(--ink3)" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span style="color:${tMeta.color}">${o.toName}</span>
-          <span style="font-size:13px;color:var(--ink3);font-weight:400">· ${o.route.area}</span>
+          <span style="color:${fMeta.color};font-weight:700">${o.fromName}</span>
+          <svg width="18" height="10" viewBox="0 0 18 10" fill="none" style="flex-shrink:0"><path d="M1 5h14M11 1l4 4-4 4" stroke="var(--ink3)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span style="color:${tMeta.color};font-weight:700">${o.toName}</span>
+          <span class="opp-route-name">· ${o.route.area}</span>
         </div>
-        <span class="opp-saving">~${o.saving} mi saved</span>
+        <span class="opp-saving-badge">~${o.saving} mi saved</span>
+        <button class="opp-dismiss-x" onclick="ignoreOpp('${key}')" title="Dismiss">✕</button>
       </div>
       <div class="opp-full-body">
-        <div class="opp-full-desc">${o.desc}</div>
-        <div class="opp-pc-tags">${o.overlap.map(p=>`<span class="pc-tag">${p}</span>`).join('')}</div>
+        <div class="opp-full-desc">${shortDesc}</div>
+        <div class="opp-pc-row">${o.overlap.map(p=>`<span class="pc-tag">${p}</span>`).join('')}</div>
+        <div class="opp-depot-pair">
+          <div class="opp-depot-box">
+            <div class="opp-depot-role">Sending</div>
+            <div class="opp-depot-name" style="color:${fMeta.color}">${o.fromName}</div>
+            <div class="opp-depot-stats">${fPct}% utilised · ${o.route.pallets} pallets · ${o.route.stops} stop${o.route.stops!==1?'s':''}</div>
+            <div class="opp-depot-util-bar"><div class="opp-depot-util-fill" style="width:${Math.min(fPct,100)}%;background:${fCol}"></div></div>
+          </div>
+          <div class="opp-depot-arrow-col">→</div>
+          <div class="opp-depot-box">
+            <div class="opp-depot-role">Receiving</div>
+            <div class="opp-depot-name" style="color:${tMeta.color}">${o.toName}</div>
+            <div class="opp-depot-stats">${tPct}% utilised · ${100-tPct}% capacity free</div>
+            <div class="opp-depot-util-bar"><div class="opp-depot-util-fill" style="width:${Math.min(tPct,100)}%;background:${tCol}"></div></div>
+          </div>
+        </div>
         <div class="opp-full-meta">
-          <span class="opp-meta-chip">${o.fromU}% → ${o.toU}% utilisation</span>
-          <span class="opp-meta-chip">${o.route.stops} stops · ${o.route.pallets} pallets</span>
-          <span class="opp-meta-chip">${Number(o.route.weight||0).toFixed(1)}t</span>
-          <button class="opp-confirm-btn" onclick="confirmTransfer('${o.from}','${o.to}','${o.route.area}')" data-tip="Confirm transfer">Confirm transfer →</button>
+          <span class="opp-meta-chip">${o.route.stops} stops · ${o.route.pallets} pallets · ${Number(o.route.weight||0).toFixed(1)}t</span>
+          <span class="opp-meta-chip">~${o.avgDist} mi from ${o.toName}</span>
+          <div class="opp-action-btns">
+            <button class="opp-ignore-btn" onclick="ignoreOpp('${key}')">Ignore</button>
+            <button class="opp-confirm-btn" id="cbtn-${key}" onclick="showOppConfirm('${key}')">Confirm transfer →</button>
+          </div>
+        </div>
+        <div class="opp-confirm-panel" id="cpanel-${key}">
+          <p><strong>Confirm this transfer?</strong> This logs the agreement to the audit trail and sends a notification to both sites in Live Chat. Both sites should then update their plans manually.</p>
+          <button class="opp-confirm-yes" onclick="doConfirmTransfer('${key}','${o.from}','${o.to}','${o.route.area}')">✓ Yes, confirm transfer</button>
+          <button class="opp-confirm-cancel" onclick="showOppConfirm('${key}')">Cancel</button>
         </div>
       </div>
     </div>`;
   }).join('');
+
+  const dismissedSection = ignored.length ? `<div class="opp-dismissed-section" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.textContent=(this.textContent.includes('Show')?'Hide':'Show')+' ${ignored.length} dismissed opportunit${ignored.length===1?'y':'ies'}'">Show ${ignored.length} dismissed opportunit${ignored.length===1?'y':'ies'}</div>
+    <div style="display:none">${ignored.map(o=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border:1px dashed var(--rule);border-radius:8px;margin-bottom:8px;opacity:0.6;font-size:13px;color:var(--ink3)">
+      <span>${SITES_META[o.from]?.name} → ${SITES_META[o.to]?.name} · ${o.route.area}</span>
+      <button onclick="restoreOpp('${oppKey(o)}')" style="font-size:12px;padding:3px 10px;border:1px solid var(--rule);border-radius:6px;background:transparent;cursor:pointer;color:var(--ink3)">Restore</button>
+    </div>`).join('')}</div>` : '';
+
+  el.innerHTML = (active.length ? cards : `<div class="hist-table-wrap" style="padding:40px;text-align:center;color:var(--ink3)"><div style="font-size:20px;margin-bottom:8px">✓</div><div style="font-size:14px;font-weight:600;color:var(--ink)">All opportunities actioned</div><div style="font-size:13px;margin-top:4px">Great work — all flagged routes have been confirmed or dismissed.</div></div>`) + dismissedSection;
 }
 /* ── NET SUMMARY ── */
 function renderNetSummary() {
@@ -3710,11 +3930,7 @@ async function renderHistory() {
 /* ══════════════════════════════════════════
    CONFIRM TRANSFER
 ══════════════════════════════════════════ */
-async function confirmTransfer(from, to, area) {
-  if (!confirm(`Confirm: move "${area}" from ${SITES_META[from]?.name} to ${SITES_META[to]?.name}?\n\nThis logs the agreement. Both sites should then update their data.`)) return;
-  if (sb) await sb.from('audit_log').insert({ action:'transfer_confirmed', site_id:from, user_email:currentUser?.email, details:{from,to,area} });
-  alert(`Transfer confirmed and logged. ${SITES_META[from]?.name} should remove "${area}" and ${SITES_META[to]?.name} should add it.`);
-}
+// confirmTransfer replaced by doConfirmTransfer in renderAllOpps
 /* ══════════════════════════════════════════
    TABS
 ══════════════════════════════════════════ */
