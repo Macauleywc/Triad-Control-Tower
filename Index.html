@@ -3032,12 +3032,16 @@ async function doLogin() {
     // Demo mode — auto-login
     const demoEmail = document.getElementById('login-email').value.toLowerCase().trim();
     currentUser = { email: demoEmail || 'demo@triad.com' };
-    isSuperUser  = !demoEmail || demoEmail.includes('admin') || demoEmail.includes('super');
-    currentSiteId = isSuperUser ? 'desborough'
-      : demoEmail.includes('selby')      ? 'selby'
-      : demoEmail.includes('banbury')    ? 'banbury'
-      : demoEmail.includes('wellington') ? 'wellington'
-      : 'desborough';
+    // Check demoUsers list first for explicit role assignment
+    const knownUser = demoUsers.find(u => u.email.toLowerCase() === demoEmail);
+    if (knownUser) {
+      isSuperUser   = knownUser.role === 'superadmin' || knownUser.site === 'admin';
+      currentSiteId = isSuperUser ? 'desborough' : (knownUser.site || 'desborough');
+    } else {
+      // Unknown email in demo mode → superuser by default (no real auth)
+      isSuperUser   = true;
+      currentSiteId = 'desborough';
+    }
     enterApp();
     return;
   }
@@ -6930,9 +6934,9 @@ let vpkFileName   = null;
 function initVpkTab() {
   // Build site selector for VPK tab
   const sel = document.getElementById('vpk-site-selector');
-  if (sel && !sel.innerHTML) {
+  if (sel) {
+    // Always rebuild so it reflects current isSuperUser state
     if (!isSuperUser) {
-      // Non-admin: locked to own site
       sel.innerHTML = `<button class="site-sel-btn active" style="cursor:default">${SITES_META[currentSiteId]?.name||currentSiteId} <span style="opacity:0.6;font-size:11px">— your site</span></button>`;
       vpkTargetSite = currentSiteId;
     } else {
