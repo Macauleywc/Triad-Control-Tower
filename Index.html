@@ -1313,6 +1313,85 @@ button, input, select, textarea { font-family: var(--font-body); }
 }
 .opp-dismissed-section:hover { color: var(--ink2); }
 /* ══════════════════════════════════════════
+   OPP ROUTE EXPANSION
+══════════════════════════════════════════ */
+.opp-route-expand {
+  border-top: 1px solid var(--rule);
+  background: var(--cream);
+  display: none;
+}
+.opp-route-expand.open { display: block; }
+.opp-route-expand-inner { padding: 0 20px 20px; }
+.opp-view-run-btn {
+  width: 100%;
+  padding: 10px 16px;
+  background: transparent;
+  color: var(--navy);
+  border: none;
+  border-top: 1px solid var(--rule);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.15s;
+}
+.opp-view-run-btn:hover { background: var(--cream2); }
+.opp-view-run-btn svg { transition: transform 0.2s; }
+.opp-view-run-btn.open svg { transform: rotate(180deg); }
+.opp-run-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-bottom: 16px;
+}
+.opp-run-table th {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink3);
+  text-align: left;
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid var(--rule);
+}
+.opp-run-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--cream2);
+  vertical-align: middle;
+}
+.opp-run-table tr:last-child td { border-bottom: none; }
+.opp-run-table tr.in-ring td { background: rgba(232,81,10,0.06); }
+.stop-num {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 10px; font-weight: 700;
+  background: var(--navy); color: #fff;
+  flex-shrink: 0;
+}
+.stop-num.in-ring { background: var(--red); }
+.ring-indicator {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--red); font-weight: 600;
+  background: var(--red-l); padding: 2px 7px; border-radius: 10px;
+}
+.opp-mini-map {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  height: 300px;
+  margin-top: 4px;
+}
+/* ══════════════════════════════════════════
    HISTORY TAB
 ══════════════════════════════════════════ */
 .hist-table-wrap {
@@ -2560,7 +2639,7 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
     <div id="tab-admin" class="content" style="display:none">
       <div style="margin-bottom:24px">
         <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:var(--ink);margin-bottom:4px">User Admin</div>
-        <div style="font-size:13px;color:var(--ink3)">Manage access to Triad Control Tower. Visible to Desborough only.</div>
+        <div style="font-size:13px;color:var(--ink3)">Manage user access to Triad Control Tower. Only Super Admins can access this panel.</div>
       </div>
       <div class="admin-grid">
         <div>
@@ -2941,7 +3020,7 @@ const PC_PROXIMITY = {
 ══════════════════════════════════════════ */
 const isConfigured = SUPABASE_URL !== 'YOUR_SUPABASE_URL';
 const sb = isConfigured ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON) : null;
-let currentUser = null, currentSiteId = null, todayData = [], allData = [];
+let currentUser = null, currentSiteId = null, isSuperUser = false, todayData = [], allData = [];
 const ignoredOpps = new Set(); // keys: 'from|to|area'
 let uploadTargetSite = null, rowCount = 0;
 let lastExportContent = '', lastExportExt = 'txt';
@@ -2951,10 +3030,13 @@ let lastExportContent = '', lastExportExt = 'txt';
 async function doLogin() {
   if (!isConfigured) {
     // Demo mode — auto-login
-    currentUser = { email: 'demo@triad.com' };
-    currentSiteId = document.getElementById('login-email').value.includes('selby') ? 'selby'
-      : document.getElementById('login-email').value.includes('banbury') ? 'banbury'
-      : document.getElementById('login-email').value.includes('wellington') ? 'wellington'
+    const demoEmail = document.getElementById('login-email').value.toLowerCase().trim();
+    currentUser = { email: demoEmail || 'demo@triad.com' };
+    isSuperUser  = !demoEmail || demoEmail.includes('admin') || demoEmail.includes('super');
+    currentSiteId = isSuperUser ? 'desborough'
+      : demoEmail.includes('selby')      ? 'selby'
+      : demoEmail.includes('banbury')    ? 'banbury'
+      : demoEmail.includes('wellington') ? 'wellington'
       : 'desborough';
     enterApp();
     return;
@@ -2970,12 +3052,13 @@ async function doLogin() {
   btn.disabled = false; btn.innerHTML = 'Sign in →';
   if (error) { err.style.display = 'block'; return; }
   currentUser = data.user;
-  currentSiteId = data.user?.app_metadata?.site_id || Object.keys(SITES_META)[0];
+  isSuperUser  = data.user?.app_metadata?.role === 'superadmin' || data.user?.app_metadata?.site_id === 'admin';
+  currentSiteId = isSuperUser ? 'desborough' : (data.user?.app_metadata?.site_id || Object.keys(SITES_META)[0]);
   enterApp();
 }
 async function doLogout() {
   if (sb) await sb.auth.signOut();
-  currentUser = null; currentSiteId = null; todayData = [];
+  currentUser = null; currentSiteId = null; isSuperUser = false; todayData = [];
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-email').value = '';
@@ -2999,12 +3082,17 @@ function enterApp() {
   buildSiteSelector();
   addRow();
   buildSiteRadios();
-  // Show admin/KPI nav only for Desborough (admin site)
-  const isAdmin = currentSiteId === 'desborough';
+  // Show admin/KPI nav only for superuser
   ['admin-nav-section','sb-kpi','sb-admin'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.style.display = isAdmin ? '' : 'none';
+    if (el) el.style.display = isSuperUser ? '' : 'none';
   });
+  // Show site identity in header for non-superuser
+  const headerSiteEl = document.getElementById('header-site-name');
+  if (headerSiteEl) {
+    headerSiteEl.textContent = isSuperUser ? 'Super Admin' : (SITES_META[currentSiteId]?.name || currentSiteId);
+    headerSiteEl.style.display = '';
+  }
   if (isConfigured && sb) { loadFromSupabase(); setupRealtime(); }
   else loadFallback();
 }
@@ -3636,6 +3724,101 @@ function oppRow(o) {
     </div>
   </div>`;
 }
+/* ── OPP ROUTE MAP ── */
+const _oppMaps = {}; // store Leaflet map instances keyed by oppKey
+function toggleOppRoute(key) {
+  const panel = document.getElementById('routepanel-' + key);
+  const btn   = document.getElementById('routebtn-' + key);
+  if (!panel) return;
+  const isOpen = panel.classList.contains('open');
+  if (isOpen) {
+    panel.classList.remove('open');
+    btn.classList.remove('open');
+    // Destroy map to free memory
+    if (_oppMaps[key]) { _oppMaps[key].remove(); delete _oppMaps[key]; }
+  } else {
+    panel.classList.add('open');
+    btn.classList.add('open');
+    // Small delay so panel is visible before Leaflet init
+    setTimeout(() => renderOppMap(key), 60);
+  }
+}
+function renderOppMap(key) {
+  if (_oppMaps[key]) return; // already initialised
+  const mapEl = document.getElementById('mapel-' + key);
+  if (!mapEl) return;
+  // Retrieve data stored on the panel element
+  const panel  = document.getElementById('routepanel-' + key);
+  if (!panel) return;
+  const fromId = panel.dataset.from;
+  const toId   = panel.dataset.to;
+  const stops  = JSON.parse(panel.dataset.stops || '[]');
+  const overlap = (panel.dataset.overlap || '').split(',').filter(Boolean);
+  const fromDepot = DEPOTS[fromId];
+  const toDepot   = DEPOTS[toId];
+  const fMeta = SITES_META[fromId]||{}, tMeta = SITES_META[toId]||{};
+  // Init map
+  const map = L.map(mapEl, { scrollWheelZoom: false, zoomControl: true });
+  _oppMaps[key] = map;
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution:'© OpenStreetMap contributors © CARTO', maxZoom:17
+  }).addTo(map);
+  const bounds = [];
+  // 30-mile ring fence circle around RECEIVING depot
+  const RING_METRES = 30 * 1609.344;
+  if (toDepot) {
+    L.circle([toDepot.lat, toDepot.lng], {
+      radius: RING_METRES,
+      color: tMeta.color || '#E8510A',
+      weight: 2,
+      dashArray: '6 4',
+      fill: true,
+      fillColor: tMeta.color || '#E8510A',
+      fillOpacity: 0.06
+    }).addTo(map).bindPopup(`<b>${tMeta.name||toId}</b><br>30-mile ring fence`);
+    bounds.push([toDepot.lat, toDepot.lng]);
+  }
+  // Sending depot marker
+  if (fromDepot) {
+    const fIcon = L.divIcon({ html:`<div style="width:14px;height:14px;border-radius:3px;background:${fMeta.color||'#0F2B46'};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.35)"></div>`, iconSize:[14,14], iconAnchor:[7,7], className:'' });
+    L.marker([fromDepot.lat, fromDepot.lng], { icon: fIcon }).addTo(map)
+      .bindPopup(`<b>${fMeta.name||fromId}</b><br>Sending depot`);
+    bounds.push([fromDepot.lat, fromDepot.lng]);
+  }
+  // Receiving depot marker
+  if (toDepot) {
+    const tIcon = L.divIcon({ html:`<div style="width:14px;height:14px;border-radius:3px;background:${tMeta.color||'#E8510A'};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.35)"></div>`, iconSize:[14,14], iconAnchor:[7,7], className:'' });
+    L.marker([toDepot.lat, toDepot.lng], { icon: tIcon }).addTo(map)
+      .bindPopup(`<b>${tMeta.name||toId}</b><br>Receiving depot`);
+  }
+  // Route stops
+  const latlngs = [];
+  stops.forEach((s, idx) => {
+    const pc = s.postal || s.postcode || '';
+    const coords = pcAreaCoords(pc);
+    if (!coords) return;
+    const inRing = overlap.includes((pc.match(/^([A-Z]{1,2}\d{1,2})/)||[])[1] || pc.split(' ')[0]);
+    const stopNum = idx + 1;
+    const col = inRing ? '#C0392B' : '#0F2B46';
+    const icon = L.divIcon({
+      html: `<div style="width:26px;height:26px;border-radius:50%;background:${col};border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;font-family:monospace">${stopNum}</div>`,
+      iconSize:[26,26], iconAnchor:[13,13], className:''
+    });
+    const marker = L.marker(coords, { icon }).addTo(map);
+    const ringLabel = inRing ? '<br><span style="color:#C0392B;font-weight:600">⭕ In 30-mile ring</span>' : '';
+    marker.bindPopup(`<b>${s.customer||s.name||'Stop '+stopNum}</b><br>${pc}${s.pallets?` · ${s.pallets} plts`:''}${s.delivTime||s.time?' · '+( s.delivTime||s.time):''}${ringLabel}`);
+    latlngs.push(coords);
+    bounds.push(coords);
+  });
+  // Route polyline (dashed, subtle)
+  if (latlngs.length > 1) {
+    L.polyline(latlngs, { color: fMeta.color||'#0F2B46', weight: 2, dashArray: '4 4', opacity: 0.6 }).addTo(map);
+  }
+  // Fit to show everything
+  if (bounds.length) {
+    try { map.fitBounds(bounds, { padding: [32, 32], maxZoom: 10 }); } catch(e) {}
+  }
+}
 /* ── ALL OPPS ── */
 function oppKey(o) { return o.from+'|'+o.to+'|'+o.route.area; }
 function ignoreOpp(key) {
@@ -3753,6 +3936,38 @@ function renderAllOpps(opps) {
           <button class="opp-confirm-cancel" onclick="showOppConfirm('${key}')">Cancel</button>
         </div>
       </div>
+      <button class="opp-view-run-btn" id="routebtn-${key}" onclick="toggleOppRoute('${key}')">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        View full run &amp; 30-mile map
+      </button>
+      <div class="opp-route-expand" id="routepanel-${key}"
+           data-from="${o.from}" data-to="${o.to}"
+           data-overlap="${o.overlap.join(',')}"
+           data-stops="${JSON.stringify(o.route.stops_detail||[]).replace(/"/g,'&quot;')}">
+        <div class="opp-route-expand-inner">
+          <table class="opp-run-table">
+            <thead><tr><th>#</th><th>Customer</th><th>Postcode</th><th>ETA</th><th style="text-align:right">Pallets</th></tr></thead>
+            <tbody>${(o.route.stops_detail||[]).map((s,i)=>{
+              const pc = s.postal||s.postcode||'';
+              const districtMatch = pc.match(/^([A-Z]{1,2}\d{1,2})/);
+              const district = districtMatch ? districtMatch[1] : pc.split(' ')[0];
+              const inRing = o.overlap.includes(district);
+              return `<tr class="${inRing?'in-ring':''}">
+                <td><span class="stop-num${inRing?' in-ring':''}">${i+1}</span></td>
+                <td style="font-weight:500;color:var(--ink)">${s.customer||s.name||'—'}</td>
+                <td><span style="font-family:var(--font-mono);font-size:11px">${pc}</span>${inRing?` <span class="ring-indicator">⭕ in ring</span>`:''}</td>
+                <td style="font-family:var(--font-mono);font-size:11px;color:var(--ink3)">${s.delivTime||s.time||'—'}</td>
+                <td style="text-align:right;font-family:var(--font-mono);font-weight:600">${s.pallets||0}</td>
+              </tr>`;
+            }).join('')}
+            </tbody>
+          </table>
+          <div class="opp-mini-map" id="mapel-${key}"></div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:8px;text-align:center">
+            Dashed circle = 30-mile ring fence around ${o.toName} · <span style="color:var(--red)">●</span> Red stops = within ring
+          </div>
+        </div>
+      </div>
     </div>`;
   }).join('');
 
@@ -3791,6 +4006,12 @@ function renderNetSummary() {
 function buildSiteSelector() {
   uploadTargetSite = currentSiteId;
   const el = document.getElementById('site-selector');
+  if (!el) return;
+  if (!isSuperUser) {
+    // Non-admin: locked to own site only
+    el.innerHTML = `<button class="site-sel-btn active" style="cursor:default">${SITES_META[currentSiteId]?.name||currentSiteId} <span style="opacity:0.6;font-size:11px">— your site</span></button>`;
+    return;
+  }
   el.innerHTML = Object.keys(SITES_META).map(sid => {
     const isMe = sid === currentSiteId;
     return `<button class="site-sel-btn${isMe?' active':''}" onclick="setSite(this,'${sid}')">${SITES_META[sid].name}${isMe?' (you)':''}</button>`;
@@ -4041,7 +4262,11 @@ window.addEventListener('load', () => {
    DEMO USER STORE (replaced by Supabase in prod)
 ══════════════════════════════════════════ */
 let demoUsers = [
-  { id:'u1', email:'Macauley@premier-logistics.co.uk', site:'desborough', status:'active', lastActive:'Today' },
+  { id:'u1', email:'Macauley@premier-logistics.co.uk', site:'admin', role:'superadmin', status:'active', lastActive:'Today' },
+  { id:'u2', email:'desborough@premier-logistics.co.uk', site:'desborough', role:'site', status:'active', lastActive:'Today' },
+  { id:'u3', email:'banbury@wrings.com', site:'banbury', role:'site', status:'active', lastActive:'Today' },
+  { id:'u4', email:'wellington@wrings.com', site:'wellington', role:'site', status:'active', lastActive:'Today' },
+  { id:'u5', email:'selby@campeys.com', site:'selby', role:'site', status:'active', lastActive:'Today' },
 ];
 let demoAudit = [];
 /* ══════════════════════════════════════════
@@ -4190,8 +4415,7 @@ function renderKPIs() {
 function buildSiteRadios() {
   const el = document.getElementById('site-radio-group');
   if (!el) return;
-  let selectedSite = 'desborough';
-  el.innerHTML = Object.keys(SITES_META).map(sid => {
+  const siteOptions = Object.keys(SITES_META).map(sid => {
     const meta = SITES_META[sid];
     return `<label class="site-radio${sid==='desborough'?' selected':''}" id="sr-${sid}">
       <input type="radio" name="new-user-site" value="${sid}" ${sid==='desborough'?'checked':''} onchange="selectSiteRadio('${sid}')">
@@ -4199,6 +4423,13 @@ function buildSiteRadios() {
       ${meta.name}
     </label>`;
   }).join('');
+  // Superuser option
+  const superOption = `<label class="site-radio" id="sr-admin" style="grid-column:1/-1;border-color:var(--amber);background:var(--amber-l)">
+    <input type="radio" name="new-user-site" value="admin" onchange="selectSiteRadio('admin')">
+    <div class="site-radio-dot" style="background:var(--amber)"></div>
+    <span>⭐ Super Admin — full network access</span>
+  </label>`;
+  el.innerHTML = siteOptions + superOption;
 }
 function selectSiteRadio(sid) {
   document.querySelectorAll('.site-radio').forEach(el => el.classList.remove('selected'));
@@ -4239,6 +4470,7 @@ async function renderUserList() {
           id: u.id,
           email: u.email,
           site: u.app_metadata?.site_id || '—',
+          role: u.app_metadata?.role || 'site',
           status: u.banned_until ? 'inactive' : 'active',
           lastActive: u.last_sign_in_at
             ? new Date(u.last_sign_in_at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})
@@ -4251,12 +4483,16 @@ async function renderUserList() {
   }
   document.getElementById('user-count').textContent = users.length + ' user' + (users.length!==1?'s':'');
   document.getElementById('user-list').innerHTML = users.map(u => {
-    const meta = SITES_META[u.site]||{name:u.site||'Unknown',color:'#888'};
+    const isAdmin = u.role === 'superadmin' || u.site === 'admin';
+    const meta = isAdmin ? {name:'Super Admin',color:'var(--amber)'} : (SITES_META[u.site]||{name:u.site||'Unknown',color:'#888'});
+    const roleBadge = isAdmin
+      ? `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 9px;border-radius:20px;background:var(--amber-l);color:var(--amber);font-family:var(--font-mono);font-weight:600">⭐ Super Admin</span>`
+      : `<span class="user-site-badge"><span style="width:7px;height:7px;border-radius:50%;background:${meta.color};display:inline-block"></span>${meta.name}</span>`;
     return `<tr>
       <td><div class="user-email">${u.email}</div></td>
-      <td><span class="user-site-badge"><span style="width:7px;height:7px;border-radius:50%;background:${meta.color};display:inline-block"></span>${meta.name}</span></td>
+      <td>${roleBadge}</td>
       <td><span class="user-status ${u.status==='active'?'us-active':'us-inactive'}">${u.status}</span></td>
-      <td style="font-size:12px;color:var(--ink3)">${u.lastActive}</td>
+      <td style="font-size:12px;color:var(--ink3)">${u.lastActive||'—'}</td>
       <td>
         <div class="user-action-btns">
           <button class="ua-btn" onclick="resetPassword('${u.id}','${u.email}')">Reset pw</button>
@@ -4284,15 +4520,21 @@ async function addUser() {
   }
   btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Adding…';
   if (sb) {
-    // Production: requires service_role key — show instruction instead
-    msgEl.innerHTML = '⚠ To add users in production, use the <strong>Supabase dashboard</strong> → Authentication → Users → Add user. Then set app_metadata: {"site_id":"'+site+'"}.';
+    // Production: requires service_role key — show correct app_metadata instructions
+    const meta = site === 'admin'
+      ? '{"role":"superadmin"}'
+      : '{"site_id":"'+site+'"}';
+    const siteName = site === 'admin' ? 'Super Admin (full access)' : (SITES_META[site]?.name||site);
+    msgEl.innerHTML = `⚠ Supabase can't create users from the browser. Go to your <strong>Supabase dashboard → Authentication → Users → Add user</strong>. Enter the email + password, then set <strong>app_metadata</strong> to:<br><code style="display:block;margin:6px 0;padding:6px 10px;background:var(--cream);border-radius:6px;font-size:12px">${meta}</code>This assigns them as: <strong>${siteName}</strong>.`;
     msgEl.className = 'upload-msg msg-err'; msgEl.style.display = 'block';
   } else {
     // Demo: add to local list
-    const newUser = { id:'u'+Date.now(), email, site, status:'active', lastActive:'Just now' };
+    const isNewAdmin = site === 'admin';
+    const newUser = { id:'u'+Date.now(), email, site, role: isNewAdmin?'superadmin':'site', status:'active', lastActive:'Just now' };
     demoUsers.push(newUser);
     demoAudit.unshift({ time:'Just now', action:'user_added', site, user:currentUser?.email||'admin', detail:email });
-    msgEl.textContent = '✓ User added — '+email+' assigned to '+SITES_META[site]?.name+'.';
+    const siteName = isNewAdmin ? 'Super Admin' : (SITES_META[site]?.name||site);
+    msgEl.textContent = '✓ User added — '+email+' assigned as '+siteName+'.';
     msgEl.className = 'upload-msg msg-ok'; msgEl.style.display = 'block';
     document.getElementById('new-user-email').value = '';
     document.getElementById('new-user-pass').value  = '';
@@ -6687,11 +6929,17 @@ function initVpkTab() {
   // Build site selector for VPK tab
   const sel = document.getElementById('vpk-site-selector');
   if (sel && !sel.innerHTML) {
-    sel.innerHTML = Object.keys(SITES_META).map(sid => {
-      const meta = SITES_META[sid];
-      const isMe = sid === currentSiteId;
-      return `<button class="site-sel-btn${isMe?' active':''}" onclick="setVpkSite(this,'${sid}')">${meta.name}${isMe?' (you)':''}</button>`;
-    }).join('');
+    if (!isSuperUser) {
+      // Non-admin: locked to own site
+      sel.innerHTML = `<button class="site-sel-btn active" style="cursor:default">${SITES_META[currentSiteId]?.name||currentSiteId} <span style="opacity:0.6;font-size:11px">— your site</span></button>`;
+      vpkTargetSite = currentSiteId;
+    } else {
+      sel.innerHTML = Object.keys(SITES_META).map(sid => {
+        const meta = SITES_META[sid];
+        const isMe = sid === currentSiteId;
+        return `<button class="site-sel-btn${isMe?' active':''}" onclick="setVpkSite(this,'${sid}')">${meta.name}${isMe?' (you)':''}</button>`;
+      }).join('');
+    }
   }
   // Show MS sign-in if configured
   if (MS_CONFIGURED && window.msal) {
