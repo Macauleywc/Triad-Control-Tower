@@ -3018,7 +3018,7 @@ function computeOpps(data) {
     const fromDepot = DEPOTS[fromId];
     if (!fromDepot) return;
     (from.routes||[]).forEach(route => {
-      const routePCs = (route.pc||'').split(',').map(p => p.trim().toUpperCase()).filter(Boolean);
+      const routePCs = (route.pc||route.postcodes||'').split(',').map(p => p.trim().toUpperCase()).filter(Boolean);
       // Find which postcodes in this route fall within 30 miles of another depot
       Object.keys(DEPOTS).forEach(toId => {
         if (toId === fromId) return;
