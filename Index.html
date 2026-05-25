@@ -6789,6 +6789,8 @@ function parseWellington(ws) {
     if(sheetDate) break;
   }
   const stops = [];
+  let currentRoute = null;
+  let currentLoadNum = '';
   for(let r=9; r<=maxRow; r++){
     const c0 = cs(r,0);
     const c1 = cs(r,1);
@@ -6797,30 +6799,27 @@ function parseWellington(ws) {
     if(!c0 && !c1) continue;
     if(c8.toLowerCase().includes('load fill')) continue;
     if(c0.toLowerCase()==='vehicle') continue;
-    // Skip sub-rows (col 0 is a time or empty, col 1 is sub-name in brackets)
-    if(c0 && !c0.toLowerCase().startsWith('wrings')) {
-      // Could be a time or note row — skip
-      continue;
-    }
-    // Main delivery row — col 0 starts with 'Wrings'
+    // Main route row — col 0 starts with 'Wrings'
     if(c0.toLowerCase().startsWith('wrings')) {
-      const loadNum  = cs(r,2);
+      currentRoute   = c0;
+      currentLoadNum = cs(r,2);
       const customer = c1;
-      const dest     = cs(r,3);
       const postcode = cs(r,6).toUpperCase();
       const pallets  = Number(cv(r,7))||0;
       const eta      = fmtTime(cv(r,4));
-    if(!customer) continue;
-      stops.push({
-        loadRef:   c0,
-        name:      customer,
-        postcode,
-        pallets,
-        time:      eta,
-        checkIn:   '',
-        loadNum,
-        sheetDate,
-      });
+      if(!customer) continue;
+      stops.push({ loadRef:c0, name:customer, postcode, pallets, time:eta, checkIn:'', loadNum:currentLoadNum, sheetDate });
+      continue;
+    }
+    // Delivery stop row (2nd, 3rd stops on same vehicle — col 0 is a time or note)
+    // Only read if has a valid postcode AND pallets at the expected columns
+    if(currentRoute) {
+      const postcode = cs(r,6).toUpperCase();
+      const pallets  = Number(cv(r,7))||0;
+      const customer = c1 || c0;
+      if(!postcode || !pallets) continue;
+      if(!customer || customer.length > 80) continue;
+      stops.push({ loadRef:currentRoute, name:customer, postcode, pallets, time:fmtTime(cv(r,4)), checkIn:'', loadNum:currentLoadNum, sheetDate });
     }
   }
   return stops;
@@ -7038,7 +7037,8 @@ async function vpkLoadIntoTriad() {
     // Route C1 + Route C2 = same truck = 1 load, 2 trailers
     const activeRoutes = routes.filter(r => (r.pallets||0) > 0);
     const loadBaseKeys = new Set(activeRoutes.map(r => {
-      const m = String(r.area||r.runLabel||'').match(/^Route[- ]?([A-Za-z]+)/i);
+      // Match any prefix (Route-X, Wrings-X, etc.) — letters before/after separator
+      const m = String(r.area||r.runLabel||'').match(/^[A-Za-z]+[- ]([A-Za-z]+)/i);
       return m ? m[1].toUpperCase() : (r.area||r.runLabel||'x');
     }));
     totalLoads    = loadBaseKeys.size;    // distinct vehicle runs  e.g. 18
