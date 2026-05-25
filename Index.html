@@ -5092,12 +5092,23 @@ function _initLeafletMap(opps) {
     const runMap = {};
     const runOrder = [];
     (e.routes||[]).forEach(route => {
-      const key = 'run_'+(route.runNum||route.area);
+      // VPK format: runShips contains numeric shipment numbers (8+ digits)
+      // Group by sorted runShips so multi-load runs (5,10,12) merge correctly
+      // Banbury/Wellington: group by route letter base (C1+C2 → C)
+      const firstShip = (route.runShips||[])[0]||'';
+      const isVpk = /^\d{8,}$/.test(String(firstShip));
+      let key;
+      if (isVpk) {
+        key = [...(route.runShips||[route.area])].sort().join('|');
+      } else {
+        const m = String(route.area||route.runLabel||'').match(/^[A-Za-z]+[- ]([A-Za-z]+)/i);
+        key = m ? m[1].toUpperCase() : (route.area||route.runLabel||'run');
+      }
       if (!runMap[key]) {
         runMap[key] = {
           key, runNum: route.runNum, runLabel: route.runLabel||route.area,
           multiLoad: route.multiLoad||false, runShips: route.runShips||[route.area],
-          stops: [], checkIn: ''
+          haulier: route.haulier||'', stops: [], checkIn: ''
         };
         runOrder.push(key);
       }
@@ -5337,7 +5348,7 @@ function _initLeafletMap(opps) {
           <div style="flex:1">
             <div style="font-size:13px;font-weight:700;color:${active?'white':meta.color};font-family:'IBM Plex Sans',sans-serif">${meta.name}</div>
             <div style="font-size:11px;color:${active?'rgba(255,255,255,.75)':meta.color+'99'};font-family:'IBM Plex Mono',monospace">
-              ${e ? `${runs.length} runs · ${s} stops · ${p}p` : 'No data uploaded'}
+              ${e ? `${e.total_loads||runs.length} runs · ${s} stops · ${p}p` : 'No data uploaded'}
             </div>
           </div>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;color:${active?'white':meta.color}">
