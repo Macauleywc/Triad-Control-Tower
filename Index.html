@@ -3056,9 +3056,12 @@ async function doLogin() {
   btn.disabled = false; btn.innerHTML = 'Sign in →';
   if (error) { err.style.display = 'block'; return; }
   currentUser = data.user;
-  const appMeta = data.user?.app_metadata || {};
-  isSuperUser   = appMeta.role === 'superadmin' || appMeta.site_id === 'admin' || appMeta.site_id === 'desborough';
-  currentSiteId = isSuperUser ? 'desborough' : (appMeta.site_id || Object.keys(SITES_META)[0]);
+  const appMeta  = data.user?.app_metadata || {};
+  // Determine site first — default to desborough if no app_metadata set
+  const rawSite  = appMeta.site_id || 'desborough';
+  // Superuser if: explicit role, admin site_id, OR resolved to desborough (covers accounts with no app_metadata)
+  isSuperUser    = appMeta.role === 'superadmin' || rawSite === 'admin' || rawSite === 'desborough';
+  currentSiteId  = rawSite === 'admin' ? 'desborough' : rawSite;
   enterApp();
 }
 async function doLogout() {
