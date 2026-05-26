@@ -3231,6 +3231,8 @@ function navToToday() {
   loadDateData();
 }
 async function loadDateData() {
+  todayData = []; // Clear immediately — prevents stale data showing on date change
+  renderAll();
   if (sb && isConfigured) {
     const { data: plans, error } = await sb.from('daily_plans')
       .select('*, routes(*)').eq('plan_date', viewDate);
@@ -3254,8 +3256,9 @@ async function loadDateData() {
     todayData = allData.filter(e => e.date === viewDate);
   }
   renderAll();
-  if (document.getElementById('tab-loads')?.style.display !== 'none') renderLoads();
+  if (document.getElementById('tab-loads')?.style.display   !== 'none') renderLoads();
   if (document.getElementById('tab-mapview')?.style.display !== 'none') renderMap();
+  if (document.getElementById('tab-kpi')?.style.display     !== 'none') renderKPIs();
 }
 const sumStops   = e => (e.routes||[]).reduce((a,r) => a + Number(r.stops||0),   0);
 const sumPallets = e => (e.routes||[]).reduce((a,r) => a + Number(r.pallets||0), 0);
@@ -4584,7 +4587,7 @@ function renderLeaderboard() {
     const rankLabel = globalRank <= 3 ? ['🥇','🥈','🥉'][globalRank-1] : globalRank;
     const sortedSites = Object.values(pt.siteBreakdown).sort((a,b) => b.pallets - a.pallets);
     const chips = sortedSites.map(s =>
-      `<span class="lb-site-chip" style="background:${s.color}18;color:${s.color};border:1px solid ${s.color}40">${(s.name||s.site).substring(0,3).toUpperCase()} · ${s.pallets}p</span>`
+      `<span class="lb-site-chip" style="background:${s.color}18;color:${s.color};border:1px solid ${s.color}40">${s.name||s.site} · ${s.pallets}p</span>`
     ).join('');
     const sitesCountBadge = isMulti
       ? `<span class="lb-sites-count">${pt.sites.size} sites</span>` : '';
