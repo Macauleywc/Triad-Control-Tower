@@ -3510,9 +3510,14 @@ function renderStats(opps) {
       <div class="stat-trend trend-${palCol==='green'?'ok':palCol==='amber'?'warn':'bad'}">${palTrend}</div>
     </div>
     <div class="stat-item">
-      <div class="stat-eyebrow">Sharing savings</div>
+      <div class="stat-eyebrow" style="display:flex;align-items:center;gap:5px">Sharing savings
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--rule);font-size:9px;color:var(--ink3);cursor:help;font-style:normal;font-weight:700;flex-shrink:0"
+          title="Miles saved if load sharing opportunities are taken. Found by identifying delivery stops within 30 miles of a closer depot. Saving = estimated round-trip miles avoided.">?</span>
+      </div>
       <div class="stat-number ${savings>0?'green':''}">${savings}<span style="font-size:20px;font-weight:400;color:var(--ink3)"> mi</span></div>
-      <div class="stat-sub">${opps.length} opportunit${opps.length!==1?'ies':'y'} · ~£${Math.round(savings*0.45)} est.</div>
+      <div class="stat-sub">${opps.length===0
+        ? (todayData.length ? 'Routes well placed — no closer depot found' : 'Upload schedules to analyse')
+        : `${opps.length} opp${opps.length!==1?'s':''} · ~£${Math.round(savings*0.45)} est. saving`}</div>
     </div>
     <div class="stat-item">
       <div class="stat-eyebrow">Sites uploaded</div>
@@ -3694,6 +3699,13 @@ function renderSiteCards() {
       return m ? Number(m[1]) : (r.run_label||r.runLabel||r.area);
     }));
     const runs = e.total_loads || runLabelSet.size || (e.routes||[]).length;
+    // Est. total cost and cost per pallet
+    const totalEstCost = ['desborough','banbury','wellington'].includes(sid)
+      ? (e.routes||[]).reduce((acc,r) => {
+          const rc = calcRunCost(sid, r.postcodes||r.pc||'');
+          return acc + (rc ? parseFloat(rc.cost) : 0);
+        }, 0) : 0;
+    const costPerPlt = (p > 0 && totalEstCost > 0) ? `£${(totalEstCost/p).toFixed(2)}` : '—';
     // Avg pallets per load vs target of 40
     const avgPal    = runs > 0 ? Math.round(p / runs) : 0;
     const fillPct   = Math.min(Math.round(avgPal / TARGET_PALLETS * 100), 100);
@@ -3729,6 +3741,7 @@ function renderSiteCards() {
           <div class="site-metric"><div class="site-metric-val">${countLoads(e)}</div><div class="site-metric-lbl">Trailers</div></div>
           <div class="site-metric"><div class="site-metric-val">${s}</div><div class="site-metric-lbl">Del. stops</div></div>
           <div class="site-metric"><div class="site-metric-val">${p}</div><div class="site-metric-lbl">Pallets</div></div>
+          <div class="site-metric"><div class="site-metric-val" style="font-size:15px">${costPerPlt}</div><div class="site-metric-lbl">Est./pallet</div></div>
         </div>` : `
         <div class="site-metrics">
           <div class="site-metric">
@@ -3746,6 +3759,10 @@ function renderSiteCards() {
           <div class="site-metric">
             <div class="site-metric-val">${p}</div>
             <div class="site-metric-lbl">Pallets</div>
+          </div>
+          <div class="site-metric">
+            <div class="site-metric-val" style="font-size:15px">${costPerPlt}</div>
+            <div class="site-metric-lbl">Est./pallet</div>
           </div>
         </div>
         <div class="site-routes">
