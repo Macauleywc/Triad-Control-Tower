@@ -3231,12 +3231,14 @@ function navToToday() {
   loadDateData();
 }
 async function loadDateData() {
-  todayData = []; // Clear immediately — prevents stale data showing on date change
+  // Show cached data immediately while we fetch — no blank flash
+  todayData = allData.filter(e => e.date === viewDate);
   renderAll();
   if (sb && isConfigured) {
     const { data: plans, error } = await sb.from('daily_plans')
       .select('*, routes(*)').eq('plan_date', viewDate);
     if (!error) {
+      // Supabase returned successfully — use that data
       todayData = (plans||[]).map(p => ({
         site: p.site_id, date: p.plan_date, capacity: p.capacity,
         notes: p.notes||'', uploaded_by: p.uploaded_by||'',
@@ -3250,13 +3252,12 @@ async function loadDateData() {
           multiLoad: r.multi_load||r.multiLoad||false, runShips: r.run_ships||r.runShips||[]
         }))
       }));
+      // Only update allData cache on a successful Supabase response
+      allData = [...allData.filter(e => e.date !== viewDate), ...todayData];
     }
-  } else {
-    // Demo/offline — filter local data by viewDate
-    todayData = allData.filter(e => e.date === viewDate);
+    // If error: todayData stays as allData cache (already set above), allData unchanged
   }
-  // Always merge todayData into allData — makes date navigation work in both modes
-  allData = [...allData.filter(e => e.date !== viewDate), ...todayData];
+  // Demo/offline: todayData is already set from allData.filter above — nothing more to do
   renderAll();
   if (document.getElementById('tab-loads')?.style.display   !== 'none') renderLoads();
   if (document.getElementById('tab-mapview')?.style.display !== 'none') renderMap();
