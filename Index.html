@@ -4549,7 +4549,7 @@ function renderLeaderboard() {
   const dataSet = isAllTime ? allData : todayData;
   if (colExtra) colExtra.textContent = isAllTime ? 'Days seen' : 'Stops';
   if (!dataSet.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--ink3);padding:24px">No data yet — import today's schedules to see results.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--ink3);padding:24px">No data yet — import today\'s schedules to see results.</td></tr>';
     return;
   }
   const points = buildDeliveryPoints(dataSet);
