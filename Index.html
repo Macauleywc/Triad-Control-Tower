@@ -3676,7 +3676,9 @@ function renderSiteCards() {
     const e         = todayData.find(d=>d.site===sid);
     const isMe      = sid === currentSiteId;
     const collapsed = window._cardCollapsed[sid] || false;
-    if (!e) return `
+    // Treat plan with no routes as no-data (broken save, or genuinely empty date)
+    const hasRoutes = e && (e.routes||[]).length > 0;
+    if (!e || !hasRoutes) return `
       <div class="site-card">
         <div class="site-card-top">
           <div class="ring-wrap" data-tip="Avg pallets per load">
@@ -3694,7 +3696,7 @@ function renderSiteCards() {
           </div>
         </div>
         <div class="site-card-empty">
-          <div class="empty-label">No data submitted yet today</div>
+          <div class="empty-label">${e ? 'Route detail missing — re-import to restore' : 'No data submitted yet'}</div>
           <button class="site-btn site-btn-navy" data-tip="Upload" onclick="showTab('vpkimport')">Import →</button>
         </div>
       </div>`;
@@ -5580,7 +5582,7 @@ function _initLeafletMap(opps) {
           <div style="flex:1">
             <div style="font-size:13px;font-weight:700;color:${active?'white':meta.color};font-family:'IBM Plex Sans',sans-serif">${meta.name}</div>
             <div style="font-size:11px;color:${active?'rgba(255,255,255,.75)':meta.color+'99'};font-family:'IBM Plex Mono',monospace">
-              ${e ? `${e.total_loads||runs.length} runs · ${s} stops · ${p}p` : 'No data uploaded'}
+              ${(e && (s>0||p>0)) ? `${e.total_loads||runs.length} runs · ${s} stops · ${p}p` : 'No data uploaded'}
             </div>
           </div>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;color:${active?'white':meta.color}">
