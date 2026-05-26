@@ -3239,19 +3239,25 @@ async function loadDateData() {
       .select('*, routes(*)').eq('plan_date', viewDate);
     if (!error) {
       // Supabase returned successfully — use that data
-      todayData = (plans||[]).map(p => ({
-        site: p.site_id, date: p.plan_date, capacity: p.capacity,
-        notes: p.notes||'', uploaded_by: p.uploaded_by||'',
-        total_loads: p.total_loads||null,
-        total_trailers: p.total_trailers||null,
-        routes: (p.routes||[]).map(r => ({
+      todayData = (plans||[]).map(p => {
+        const cached = allData.find(c => c.site === p.site_id && c.date === p.plan_date);
+        const dbRoutes = (p.routes||[]).map(r => ({
           area: r.area, pc: r.postcodes||'',
           stops: r.stops, pallets: r.pallets, weight: r.weight_t,
           stops_detail: r.stops_detail||[],
           runNum: r.run_num||r.runNum, runLabel: r.run_label||r.runLabel||r.area,
           multiLoad: r.multi_load||r.multiLoad||false, runShips: r.run_ships||r.runShips||[]
-        }))
-      }));
+        }));
+        // If DB has no routes but cache does, use cache routes (handles old broken saves)
+        const routes = (dbRoutes.length > 0) ? dbRoutes : (cached?.routes || []);
+        return {
+          site: p.site_id, date: p.plan_date, capacity: p.capacity,
+          notes: p.notes||'', uploaded_by: p.uploaded_by||'',
+          total_loads: p.total_loads||null,
+          total_trailers: p.total_trailers||null,
+          routes
+        };
+      });
       // Only update allData cache on a successful Supabase response
       allData = [...allData.filter(e => e.date !== viewDate), ...todayData];
     }
@@ -7769,7 +7775,21 @@ async function vpkLoadIntoTriad() {
                 { onConflict:'site_id,plan_date' }).select().single();
       if(pe) throw pe;
       await sb.from('routes').delete().eq('plan_id', plan.id);
-      const { error: re } = await sb.from('routes').insert(routes.map(r => ({...r, plan_id: plan.id})));
+      const { error: re } = await sb.from('routes').insert(routes.map(r => ({
+        plan_id:      plan.id,
+        site_id:      r.site_id || site,
+        area:         r.area,
+        postcodes:    r.postcodes || r.pc || '',
+        stops:        r.stops        || 0,
+        pallets:      r.pallets      || 0,
+        weight_t:     r.weight_t     || 0,
+        stops_detail: r.stops_detail || [],
+        run_num:      r.runNum       || null,
+        run_label:    r.runLabel     || r.area || null,
+        run_ships:    r.runShips     || [],
+        multi_load:   r.multiLoad    || false,
+        haulier:      r.haulier      || null,
+      })));
       if(re) throw re;
       showReqToast(`✓ ${meta.name} saved to Supabase — ${vpkParsedRows.length} stops`);
     } catch(err) {
