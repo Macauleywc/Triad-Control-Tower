@@ -5944,6 +5944,7 @@ function renderMessages() {
     lastTs   = msg.ts;
   });
   el.innerHTML = html;
+  scrollToBottom();
 }
 function escHtml(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
