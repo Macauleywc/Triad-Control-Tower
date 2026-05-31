@@ -3201,7 +3201,10 @@ function viewDateObj() {
   return new Date(y, m-1, d);
 }
 function fmtViewDate() {
-  return viewDateObj().toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+  if (!viewDate || !/^\d{4}-\d{2}-\d{2}$/.test(viewDate)) viewDate = todayStr();
+  const d = viewDateObj();
+  if (isNaN(d.getTime())) { viewDate = todayStr(); return fmtViewDate(); }
+  return d.toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
 }
 function isToday() { return viewDate === todayStr(); }
 function updateDateNav() {
@@ -3213,11 +3216,12 @@ function updateDateNav() {
   if (todayBtn) todayBtn.style.display = isToday() ? 'none' : 'inline';
 }
 function navDate(delta) {
-  // Parse current viewDate safely as local date
+  // Guard: if viewDate is invalid, reset to today
+  if (!viewDate || !/^\d{4}-\d{2}-\d{2}$/.test(viewDate)) viewDate = todayStr();
   const parts = viewDate.split('-').map(Number);
   const d = new Date(parts[0], parts[1]-1, parts[2]);
+  if (isNaN(d.getTime())) { viewDate = todayStr(); updateDateNav(); return; }
   d.setDate(d.getDate() + delta);
-  // Build YYYY-MM-DD from local date parts only — never use toISOString (UTC drift)
   const y   = d.getFullYear();
   const mon = String(d.getMonth()+1).padStart(2,'0');
   const day = String(d.getDate()).padStart(2,'0');
@@ -7629,6 +7633,7 @@ async function vpkImportAllDays() {
   if (btn) { btn.disabled = true; }
   window._suppressNavAfterImport = true;
   const results = [];
+  const savedViewDate = viewDate; // save original to restore if import fails
   for (let di = 0; di < batch.length; di++) {
     const item = batch[di];
     const { stops, isoDate, site } = item;
@@ -7680,16 +7685,19 @@ async function vpkImportAllDays() {
   const firstOk = ok[0];
   if (firstOk) {
     viewDate = firstOk.date;
-    updateDateNav();
+  } else {
+    viewDate = savedViewDate; // restore if nothing imported
+  }
+  updateDateNav(); // always update nav
+  if (firstOk) {
     await loadDateData();
     showTab('overview');
+    showReqToast(`✓ ${ok.length} day${ok.length!==1?'s':''} imported — use date arrows to view each day`);
   }
   if (fail.length) {
     const msg = fail.map(f => `${f.sheet}: ${f.reason}`).join(', ');
     showReqToast(`⚠ ${fail.length} day(s) failed: ${msg}`);
     console.error('Failed imports:', fail);
-  } else {
-    showReqToast(`✓ ${ok.length} day${ok.length!==1?'s':''} imported — navigate dates to view each`);
   }
 }
 
