@@ -3823,7 +3823,8 @@ function renderSiteCards() {
             const rAvg = Number(r.pallets||0);
             const rFill = Math.round(rAvg/TARGET_PALLETS*100);
             const rCol = rAvg>=TARGET_PALLETS?'var(--green)':rAvg>=30?'var(--amber)':'var(--red)';
-            const runCost = calcRunCost(sid, r.postcodes||r.pc||'');
+            const importedCost = (r.stops_detail||[]).find(s => s.actualCost)?.actualCost;
+            const runCost = importedCost ? { cost: importedCost } : calcRunCost(sid, r.postcodes||r.pc||'');
             const costStr = runCost ? `£${Number(runCost.cost).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}` : '—';
             return `<div class="route-row">
               <div class="route-area">
@@ -3837,8 +3838,10 @@ function renderSiteCards() {
             </div>`;
           }).join('')}
         </div>
-        ${['desborough','banbury','wellington'].includes(sid) ? (() => {
+        ${['desborough','banbury','wellington','selby'].includes(sid) ? (() => {
           const totalCost = (e.routes||[]).reduce((acc,r) => {
+            const importedCost = (r.stops_detail||[]).find(s => s.actualCost)?.actualCost;
+            if (importedCost) return acc + parseFloat(importedCost);
             const rc = calcRunCost(sid, r.postcodes||r.pc||'');
             return acc + (rc ? parseFloat(rc.cost) : 0);
           }, 0);
@@ -7743,7 +7746,7 @@ async function vpkImportAllDays() {
           customer: s.name, postal: s.postcode,
           delivTime: s.time || '', pallets: s.pallets || 0,
           netWeight: (s.pallets || 0) * 200,
-          loadNum: s.loadRef || s.loadNum || 'LOAD', haulier: 'CAMPEYS',
+          loadNum: s.loadRef || s.loadNum || 'LOAD', haulier: 'CAMPEYS', actualCost: s.actualCost || null,
         }));
         viewDate = isoDate;
         await vpkLoadIntoTriad();
@@ -7939,6 +7942,7 @@ function vpkLoadBanburyStops(stops, siteOverride) {
     delivTime: s.time || '',
     pallets:   s.pallets || 0,
     netWeight: (s.pallets || 0) * 200,
+    actualCost: s.actualCost || null,
   }));
   const totalPallets = rows.reduce((a,r)=>a+r.pallets, 0);
   const loads = new Set(rows.map(r=>r.runLabel)).size;
