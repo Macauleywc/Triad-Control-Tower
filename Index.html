@@ -6812,6 +6812,7 @@ function parseBanburySheet(ws, sheetName) {
   const stops = [];
   let currentRoute = null;
   let currentLoadNum = '';
+  let currentRouteCost = null;
   let headerFound = false;
   let sheetDate = ''; // Date extracted from the file
   // Extract date from file — handle multiple formats
@@ -6872,7 +6873,11 @@ function parseBanburySheet(ws, sheetName) {
       const postcode = String(row[5]||'').toUpperCase().trim();
       const pallets  = Number(String(row[7]||'').replace(/,/g,''))||0;
       const time     = fmtTime(row[4]);
-      if(name||postcode) stops.push({loadRef:currentRoute, name, postcode, pallets, time, loadNum:currentLoadNum, dest, sheetDate});
+      // SAP Cost is in col 9 of the route header row
+      const sapCost  = Number(String(row[9]||'').replace(/[£,]/g,''))||0;
+      if(sapCost) currentRouteCost = sapCost;
+      else currentRouteCost = null;
+      if(name||postcode) stops.push({loadRef:currentRoute, name, postcode, pallets, time, loadNum:currentLoadNum, dest, sheetDate, actualCost: currentRouteCost});
       continue;
     }
     if(currentRoute && row[1] && String(row[1]).trim()) {
@@ -6882,7 +6887,7 @@ function parseBanburySheet(ws, sheetName) {
       const time     = fmtTime(row[4]);
       const dest     = String(row[3]||'').trim();
       if(name.length > 80 || (!postcode && name.toLowerCase().includes('palelt'))) continue;
-      if(name||postcode) stops.push({loadRef:currentRoute, name, postcode, pallets, time, loadNum:currentLoadNum, dest, sheetDate});
+      if(name||postcode) stops.push({loadRef:currentRoute, name, postcode, pallets, time, loadNum:currentLoadNum, dest, sheetDate, actualCost: currentRouteCost});
     }
   }
   // Attach the extracted date to every stop
@@ -7889,6 +7894,7 @@ function parseWellington(ws) {
   const stops = [];
   let currentRoute = null;
   let currentLoadNum = '';
+  let currentRouteCost = null;
   for(let r=9; r<=maxRow; r++){
     const c0 = cs(r,0);
     const c1 = cs(r,1);
@@ -7905,19 +7911,21 @@ function parseWellington(ws) {
       const postcode = cs(r,6).toUpperCase();
       const pallets  = Number(cv(r,7))||0;
       const eta      = fmtTime(cv(r,4));
+      // VPK Cost in col 8 of the route header row
+      const vpkCost  = Number(String(c8).replace(/[£,]/g,''))||0;
+      currentRouteCost = vpkCost || null;
       if(!customer) continue;
-      stops.push({ loadRef:c0, name:customer, postcode, pallets, time:eta, checkIn:'', loadNum:currentLoadNum, sheetDate });
+      stops.push({ loadRef:c0, name:customer, postcode, pallets, time:eta, checkIn:'', loadNum:currentLoadNum, sheetDate, actualCost:currentRouteCost });
       continue;
     }
     // Delivery stop row (2nd, 3rd stops on same vehicle — col 0 is a time or note)
-    // Only read if has a valid postcode AND pallets at the expected columns
     if(currentRoute) {
       const postcode = cs(r,6).toUpperCase();
       const pallets  = Number(cv(r,7))||0;
       const customer = c1 || c0;
       if(!postcode || !pallets) continue;
       if(!customer || customer.length > 80) continue;
-      stops.push({ loadRef:currentRoute, name:customer, postcode, pallets, time:fmtTime(cv(r,4)), checkIn:'', loadNum:currentLoadNum, sheetDate });
+      stops.push({ loadRef:currentRoute, name:customer, postcode, pallets, time:fmtTime(cv(r,4)), checkIn:'', loadNum:currentLoadNum, sheetDate, actualCost:currentRouteCost });
     }
   }
   return stops;
