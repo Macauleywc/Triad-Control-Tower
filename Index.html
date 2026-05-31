@@ -7350,7 +7350,9 @@ function detectVpkFormat(wb, fname) {
   const ws = wb.Sheets[wb.SheetNames[0]];
   const isMultiDay   = wb.SheetNames.some(n => daySheetNames.includes(n.toLowerCase()));
   const firstRows    = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false}).slice(0,12);
-  const isWellington = firstRows.some(r => r && String(r[0]||'').toLowerCase().startsWith('wrings'));
+  // Wellington: check first 12 rows AND all cells in first sheet for 'Wrings-' pattern
+  const isWellington = firstRows.some(r => r && String(r[0]||'').toLowerCase().startsWith('wrings'))
+    || Object.keys(ws).filter(k=>!k.startsWith('!')).some(k=>String(ws[k].v||'').toLowerCase().startsWith('wrings-'));
   const firstCellKey = Object.keys(ws).filter(k=>!k.startsWith('!')).find(k=>ws[k].v&&String(ws[k].v).includes('Selby'));
   const isCampeys    = !!firstCellKey;
   // Banbury: has Route-X pattern — do NOT include isMultiDay alone (would misdetect VPK)
@@ -7445,7 +7447,12 @@ async function vpkImportBatch() {
     const it = items[i];
     if (btn) btn.textContent = `Importing ${i+1} of ${items.length}: ${it.file.name}`;
     try {
-      if (it.isWellington) {
+      if (it.isWellington && it.isMultiDay) {
+        window._suppressNavAfterImport = true;
+        vpkShowMultiDayPreview(it.wb, it.site || vpkTargetSite || currentSiteId, 'wellington');
+        await vpkImportAllDays();
+        imported++;
+      } else if (it.isWellington) {
         const stops = parseWellington(it.ws);
         if (stops.length) { vpkLoadBanburyStops(stops); await vpkLoadIntoTriad(); imported++; }
       } else if (it.isCampeys && it.isMultiDay) {
@@ -7492,7 +7499,11 @@ function vpkHandleSingleFile(file) {
       if (!window.XLSX) { vpkShowMsg('XLSX library not loaded.', 'err'); return; }
       const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
       const { ws, isWellington, isCampeys, isBanbury, isMultiDay, isVpkMultiDay } = detectVpkFormat(wb, file.name);
-      if(isWellington) {
+      if(isWellington && isMultiDay) {
+        // Multi-day Wellington workbook — import all day sheets
+        vpkShowMultiDayPreview(wb, vpkTargetSite || currentSiteId, 'wellington');
+        return;
+      } else if(isWellington) {
         const stops = parseWellington(ws);
         if(!stops.length) { vpkShowMsg('No delivery rows found in Wellington sheet.', 'err'); return; }
         vpkLoadBanburyStops(stops);
@@ -7581,7 +7592,7 @@ function vpkShowMultiDayPreview(wb, site, format) {
       allDayData.push({ sheetName, stops: [], isoDate, totalPallets: pallets, site, isVpk: true, wb, sheetWs });
       continue;
     }
-    const stops = format === 'campeys' ? parseCampeys(sheetWs) : parseBanburySheet(sheetWs, sheetName);
+    const stops = format === 'campeys' ? parseCampeys(sheetWs) : format === 'wellington' ? parseWellington(sheetWs) : parseBanburySheet(sheetWs, sheetName);
     if (!stops.length) continue;
     // Convert sheetDate (DD/MM/YYYY or YYYY-MM-DD) to ISO YYYY-MM-DD
     const rawDate = stops[0]?.sheetDate || '';
@@ -8075,7 +8086,6 @@ async function vpkLoadIntoTriad() {
         run_label:    r.runLabel     || r.area || null,
         run_ships:    r.runShips     || [],
         multi_load:   r.multiLoad    || false,
-        haulier:      r.haulier      || null,
       })));
       if(re) throw re;
       showReqToast(`✓ ${meta.name} saved to Supabase — ${vpkParsedRows.length} stops`);
