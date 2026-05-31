@@ -7553,13 +7553,27 @@ function vpkShowMultiDayPreview(wb, site, format) {
   for (const sheetName of wb.SheetNames) {
     if (!dayNames.includes(sheetName.toLowerCase())) continue;
     const sheetWs = wb.Sheets[sheetName];
-    // For VPK format, extract date and pallets directly without full parse (vpkParseWorksheet has side-effects)
+    // For VPK format, read date and pallets directly from cells
     if (format === 'vpk') {
-      const sheetRows = XLSX.utils.sheet_to_json(sheetWs, {header:1, defval:null, raw:false});
-      const dateVal = String(sheetRows[3]?.[6]||'').slice(0,10);
-      const pallets = Number(sheetRows[0]?.[13])||0;
-      const isoDate = /^\d{4}-\d{2}-\d{2}/.test(dateVal) ? dateVal : '';
-      if (!isoDate) continue;
+      // Date is at row 3 col 6 in VPK schedule
+      const dateCell = sheetWs[XLSX.utils.encode_cell({r:3, c:6})];
+      let isoDate = '';
+      if (dateCell) {
+        if (dateCell.t === 'd' && dateCell.v instanceof Date) {
+          const d = dateCell.v;
+          isoDate = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+        } else {
+          const s = String(dateCell.w || dateCell.v || '').trim();
+          const m4 = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+          const m3 = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+          if (m4) isoDate = m4[1]+'-'+m4[2]+'-'+m4[3];
+          else if (m3) isoDate = m3[3]+'-'+m3[2].padStart(2,'0')+'-'+m3[1].padStart(2,'0');
+        }
+      }
+      // Pallets at row 0 col 13
+      const palCell = sheetWs[XLSX.utils.encode_cell({r:0, c:13})];
+      const pallets = palCell ? Number(palCell.v)||0 : 0;
+      if (!isoDate) { console.warn('VPK: no date found in sheet', sheetName); continue; }
       allDayData.push({ sheetName, stops: [], isoDate, totalPallets: pallets, site, isVpk: true, wb, sheetWs });
       continue;
     }
