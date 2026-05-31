@@ -5209,20 +5209,30 @@ function loadsDrillDown(sid) {
           <span class="loads-shipment-chevron">›</span>
         </div>
         <div class="loads-shipment-body">
-          ${run.shipmentList.map(ship => `
-            ${run.multiLoad ? `<div style="padding:8px 20px 4px;background:var(--cream);border-bottom:1px solid var(--rule);font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--navy2)">Load ${ship.number}</div>` : ''}
-            <table class="loads-stop-table">
-              <thead><tr><th>#</th><th>Customer / Destination</th><th>Postcode</th><th>Del. Time</th><th>Pallets</th></tr></thead>
-              <tbody>
-                ${ship.stops.map((stop,si)=>`<tr>
-                  <td style="font-family:var(--font-mono);font-size:11px;color:var(--ink3);width:36px">${si+1}</td>
-                  <td><div class="stop-customer">${stop.name||stop.customer||'—'}</div></td>
-                  <td><span class="stop-pc">${stop.postal||stop.postcode||'—'}</span></td>
-                  <td><span class="stop-time">${stop.delivTime||stop.time||'—'}</span></td>
-                  <td class="stop-pallets">${stop.pallets||0}</td>
-                </tr>`).join('')}
-              </tbody>
-            </table>`).join('')}
+          <table class="loads-stop-table">
+            <thead><tr><th>#</th><th>Customer / Destination</th><th>Postcode</th><th>Del. Time</th><th style="text-align:right">Pallets</th></tr></thead>
+            <tbody>
+              ${(() => {
+                let globalStop = 0;
+                return run.shipmentList.map((ship, shipIdx) => {
+                  const divider = (run.multiLoad && run.shipmentList.length > 1)
+                    ? `<tr><td colspan="5" style="padding:4px 12px;background:var(--cream);font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--navy2);letter-spacing:.05em;border-top:1px solid var(--rule)">LOAD ${ship.number}</td></tr>`
+                    : '';
+                  const rows = ship.stops.map(stop => {
+                    globalStop++;
+                    return `<tr>
+                      <td style="font-family:var(--font-mono);font-size:11px;color:var(--ink3);width:36px">${globalStop}</td>
+                      <td><div class="stop-customer">${stop.name||stop.customer||'—'}</div></td>
+                      <td><span class="stop-pc">${stop.postal||stop.postcode||'—'}</span></td>
+                      <td><span class="stop-time">${stop.delivTime||stop.time||'—'}</span></td>
+                      <td class="stop-pallets" style="text-align:right">${stop.pallets||0}</td>
+                    </tr>`;
+                  }).join('');
+                  return divider + rows;
+                }).join('');
+              })()}
+            </tbody>
+          </table>
         </div>
       </div>`;
     }).join('')}`;
