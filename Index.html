@@ -7626,58 +7626,71 @@ async function vpkImportAllDays() {
   const batch = window._multiDayBatch || [];
   if (!batch.length) { vpkShowMsg('No batch data found — please re-upload the file.', 'err'); return; }
   const btn = document.querySelector('.submit-btn');
-  if (btn) { btn.disabled = true; btn.textContent = `Importing day 1 of ${batch.length}...`; }
+  if (btn) { btn.disabled = true; }
   window._suppressNavAfterImport = true;
-  let imported = 0;
+  const results = [];
   for (let di = 0; di < batch.length; di++) {
-    const { stops, isoDate, site } = batch[di];
-    if (btn) btn.textContent = `Importing day ${di+1} of ${batch.length}...`;
-    // VPK sheets: use vpkParseWorksheet directly — must check BEFORE validStops filter (stops=[] for VPK)
-    if (batch[di].isVpk) {
-      vpkTargetSite = site;
-      const prevDate = viewDate;
-      viewDate = isoDate;
-      vpkParseWorksheet(batch[di].sheetWs, batch[di].sheetName);
-      await vpkLoadIntoTriad();
-      viewDate = prevDate;
-      imported++;
-      continue;
+    const item = batch[di];
+    const { stops, isoDate, site } = item;
+    if (btn) btn.textContent = `Importing ${di+1}/${batch.length}: ${item.sheetName}...`;
+    try {
+      if (item.isVpk) {
+        // VPK sheet — parse then load
+        vpkTargetSite = site;
+        viewDate = isoDate;
+        vpkParseWorksheet(item.sheetWs, item.sheetName);
+        if (!vpkParsedRows.length) {
+          results.push({ sheet: item.sheetName, ok: false, reason: 'No stops parsed' });
+          continue;
+        }
+        await vpkLoadIntoTriad();
+        results.push({ sheet: item.sheetName, ok: true, stops: vpkParsedRows.length, date: isoDate });
+      } else {
+        // Campeys/Banbury sheet
+        const validStops = stops.filter(s => s.postcode && s.name && s.name.length < 60 && !s.name.match(/^T\d{3}$/));
+        if (!validStops.length) { results.push({ sheet: item.sheetName, ok: false, reason: 'No valid stops' }); continue; }
+        vpkTargetSite = site;
+        vpkParsedRows = validStops.map(s => ({
+          ship: s.loadRef || s.loadNum || 'LOAD',
+          runNum: s.loadRef || s.loadNum || 'LOAD',
+          runLabel: s.loadRef || s.loadNum || 'LOAD',
+          multiLoad: false, runShips: [s.loadRef || s.loadNum || 'LOAD'],
+          checkIn: s.checkIn || s.time || '',
+          collDate: isoDate, planDate: isoDate,
+          customer: s.name, postal: s.postcode,
+          delivTime: s.time || '', pallets: s.pallets || 0,
+          netWeight: (s.pallets || 0) * 200,
+          loadNum: s.loadRef || s.loadNum || 'LOAD', haulier: 'CAMPEYS',
+        }));
+        viewDate = isoDate;
+        await vpkLoadIntoTriad();
+        results.push({ sheet: item.sheetName, ok: true, stops: validStops.length, date: isoDate });
+      }
+    } catch(e) {
+      results.push({ sheet: item.sheetName, ok: false, reason: e.message });
+      console.error('Import error for', item.sheetName, e);
     }
-    // Non-VPK: need valid stops
-    const validStops = stops.filter(s => s.postcode && s.name && s.name.length < 60 && !s.name.match(/^T\d{3}$/));
-    if (!validStops.length) continue;
-    vpkTargetSite = site;
-    vpkParsedRows = validStops.map(s => ({
-      ship: s.loadRef || s.loadNum || 'LOAD',
-      runNum: s.loadRef || s.loadNum || 'LOAD',
-      runLabel: s.loadRef || s.loadNum || 'LOAD',
-      multiLoad: false,
-      runShips: [s.loadRef || s.loadNum || 'LOAD'],
-      checkIn: s.checkIn || s.time || '',
-      collDate: isoDate, planDate: isoDate,
-      customer: s.name, postal: s.postcode,
-      delivTime: s.time || '',
-      pallets: s.pallets || 0,
-      netWeight: (s.pallets || 0) * 200,
-      loadNum: s.loadRef || s.loadNum || 'LOAD',
-      haulier: 'CAMPEYS',
-    }));
-    const prevDate = viewDate;
-    viewDate = isoDate;
-    await vpkLoadIntoTriad();
-    viewDate = prevDate;
-    imported++;
   }
   window._suppressNavAfterImport = false;
   window._multiDayBatch = null;
   if (btn) { btn.disabled = false; btn.textContent = `✓ Import all days →`; }
-  // Navigate to the first imported day
-  const firstDate = batch.find(d => d.isoDate)?.isoDate || viewDate;
-  viewDate = firstDate;
-  updateDateNav();
-  await loadDateData();
-  showReqToast(`✓ ${imported} day${imported!==1?'s':''} imported — week schedule loaded`);
-  showTab('overview');
+  const ok = results.filter(r => r.ok);
+  const fail = results.filter(r => !r.ok);
+  // Navigate to first successful day
+  const firstOk = ok[0];
+  if (firstOk) {
+    viewDate = firstOk.date;
+    updateDateNav();
+    await loadDateData();
+    showTab('overview');
+  }
+  if (fail.length) {
+    const msg = fail.map(f => `${f.sheet}: ${f.reason}`).join(', ');
+    showReqToast(`⚠ ${fail.length} day(s) failed: ${msg}`);
+    console.error('Failed imports:', fail);
+  } else {
+    showReqToast(`✓ ${ok.length} day${ok.length!==1?'s':''} imported — navigate dates to view each`);
+  }
 }
 
 function parseCampeys(ws) {
