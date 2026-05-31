@@ -7632,9 +7632,7 @@ async function vpkImportAllDays() {
   for (let di = 0; di < batch.length; di++) {
     const { stops, isoDate, site } = batch[di];
     if (btn) btn.textContent = `Importing day ${di+1} of ${batch.length}...`;
-    const validStops = stops.filter(s => s.postcode && s.name && s.name.length < 60 && !s.name.match(/^T\d{3}$/));
-    if (!validStops.length) continue;
-    // VPK sheets: use vpkParseWorksheet directly
+    // VPK sheets: use vpkParseWorksheet directly — must check BEFORE validStops filter (stops=[] for VPK)
     if (batch[di].isVpk) {
       vpkTargetSite = site;
       const prevDate = viewDate;
@@ -7645,6 +7643,9 @@ async function vpkImportAllDays() {
       imported++;
       continue;
     }
+    // Non-VPK: need valid stops
+    const validStops = stops.filter(s => s.postcode && s.name && s.name.length < 60 && !s.name.match(/^T\d{3}$/));
+    if (!validStops.length) continue;
     vpkTargetSite = site;
     vpkParsedRows = validStops.map(s => ({
       ship: s.loadRef || s.loadNum || 'LOAD',
