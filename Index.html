@@ -7344,12 +7344,15 @@ function readFileBuffer(file) {
 function detectVpkFormat(wb, fname) {
   const daySheetNames = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
   const ws = wb.Sheets[wb.SheetNames[0]];
-  const isMultiDay = wb.SheetNames.some(n => daySheetNames.includes(n.toLowerCase()));
-  const firstRows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false}).slice(0,12);
-  const isBanbury   = isMultiDay || firstRows.some(r => r && String(r[0]||'').match(/^route/i));
-  const isWellington= firstRows.some(r => r && String(r[0]||'').toLowerCase().startsWith('wrings'));
-  const firstCellKey= Object.keys(ws).filter(k=>!k.startsWith('!')).find(k=>ws[k].v&&String(ws[k].v).includes('Selby'));
-  const isCampeys   = !!firstCellKey;
+  const isMultiDay   = wb.SheetNames.some(n => daySheetNames.includes(n.toLowerCase()));
+  const firstRows    = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false}).slice(0,12);
+  const isWellington = firstRows.some(r => r && String(r[0]||'').toLowerCase().startsWith('wrings'));
+  const firstCellKey = Object.keys(ws).filter(k=>!k.startsWith('!')).find(k=>ws[k].v&&String(ws[k].v).includes('Selby'));
+  const isCampeys    = !!firstCellKey;
+  // Banbury: has Route-X pattern — do NOT include isMultiDay alone (would misdetect VPK)
+  const isBanbury    = !isWellington && !isCampeys && firstRows.some(r => r && String(r[0]||'').match(/^route/i));
+  // VPK multi-day: has day sheets but NOT Campeys/Banbury/Wellington format
+  const isVpkMultiDay = isMultiDay && !isWellington && !isCampeys && !isBanbury;
   // Extract date quickly
   let fileDate = '';
   if (isCampeys || isWellington || isBanbury) {
@@ -7373,8 +7376,8 @@ function detectVpkFormat(wb, fname) {
       if (fileDate) break;
     }
   }
-  const fmt = isWellington ? 'Wellington' : isCampeys ? (isMultiDay ? 'Campeys (week)' : 'Campeys') : isBanbury ? (isMultiDay ? 'Banbury (week)' : 'Banbury') : 'VPK';
-  return { ws, isWellington, isCampeys, isBanbury, isMultiDay, fileDate, fmt };
+  const fmt = isWellington ? 'Wellington' : isCampeys ? (isMultiDay ? 'Campeys (week)' : 'Campeys') : isBanbury ? (isMultiDay ? 'Banbury (week)' : 'Banbury') : isVpkMultiDay ? 'VPK (week)' : 'VPK';
+  return { ws, isWellington, isCampeys, isBanbury, isMultiDay, isVpkMultiDay, fileDate, fmt };
 }
 async function vpkHandleFile(input) {
   const files = Array.from(input.files || []);
@@ -7458,8 +7461,13 @@ async function vpkImportBatch() {
       } else if (it.isBanbury) {
         const stops = parseBanburySheet(it.ws, it.file.name);
         if (stops.length) { vpkLoadBanburyStops(stops); await vpkLoadIntoTriad(); imported++; }
+      } else if(it.isVpkMultiDay) {
+        window._suppressNavAfterImport = true;
+        vpkShowMultiDayPreview(it.wb, it.site || vpkTargetSite || currentSiteId, 'vpk');
+        await vpkImportAllDays();
+        imported++;
       } else {
-        // VPK (Desborough) — parse and auto-load
+        // VPK (Desborough single-day) — parse and auto-load
         vpkParseWorksheet(it.ws, it.file.name);
         await vpkLoadIntoTriad();
         imported++;
@@ -7479,7 +7487,7 @@ function vpkHandleSingleFile(file) {
     try {
       if (!window.XLSX) { vpkShowMsg('XLSX library not loaded.', 'err'); return; }
       const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
-      const { ws, isWellington, isCampeys, isBanbury, isMultiDay } = detectVpkFormat(wb, file.name);
+      const { ws, isWellington, isCampeys, isBanbury, isMultiDay, isVpkMultiDay } = detectVpkFormat(wb, file.name);
       if(isWellington) {
         const stops = parseWellington(ws);
         if(!stops.length) { vpkShowMsg('No delivery rows found in Wellington sheet.', 'err'); return; }
@@ -7496,6 +7504,8 @@ function vpkHandleSingleFile(file) {
         const stops = parseBanburySheet(ws, file.name);
         if(!stops.length) { vpkShowMsg('No delivery rows found in Banbury plan.', 'err'); return; }
         vpkLoadBanburyStops(stops);
+      } else if(isVpkMultiDay) {
+        vpkShowMultiDayPreview(wb, vpkTargetSite || currentSiteId, 'vpk');
       } else {
         vpkParseWorksheet(ws, file.name);
       }
@@ -7543,6 +7553,16 @@ function vpkShowMultiDayPreview(wb, site, format) {
   for (const sheetName of wb.SheetNames) {
     if (!dayNames.includes(sheetName.toLowerCase())) continue;
     const sheetWs = wb.Sheets[sheetName];
+    // For VPK format, extract date and pallets directly without full parse (vpkParseWorksheet has side-effects)
+    if (format === 'vpk') {
+      const sheetRows = XLSX.utils.sheet_to_json(sheetWs, {header:1, defval:null, raw:false});
+      const dateVal = String(sheetRows[3]?.[6]||'').slice(0,10);
+      const pallets = Number(sheetRows[0]?.[13])||0;
+      const isoDate = /^\d{4}-\d{2}-\d{2}/.test(dateVal) ? dateVal : '';
+      if (!isoDate) continue;
+      allDayData.push({ sheetName, stops: [], isoDate, totalPallets: pallets, site, isVpk: true, wb, sheetWs });
+      continue;
+    }
     const stops = format === 'campeys' ? parseCampeys(sheetWs) : parseBanburySheet(sheetWs, sheetName);
     if (!stops.length) continue;
     // Convert sheetDate (DD/MM/YYYY or YYYY-MM-DD) to ISO YYYY-MM-DD
@@ -7600,6 +7620,17 @@ async function vpkImportAllDays() {
     if (btn) btn.textContent = `Importing day ${di+1} of ${batch.length}...`;
     const validStops = stops.filter(s => s.postcode && s.name && s.name.length < 60 && !s.name.match(/^T\d{3}$/));
     if (!validStops.length) continue;
+    // VPK sheets: use vpkParseWorksheet directly
+    if (batch[di].isVpk) {
+      vpkTargetSite = site;
+      const prevDate = viewDate;
+      viewDate = isoDate;
+      vpkParseWorksheet(batch[di].sheetWs, batch[di].sheetName);
+      await vpkLoadIntoTriad();
+      viewDate = prevDate;
+      imported++;
+      continue;
+    }
     vpkTargetSite = site;
     vpkParsedRows = validStops.map(s => ({
       ship: s.loadRef || s.loadNum || 'LOAD',
