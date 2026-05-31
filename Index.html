@@ -4224,7 +4224,7 @@ async function submitData() {
         site_id: r.site_id, area: r.area, postcodes: r.postcodes||r.pc||'',
         stops: r.stops, pallets: r.pallets, weight_t: r.weight_t||r.weight||0,
         stops_detail: r.stops_detail||[],
-        run_num: r.runNum||null, run_label: r.runLabel||r.area||null,
+        run_num: (typeof r.runNum === 'number' && !isNaN(r.runNum)) ? Math.round(r.runNum) : null, run_label: r.runLabel||r.area||null,
         multi_load: r.multiLoad||false, run_ships: r.runShips||[],
         plan_id: plan.id,
       })));
@@ -6516,7 +6516,7 @@ async function syncFromSheets() {
         site_id: r.site_id, area: r.area, postcodes: r.postcodes||r.pc||'',
         stops: r.stops, pallets: r.pallets, weight_t: r.weight_t||r.weight||0,
         stops_detail: r.stops_detail||[],
-        run_num: r.runNum||null, run_label: r.runLabel||r.area||null,
+        run_num: (typeof r.runNum === 'number' && !isNaN(r.runNum)) ? Math.round(r.runNum) : null, run_label: r.runLabel||r.area||null,
         multi_load: r.multiLoad||false, run_ships: r.runShips||[],
         plan_id: plan.id,
       })));
@@ -6719,7 +6719,7 @@ async function processXlsxSheet(ws, sourceName, wb) {
         site_id: r.site_id, area: r.area, postcodes: r.postcodes||r.pc||'',
         stops: r.stops, pallets: r.pallets, weight_t: r.weight_t||r.weight||0,
         stops_detail: r.stops_detail||[],
-        run_num: r.runNum||null, run_label: r.runLabel||r.area||null,
+        run_num: (typeof r.runNum === 'number' && !isNaN(r.runNum)) ? Math.round(r.runNum) : null, run_label: r.runLabel||r.area||null,
         multi_load: r.multiLoad||false, run_ships: r.runShips||[],
         plan_id: plan.id,
       })));
@@ -6862,7 +6862,7 @@ async function processCsvText(csv, sourceName) {
         site_id: r.site_id, area: r.area, postcodes: r.postcodes||r.pc||'',
         stops: r.stops, pallets: r.pallets, weight_t: r.weight_t||r.weight||0,
         stops_detail: r.stops_detail||[],
-        run_num: r.runNum||null, run_label: r.runLabel||r.area||null,
+        run_num: (typeof r.runNum === 'number' && !isNaN(r.runNum)) ? Math.round(r.runNum) : null, run_label: r.runLabel||r.area||null,
         multi_load: r.multiLoad||false, run_ships: r.runShips||[],
         plan_id: plan.id,
       })));
@@ -8083,7 +8083,7 @@ async function vpkLoadIntoTriad() {
         pallets:      r.pallets      || 0,
         weight_t:     r.weight_t     || 0,
         stops_detail: r.stops_detail || [],
-        run_num:      r.runNum       || null,
+        run_num:      (typeof r.runNum === 'number' && !isNaN(r.runNum)) ? Math.round(r.runNum) : null,
         run_label:    r.runLabel     || r.area || null,
         run_ships:    r.runShips     || [],
         multi_load:   r.multiLoad    || false,
