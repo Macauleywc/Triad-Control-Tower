@@ -3012,7 +3012,7 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
                     <label class="sheets-sync-btn" style="background:var(--ink2);cursor:pointer">
                       <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 10V2M3 6l4-4 4 4" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 11h12" stroke="white" stroke-width="1.4" stroke-linecap="round"/></svg>
                       Upload VPK Schedule
-                      <input type="file" accept=".xlsx,.xls,.xlsm,.csv" style="display:none" onchange="vpkHandleFile(this)">
+                      <input type="file" accept=".xlsx,.xls,.xlsm,.csv" style="display:none" onchange="vpkHandleFile(this)" multiple>
                     </label>
                   </div>
                 </div>
@@ -7331,57 +7331,177 @@ async function vpkSyncAndImport() {
   btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M12 7A5 5 0 112 7" stroke="white" stroke-width="1.4" stroke-linecap="round"/><path d="M12 4v3h-3" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg> Sync & Import';
 }
 // ── File upload handler ──
-function vpkHandleFile(input) {
-  const file = input.files?.[0];
-  if (!file) return;
+// Read a single file as ArrayBuffer (Promise wrapper)
+function readFileBuffer(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.onerror = () => rej(new Error('Could not read ' + file.name));
+    r.readAsArrayBuffer(file);
+  });
+}
+// Detect format and extract key info from a workbook
+function detectVpkFormat(wb, fname) {
+  const daySheetNames = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const isMultiDay = wb.SheetNames.some(n => daySheetNames.includes(n.toLowerCase()));
+  const firstRows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false}).slice(0,12);
+  const isBanbury   = isMultiDay || firstRows.some(r => r && String(r[0]||'').match(/^route/i));
+  const isWellington= firstRows.some(r => r && String(r[0]||'').toLowerCase().startsWith('wrings'));
+  const firstCellKey= Object.keys(ws).filter(k=>!k.startsWith('!')).find(k=>ws[k].v&&String(ws[k].v).includes('Selby'));
+  const isCampeys   = !!firstCellKey;
+  // Extract date quickly
+  let fileDate = '';
+  if (isCampeys || isWellington || isBanbury) {
+    // Date from stops parser
+    const stops = isWellington ? parseWellington(ws) : isCampeys ? parseCampeys(ws) : parseBanburySheet(ws, fname);
+    const raw = stops[0]?.sheetDate || '';
+    const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    fileDate = m ? `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}` : raw;
+    if (isCampeys && isMultiDay) fileDate = '(week ' + wb.SheetNames.filter(n=>daySheetNames.includes(n.toLowerCase())).join('/') + ')';
+  } else {
+    // VPK: date at row 3 col 6
+    const allRows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false});
+    for (let r = 0; r < Math.min(8, allRows.length); r++) {
+      for (let c = 0; c < Math.min(12, (allRows[r]||[]).length); c++) {
+        const v = String(allRows[r][c]||'').trim();
+        if (/^\d{4}-\d{2}-\d{2}/.test(v)) { fileDate = v.slice(0,10); break; }
+        if (/^\d{2}\/\d{2}\/\d{4}/.test(v)) {
+          const [dd,mm,yyyy] = v.split('/'); fileDate = `${yyyy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`; break;
+        }
+      }
+      if (fileDate) break;
+    }
+  }
+  const fmt = isWellington ? 'Wellington' : isCampeys ? (isMultiDay ? 'Campeys (week)' : 'Campeys') : isBanbury ? (isMultiDay ? 'Banbury (week)' : 'Banbury') : 'VPK';
+  return { ws, isWellington, isCampeys, isBanbury, isMultiDay, fileDate, fmt };
+}
+async function vpkHandleFile(input) {
+  const files = Array.from(input.files || []);
+  input.value = '';
+  if (!files.length) return;
+  if (!window.XLSX) { vpkShowMsg('XLSX library not loaded. Please try again.', 'err'); return; }
+  // Single file — existing preview flow
+  if (files.length === 1) {
+    return vpkHandleSingleFile(files[0]);
+  }
+  // Multiple files — show batch summary then import all
+  vpkShowMsg(`Reading ${files.length} files...`, '');
+  try {
+    const items = [];
+    for (const file of files) {
+      const buf = await readFileBuffer(file);
+      const wb  = XLSX.read(new Uint8Array(buf), {type:'array', cellDates:true});
+      const info = detectVpkFormat(wb, file.name);
+      items.push({ file, buf, wb, ...info });
+    }
+    window._batchImportItems = items;
+    // Show batch preview
+    const wrap = document.getElementById('vpk-preview-wrap');
+    const tbl  = document.getElementById('vpk-preview');
+    const cnt  = document.getElementById('vpk-preview-count');
+    if (wrap) wrap.style.display = 'block';
+    if (cnt)  cnt.textContent = `${items.length} files`;
+    const rows = items.map((it, i) => {
+      let dateLabel = it.fileDate || '—';
+      if (it.fileDate && !it.fileDate.startsWith('(')) {
+        try { const p = it.fileDate.split('-').map(Number); dateLabel = new Date(p[0],p[1]-1,p[2]).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'}); } catch(e){}
+      }
+      return `<tr>
+        <td style="font-family:var(--font-mono);color:var(--ink3)">${i+1}</td>
+        <td style="font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${it.file.name}">${it.file.name}</td>
+        <td><span style="font-family:var(--font-mono);font-size:10px;background:var(--cream2);padding:2px 7px;border-radius:8px">${it.fmt}</span></td>
+        <td style="font-size:12px;color:var(--ink2)">${dateLabel}</td>
+      </tr>`;
+    }).join('');
+    if (tbl) tbl.innerHTML = `<table class="vpk-tbl" style="font-size:13px">
+      <thead><tr><th>#</th><th>File</th><th>Format</th><th>Date</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+    const btn = document.querySelector('.submit-btn[onclick*="vpkLoadIntoTriad"], .submit-btn[onclick*="vpkImportAllDays"]');
+    if (btn) {
+      btn.textContent = `✓ Import all ${items.length} files →`;
+      btn.setAttribute('onclick', 'vpkImportBatch()');
+      btn.disabled = false;
+    }
+    vpkShowMsg('', '');
+  } catch(err) { vpkShowMsg('Error reading files: ' + err.message, 'err'); }
+}
+async function vpkImportBatch() {
+  const items = window._batchImportItems || [];
+  if (!items.length) return;
+  const btn = document.querySelector('.submit-btn');
+  if (btn) { btn.disabled = true; }
+  window._suppressNavAfterImport = true;
+  let imported = 0;
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    if (btn) btn.textContent = `Importing ${i+1} of ${items.length}: ${it.file.name}`;
+    try {
+      if (it.isWellington) {
+        const stops = parseWellington(it.ws);
+        if (stops.length) { vpkLoadBanburyStops(stops); await vpkLoadIntoTriad(); imported++; }
+      } else if (it.isCampeys && it.isMultiDay) {
+        // Multi-day Campeys — use existing batch mechanism
+        window._suppressNavAfterImport = true;
+        vpkShowMultiDayPreview(it.wb, 'selby', 'campeys');
+        await vpkImportAllDays();
+        imported++;
+      } else if (it.isCampeys) {
+        const stops = parseCampeys(it.ws);
+        if (stops.length) { vpkLoadBanburyStops(stops, 'selby'); await vpkLoadIntoTriad(); imported++; }
+      } else if (it.isBanbury && it.isMultiDay) {
+        window._suppressNavAfterImport = true;
+        vpkShowMultiDayPreview(it.wb, vpkTargetSite || currentSiteId, 'banbury');
+        await vpkImportAllDays();
+        imported++;
+      } else if (it.isBanbury) {
+        const stops = parseBanburySheet(it.ws, it.file.name);
+        if (stops.length) { vpkLoadBanburyStops(stops); await vpkLoadIntoTriad(); imported++; }
+      } else {
+        // VPK (Desborough) — parse and auto-load
+        vpkParseWorksheet(it.ws, it.file.name);
+        await vpkLoadIntoTriad();
+        imported++;
+      }
+    } catch(err) { console.error('Error importing', it.file.name, err); }
+  }
+  window._suppressNavAfterImport = false;
+  window._batchImportItems = null;
+  if (btn) { btn.disabled = false; btn.textContent = '✓ Load into Triad for today →'; }
+  await loadDateData();
+  showReqToast(`✓ ${imported} file${imported!==1?'s':''} imported successfully`);
+  showTab('overview');
+}
+function vpkHandleSingleFile(file) {
   const reader = new FileReader();
   reader.onload = e => {
     try {
-      if (window.XLSX) {
-        const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        // Detect Banbury format — has Route-X pattern in col 0
-        const daySheetNames = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
-        const isMultiDay = wb.SheetNames.some(n => daySheetNames.includes(n.toLowerCase()));
-        const firstRows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false}).slice(0,12);
-        const isBanbury = isMultiDay || firstRows.some(r => r && String(r[0]||'').match(/^route/i));
-        // Detect Wellington format — has 'Wrings-' in col 0
-        const isWellington = firstRows.some(r => r && String(r[0]||'').toLowerCase().startsWith('wrings'));
-        // Detect Campeys format — has 'Selby - Delivery Schedule' in first cell
-        const firstCell = ws[Object.keys(ws).filter(k=>!k.startsWith('!')).find(k=>ws[k].v&&String(ws[k].v).includes('Selby'))];
-        const isCampeys = !!firstCell;
-        if(isWellington) {
-          const stops = parseWellington(ws);
-          if(!stops.length) { vpkShowMsg('No delivery rows found in Wellington sheet.', 'err'); return; }
-          vpkLoadBanburyStops(stops);
-        } else if(isCampeys) {
-          const stops = parseCampeys(ws);
-          if(!stops.length) { vpkShowMsg('No delivery rows found in Campeys sheet.', 'err'); return; }
-          vpkLoadBanburyStops(stops, 'selby');
-        } else if(isBanbury) {
-          let parseWs = ws;
-          if(isMultiDay) {
-            const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-            const parts = viewDate.split('-').map(Number);
-            const vd = new Date(parts[0], parts[1]-1, parts[2]);
-            const targetDay = dayNames[vd.getDay()].toLowerCase();
-            const matchSheet = wb.SheetNames.find(n => n.toLowerCase() === targetDay)
-              || wb.SheetNames.find(n => daySheetNames.includes(n.toLowerCase()));
-            if(matchSheet) parseWs = wb.Sheets[matchSheet];
-          }
-          const stops = parseBanburySheet(parseWs, file.name);
-          if(!stops.length) { vpkShowMsg('No delivery rows found in Banbury plan.', 'err'); return; }
-          vpkLoadBanburyStops(stops);
-        } else if(!isCampeys) {
-          vpkParseWorksheet(ws, file.name);
-        }
+      if (!window.XLSX) { vpkShowMsg('XLSX library not loaded.', 'err'); return; }
+      const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+      const { ws, isWellington, isCampeys, isBanbury, isMultiDay } = detectVpkFormat(wb, file.name);
+      if(isWellington) {
+        const stops = parseWellington(ws);
+        if(!stops.length) { vpkShowMsg('No delivery rows found in Wellington sheet.', 'err'); return; }
+        vpkLoadBanburyStops(stops);
+      } else if(isCampeys && isMultiDay) {
+        vpkShowMultiDayPreview(wb, 'selby', 'campeys');
+      } else if(isCampeys) {
+        const stops = parseCampeys(ws);
+        if(!stops.length) { vpkShowMsg('No delivery rows found in Campeys sheet.', 'err'); return; }
+        vpkLoadBanburyStops(stops, 'selby');
+      } else if(isBanbury && isMultiDay) {
+        vpkShowMultiDayPreview(wb, vpkTargetSite || currentSiteId, 'banbury');
+      } else if(isBanbury) {
+        const stops = parseBanburySheet(ws, file.name);
+        if(!stops.length) { vpkShowMsg('No delivery rows found in Banbury plan.', 'err'); return; }
+        vpkLoadBanburyStops(stops);
       } else {
-        vpkShowMsg('XLSX library not loaded. Please try again.', 'err');
+        vpkParseWorksheet(ws, file.name);
       }
     } catch(err) { vpkShowMsg('Could not read file: ' + err.message, 'err'); }
   };
   reader.readAsArrayBuffer(file);
-  input.value='';
 }
 function vpkProcessCSV(csv, fname) {
   // Parse CSV into XLSX-style data then process
@@ -7416,6 +7536,104 @@ function vpkSplitCSV(line) {
   return result;
 }
 // ── Campeys of Selby parser ──
+/* ── Multi-day workbook import ── */
+function vpkShowMultiDayPreview(wb, site, format) {
+  const dayNames = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+  const allDayData = [];
+  for (const sheetName of wb.SheetNames) {
+    if (!dayNames.includes(sheetName.toLowerCase())) continue;
+    const sheetWs = wb.Sheets[sheetName];
+    const stops = format === 'campeys' ? parseCampeys(sheetWs) : parseBanburySheet(sheetWs, sheetName);
+    if (!stops.length) continue;
+    // Convert sheetDate (DD/MM/YYYY or YYYY-MM-DD) to ISO YYYY-MM-DD
+    const rawDate = stops[0]?.sheetDate || '';
+    let isoDate = '';
+    const m = rawDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) isoDate = `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+    else if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) isoDate = rawDate;
+    if (!isoDate) { // Try extracting from Date object stored in stops
+      const sd = stops[0]?.sheetDate;
+      if (sd && sd instanceof Date) isoDate = sd.toISOString().split('T')[0];
+    }
+    if (!isoDate) isoDate = viewDate; // fallback
+    const totalPallets = stops.reduce((a,s) => a+(s.pallets||0), 0);
+    allDayData.push({ sheetName, stops, isoDate, totalPallets, site });
+  }
+  if (!allDayData.length) { vpkShowMsg('No day sheets with data found.', 'err'); return; }
+  window._multiDayBatch = allDayData;
+  // Build preview table
+  const rows = allDayData.map((d, i) => {
+    let dateLabel = d.isoDate;
+    try { const parts = d.isoDate.split('-').map(Number); dateLabel = new Date(parts[0],parts[1]-1,parts[2]).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'}); } catch(e){}
+    return `<tr>
+      <td style="font-family:var(--font-mono);font-weight:700;color:var(--ink3)">${i+1}</td>
+      <td style="font-weight:600">${dateLabel}</td>
+      <td style="font-family:var(--font-mono)">${d.stops.length} stops</td>
+      <td style="font-family:var(--font-mono)">${d.totalPallets}p</td>
+    </tr>`;
+  }).join('');
+  const wrap = document.getElementById('vpk-preview-wrap');
+  const tbl  = document.getElementById('vpk-preview');
+  const cnt  = document.getElementById('vpk-preview-count');
+  if (wrap) wrap.style.display = 'block';
+  if (cnt)  cnt.textContent = `${allDayData.length} days detected`;
+  if (tbl)  tbl.innerHTML = `<table class="vpk-tbl" style="font-size:13px">
+    <thead><tr><th>#</th><th>Date</th><th>Stops</th><th>Pallets</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+  // Swap the Load button
+  const btn = document.querySelector('.submit-btn[onclick*="vpkLoadIntoTriad"]');
+  if (btn) {
+    btn.textContent = `✓ Import all ${allDayData.length} days into Triad →`;
+    btn.setAttribute('onclick', 'vpkImportAllDays()');
+  }
+}
+async function vpkImportAllDays() {
+  const batch = window._multiDayBatch || [];
+  if (!batch.length) { vpkShowMsg('No batch data found — please re-upload the file.', 'err'); return; }
+  const btn = document.querySelector('.submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = `Importing day 1 of ${batch.length}...`; }
+  window._suppressNavAfterImport = true;
+  let imported = 0;
+  for (let di = 0; di < batch.length; di++) {
+    const { stops, isoDate, site } = batch[di];
+    if (btn) btn.textContent = `Importing day ${di+1} of ${batch.length}...`;
+    const validStops = stops.filter(s => s.postcode && s.name && s.name.length < 60 && !s.name.match(/^T\d{3}$/));
+    if (!validStops.length) continue;
+    vpkTargetSite = site;
+    vpkParsedRows = validStops.map(s => ({
+      ship: s.loadRef || s.loadNum || 'LOAD',
+      runNum: s.loadRef || s.loadNum || 'LOAD',
+      runLabel: s.loadRef || s.loadNum || 'LOAD',
+      multiLoad: false,
+      runShips: [s.loadRef || s.loadNum || 'LOAD'],
+      checkIn: s.checkIn || s.time || '',
+      collDate: isoDate, planDate: isoDate,
+      customer: s.name, postal: s.postcode,
+      delivTime: s.time || '',
+      pallets: s.pallets || 0,
+      netWeight: (s.pallets || 0) * 200,
+      loadNum: s.loadRef || s.loadNum || 'LOAD',
+      haulier: 'CAMPEYS',
+    }));
+    const prevDate = viewDate;
+    viewDate = isoDate;
+    await vpkLoadIntoTriad();
+    viewDate = prevDate;
+    imported++;
+  }
+  window._suppressNavAfterImport = false;
+  window._multiDayBatch = null;
+  if (btn) { btn.disabled = false; btn.textContent = `✓ Import all days →`; }
+  // Navigate to the first imported day
+  const firstDate = batch.find(d => d.isoDate)?.isoDate || viewDate;
+  viewDate = firstDate;
+  updateDateNav();
+  await loadDateData();
+  showReqToast(`✓ ${imported} day${imported!==1?'s':''} imported — week schedule loaded`);
+  showTab('overview');
+}
+
 function parseCampeys(ws) {
   const wsN = {};
   Object.keys(ws).forEach(k => { wsN[k.startsWith('!')?k:k.toUpperCase()] = ws[k]; });
@@ -7801,15 +8019,17 @@ async function vpkLoadIntoTriad() {
   }
   // Always update local memory too
   dataCleared = false;
-  viewDate = saveDate;
-  updateDateNav();
   todayData = todayData.filter(e => e.site !== site);
   todayData.push({site, date:saveDate, capacity:80, notes:'VPK import', uploaded_by:'VPK Schedule', routes, total_loads: totalLoads, total_trailers: totalTrailers});
   allData = allData.filter(e => !(e.site===site && e.date===saveDate));
   allData.push(todayData[todayData.length-1]);
-  renderAll();
-  showReqToast(`${meta.name} updated — ${vpkParsedRows.length} stops loaded`);
-  showTab('overview');
+  if (!window._suppressNavAfterImport) {
+    viewDate = saveDate;
+    updateDateNav();
+    renderAll();
+    showReqToast(`${meta.name} updated — ${vpkParsedRows.length} stops loaded`);
+    showTab('overview');
+  }
 }
 function vpkDownloadQargo() {
   if(!vpkParsedRows.length||!window.XLSX)return;
