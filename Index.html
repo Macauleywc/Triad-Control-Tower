@@ -5256,6 +5256,8 @@ function groupByShipment(e) {
   const runMap = {};
   const runOrder = [];
   (e.routes||[]).forEach(route => {
+    // Skip routes that are completely empty (no pallets, no stops) — these are artefacts
+    if (!(route.pallets||0) && !(route.stops||0) && !(route.stops_detail||[]).length) return;
     const area = route.area||'';
     const multiLoad = route.multiLoad || false;
     const runLabel = route.runLabel || area;
@@ -8159,7 +8161,7 @@ async function vpkLoadIntoTriad() {
       return m ? m[1].toUpperCase() : (r.area||r.runLabel||'x');
     }));
     totalLoads    = loadBaseKeys.size;    // distinct vehicle runs  e.g. 18
-    totalTrailers = activeRoutes.length;  // distinct shipments     e.g. 23
+    totalTrailers = routes.length;        // all route objects including 0-pallet (CHEP etc)
   }
   // Save to Supabase if connected
   if(sb && isConfigured) {
