@@ -5257,6 +5257,7 @@ function loadsDrillDown(sid) {
   const pillBg  = pct>=90?'var(--red-l)':pct>=75?'var(--amber-l)':'var(--green-l)';
   const isMe = sid === currentSiteId;
   // Group stops by shipment/load
+  const TARGET_PALLETS = 40;
   let shipments;
   try { shipments = groupByShipment(e); } catch(ge) {
     console.error('groupByShipment error:', ge);
