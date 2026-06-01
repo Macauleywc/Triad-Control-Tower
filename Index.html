@@ -3814,20 +3814,30 @@ function renderSiteCards() {
         </div>
         <div class="site-routes">
           <div class="routes-header"><span>Route</span><span>Stops</span><span>Pallets</span><span>Avg fill</span><span>Est. cost</span></div>
-          ${(e.routes||[]).map(r => {
-            const rAvg = Number(r.pallets||0);
-            const rFill = Math.round(rAvg/TARGET_PALLETS*100);
-            const rCol = rAvg>=TARGET_PALLETS?'var(--green)':rAvg>=30?'var(--amber)':'var(--red)';
-            const importedCost = (r.stops_detail||[]).find(s => s.actualCost)?.actualCost;
-            const runCost = importedCost ? { cost: importedCost } : calcRunCost(sid, r.postcodes||r.pc||'');
+          ${groupByShipment(e).map((run, ri) => {
+            // Aggregate across all route objects in this run
+            const allStops = run.shipmentList.reduce((a,s) => a + s.stops.length, 0);
+            const allPallets = run.shipmentList.reduce((a,s) => a + s.stops.reduce((b,st) => b+(st.pallets||0),0), 0);
+            const rFill = Math.round(allPallets/TARGET_PALLETS*100);
+            const rCol = allPallets>=TARGET_PALLETS?'var(--green)':allPallets>=30?'var(--amber)':'var(--red)';
+            // Cost: use actual cost from any stop in this run, or calc from first route's postcodes
+            const allStopDetails = run.shipmentList.flatMap(s => s.stops);
+            const importedCost = allStopDetails.find(s => s.actualCost)?.actualCost;
+            const firstRouteKey = run.runKey;
+            const firstRoute = (e.routes||[]).find(r => {
+              const rs = r.runShips||[r.area];
+              return [...rs].sort().join('|') === firstRouteKey || r.area === firstRouteKey;
+            });
+            const runCost = importedCost ? { cost: importedCost } : calcRunCost(sid, firstRoute?.postcodes||firstRoute?.pc||'');
             const costStr = runCost ? `£${Number(runCost.cost).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}` : '—';
+            const label = run.multiLoad ? `Run ${ri+1} <span style="font-size:10px;color:var(--ink3)">(${run.runShips.length} loads)</span>` : `Run ${ri+1}`;
             return `<div class="route-row">
               <div class="route-area">
                 <div class="route-bar"><div class="route-bar-fill" style="width:${Math.min(rFill,100)}%;background:${meta.color}"></div></div>
-                ${r.runLabel||r.area}
+                ${label}
               </div>
-              <div class="route-val">${r.stops}</div>
-              <div class="route-val">${r.pallets}</div>
+              <div class="route-val">${allStops}</div>
+              <div class="route-val">${allPallets}</div>
               <div class="route-val" style="color:${rCol};font-weight:600">${rFill}%</div>
               <div class="route-val" style="font-size:11px;color:var(--ink3)">${costStr}</div>
             </div>`;
