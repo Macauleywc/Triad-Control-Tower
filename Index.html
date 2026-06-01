@@ -3742,12 +3742,7 @@ function renderSiteCards() {
     const w = sumWeight(e).toFixed(1);
     // Count distinct runs
     // Loads = unique mileage groups (Run 1, Run 2 etc for VPK; one per route for others)
-    const runLabelSet = new Set((e.routes||[]).map(r => {
-      const rl = r.run_label||r.runLabel||'';
-      const m = rl.match(/^Run (\d+)/i);
-      return m ? Number(m[1]) : (r.run_label||r.runLabel||r.area);
-    }));
-    const runs = e.total_loads || runLabelSet.size || (e.routes||[]).length;
+    const runs = e.total_loads || groupByShipment(e).length || (e.routes||[]).length;
     // Est. total cost and cost per pallet
     const totalEstCost = ['desborough','banbury','wellington','selby'].includes(sid)
       ? (e.routes||[]).reduce((acc,r) => {
@@ -4478,10 +4473,8 @@ function renderKPIs() {
   const totPallets  = todayData.reduce((a,e)=>a+sumPallets(e),0);
   const totWeight   = todayData.reduce((a,e)=>a+sumWeight(e),0);
   const totLoads    = todayData.reduce((a,e)=>a+countLoads(e),0);
-  const totRuns     = todayData.reduce((a,e)=>{
-    const runs = new Set((e.routes||[]).map(r=>r.runNum||r.area));
-    return a + runs.size;
-  }, 0);
+  const totRuns     = todayData.reduce((a,e)=>a + groupByShipment(e).length, 0);
+
   const capSites    = todayData.filter(e=>e.capacity);
   const avgUtil     = capSites.length ? Math.round(capSites.reduce((a,e)=>a+sumStops(e)/(e.capacity||80),0)/capSites.length*100) : 0;
   const totalSavings = opps.reduce((a,o)=>a+o.saving,0);
@@ -4530,7 +4523,7 @@ function renderKPIs() {
       <div class="kpi-cell" style="color:var(--ink3)">—</div>
       <div class="kpi-cell"><span class="compliance-status cs-miss">No data</span></div>
     </div>`;
-    const runs   = new Set((e.routes||[]).map(r=>r.runNum||r.area)).size;
+    const runs   = groupByShipment(e).length;
     const loads  = countLoads(e);
     const s      = sumStops(e);
     const p      = sumPallets(e);
@@ -4559,7 +4552,7 @@ function renderKPIs() {
     const meta = SITES_META[sid];
     const e    = todayData.find(d=>d.site===sid);
     const has  = !!e;
-    const runs = e ? new Set((e.routes||[]).map(r=>r.runNum||r.area)).size : 0;
+    const runs = e ? groupByShipment(e).length : 0;
     const loads = e ? countLoads(e) : 0;
     return `<div class="compliance-row">
       <div class="compliance-site">
