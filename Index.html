@@ -1765,7 +1765,7 @@ button, input, select, textarea { font-family: var(--font-body); }
 .msg-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
 .msg-sender{font-size:12px;font-weight:600;color:var(--ink)}
 .msg-time{font-family:var(--font-mono);font-size:10px;color:var(--ink3)}
-.msg-bubble{margin-left:36px;margin-bottom:2px}
+.msg-bubble{margin-left:36px;margin-bottom:2px;width:100%}
 .msg-bubble-inner{display:inline-block;max-width:78%;padding:9px 13px;border-radius:0 12px 12px 12px;background:#fff;border:1px solid var(--rule);font-size:13px;color:var(--ink);line-height:1.5;position:relative;word-break:break-word}
 .msg-bubble-inner.own{background:var(--navy);color:#fff;border-color:var(--navy);border-radius:12px 0 12px 12px}
 .msg-bubble-inner.own .msg-mention{color:var(--cyan);background:rgba(0,194,255,.15)}
@@ -1784,7 +1784,7 @@ button, input, select, textarea { font-family: var(--font-body); }
 .msg-date-divider::before,.msg-date-divider::after{content:'';position:absolute;top:50%;width:calc(50% - 60px);height:1px;background:var(--rule)}
 .msg-date-divider::before{left:0}.msg-date-divider::after{right:0}
 .msg-date-label{font-family:var(--font-mono);font-size:10px;color:var(--ink3);background:var(--cream);padding:2px 10px;border-radius:20px;display:inline-block;position:relative;z-index:1}
-.msg-own-wrap{display:flex;flex-direction:column;align-items:flex-end}
+.msg-own-wrap{display:flex;flex-direction:column;align-items:flex-end;width:100%}.msg-own-wrap .msg-bubble{margin-left:0;display:flex;justify-content:flex-end}
 .msg-own-wrap .msg-bubble-inner{border-radius:12px 0 12px 12px}
 .msg-system{text-align:center;font-size:11px;color:var(--ink3);font-family:var(--font-mono);padding:4px 0;margin:4px 0}
 textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
