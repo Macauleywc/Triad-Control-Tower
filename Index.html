@@ -5274,45 +5274,31 @@ function loadsDrillDown(sid) {
       <div class="loads-drilldown-stat"><div class="loads-drilldown-stat-val">${sumPallets(e)}</div><div class="loads-drilldown-stat-lbl">Total Pallets</div></div>
       <div class="loads-drilldown-stat"><div class="loads-drilldown-stat-val">${cap}</div><div class="loads-drilldown-stat-lbl">Vehicle Capacity</div></div>
     </div>
-    <div class="routes-header" style="grid-template-columns:1fr auto auto auto auto auto;padding:8px 20px">
-      <span>Route</span><span>Check-in</span><span style="text-align:right">Est. Cost</span><span style="text-align:right">Stops</span><span style="text-align:right">Pallets</span><span style="text-align:right">Avg Fill</span>
-    </div>
     ${shipments.map((run, idx) => {
       const runPallets = run.shipmentList.reduce((a,sh)=>a+sh.stops.reduce((b,s)=>b+(s.pallets||0),0),0);
       const runStops   = run.shipmentList.reduce((a,sh)=>a+sh.stops.length,0);
       const runFill    = Math.round(runPallets/TARGET_PALLETS*100);
       const fillCol    = runFill>=100?'var(--green)':runFill>=75?'var(--amber)':'var(--red)';
-      const allStopDetails = run.shipmentList.flatMap(sh=>sh.stops);
-      const importedCost   = allStopDetails.find(s=>s.actualCost)?.actualCost;
-      const firstRoute     = (e.routes||[]).find(r=>{
-        const rs=r.runShips||[r.area]; return [...rs].sort().join('|')===run.runKey||r.area===run.runKey;
-      });
-      const runCostObj = importedCost?{cost:importedCost}:calcRunCost(sid,firstRoute?.postcodes||firstRoute?.pc||'');
-      const costStr = runCostObj?`£${Number(runCostObj.cost).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}`:'—';
-      const reqId = `req_${sid}_run_${run.runNum}`;
+      const allStops   = run.shipmentList.flatMap(sh=>sh.stops);
+      const reqId      = 'req_'+sid+'_run_'+idx;
       const alreadyReq = requestedRoutes.has(reqId);
-      const reqBtn = !isMe ? `<button id="${reqId}" class="req-btn${alreadyReq?' requested':''}"
-        data-tip="${alreadyReq?'Request sent':'Request to take this run'}"
-        onclick="${alreadyReq?'':` requestToTake(${JSON.stringify({sid,area:run.runLabel,stops:runStops,pallets:runPallets,weight:0,pcs:'',siteName:meta.name,reqId}).replace(/"/g,'&quot;')})`}">
-        ${alreadyReq?'✓ Requested':'+ Request'}
-      </button>` : '';
-      const runLabel = `Run ${idx+1}${run.multiLoad?` <span style="font-size:10px;font-family:var(--font-mono);color:var(--ink3);font-weight:400">(${run.runShips.length} loads)</span>`:''}`;
+      const mlLabel    = run.multiLoad ? ' ('+run.runShips.length+' loads)' : '';
+      const reqBtn     = !isMe ? '<button class="req-btn'+(alreadyReq?' requested':'')+'" onclick="void(0)">'+( alreadyReq?'✓':'+ Request')+'</button>' : '';
       return `<div class="loads-shipment${idx===0?' open':''}" id="ship_${sid}_${idx}">
-        <div class="loads-shipment-header" onclick="toggleShipment('ship_${sid}_${idx}')"
-          style="display:grid;grid-template-columns:1fr auto auto auto auto auto;align-items:center;gap:12px;padding:12px 20px;cursor:pointer;transition:background .15s"
-          onmouseover="this.style.background='var(--cream)'" onmouseout="this.style.background=''">
-          <div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <div class="route-bar" style="width:60px;margin:0"><div class="route-bar-fill" style="width:${Math.min(runFill,100)}%;background:${meta.color}"></div></div>
-              <span style="font-weight:600;color:var(--ink);font-size:13px">${runLabel}</span>
-            </div>
-            <div style="font-size:11px;color:var(--ink3);margin-top:3px;font-family:var(--font-mono)">Check-in: ${run.checkIn||'—'} · First del: ${allStopDetails[0]?.delivTime||'—'}</div>
+        <div class="loads-shipment-header" onclick="toggleShipment('ship_${sid}_${idx}')">
+          <span class="loads-shipment-num">Run ${idx+1}${mlLabel}</span>
+          ${run.multiLoad ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(232,81,10,.12);color:var(--orange);font-family:var(--font-mono)">${run.runShips.length} LOADS</span>` : ''}
+          <div class="loads-shipment-info">
+            <div class="loads-shipment-title">${runStops} stop${runStops!==1?'s':''} · ${runPallets} pallets</div>
+            <div class="loads-shipment-meta">Check-in: ${run.checkIn||'—'} &nbsp;·&nbsp; First delivery: ${allStops[0]?.delivTime||'—'}</div>
           </div>
-          <div style="font-size:11px;color:var(--ink3);font-family:var(--font-mono);text-align:right">${costStr}</div>
-          <div style="font-family:var(--font-mono);font-size:13px;font-weight:600;text-align:right">${runStops}</div>
-          <div style="font-family:var(--font-mono);font-size:13px;font-weight:600;text-align:right">${runPallets}</div>
-          <div style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:${fillCol};text-align:right">${runFill}%</div>
-          <span style="color:var(--ink3);font-size:16px;text-align:right">›</span>
+          <div class="loads-shipment-kpis">
+            <div class="loads-shipment-kpi"><div class="loads-shipment-kpi-val">${runStops}</div><div class="loads-shipment-kpi-lbl">Stops</div></div>
+            <div class="loads-shipment-kpi"><div class="loads-shipment-kpi-val">${runPallets}</div><div class="loads-shipment-kpi-lbl">Pallets</div></div>
+            <div class="loads-shipment-kpi"><div class="loads-shipment-kpi-val" style="color:${fillCol}">${runFill}%</div><div class="loads-shipment-kpi-lbl">Fill</div></div>
+          </div>
+          ${reqBtn}
+          <span class="loads-shipment-chevron">›</span>
         </div>
         <div class="loads-shipment-body">
           <table class="loads-stop-table">
