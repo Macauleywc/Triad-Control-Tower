@@ -2193,6 +2193,27 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
   white-space: nowrap;
 }
 .date-nav-today:hover { background: var(--navy); color: #fff; }
+.date-picker-popup {
+  position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+  background: #fff; border: 1px solid var(--rule); border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.12); padding: 14px; z-index: 9999;
+  min-width: 260px; display: none; font-family: var(--font-body);
+}
+.date-picker-popup.open { display: block; }
+.dp-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.dp-month-label { font-weight: 700; font-size: 14px; color: var(--ink); }
+.dp-nav { background: none; border: 1px solid var(--rule); border-radius: 6px; width: 26px; height: 26px; cursor: pointer; font-size: 14px; color: var(--ink2); display: flex; align-items: center; justify-content: center; }
+.dp-nav:hover { background: var(--cream2); }
+.dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.dp-day-header { text-align: center; font-family: var(--font-mono); font-size: 9px; font-weight: 700; color: var(--ink3); text-transform: uppercase; padding: 3px 0; }
+.dp-day { text-align: center; padding: 5px 2px; border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--ink); transition: all .1s; }
+.dp-day:hover { background: var(--cream2); }
+.dp-day.today { font-weight: 700; color: var(--navy); }
+.dp-day.selected { background: var(--navy); color: #fff; font-weight: 700; }
+.dp-day.other-month { color: var(--ink3); }
+.dp-day.empty { cursor: default; }
+.date-nav-label { cursor: pointer; user-select: none; }
+.date-nav-label:hover { background: var(--cream2); border-radius: 6px; }
 /* ══════════════════════════════════════════
    ALL LOADS — REBUILT
 ══════════════════════════════════════════ */
@@ -2398,7 +2419,17 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
         <div class="page-title" id="page-title">Overview</div>
         <div class="date-nav" id="date-nav">
           <button class="date-nav-btn" id="date-prev" onclick="navDate(-1)" data-tip="Previous day">&#8249;</button>
-          <div class="date-nav-label" id="page-date"></div>
+          <div style="position:relative">
+            <div class="date-nav-label" id="page-date" onclick="toggleDatePicker()" data-tip="Click to pick date"></div>
+            <div class="date-picker-popup" id="date-picker-popup">
+              <div class="dp-header">
+                <button class="dp-nav" onclick="dpNavMonth(-1)">&#8249;</button>
+                <span class="dp-month-label" id="dp-month-label"></span>
+                <button class="dp-nav" onclick="dpNavMonth(1)">&#8250;</button>
+              </div>
+              <div class="dp-grid" id="dp-grid"></div>
+            </div>
+          </div>
           <button class="date-nav-btn" id="date-next" onclick="navDate(1)" data-tip="Next day">&#8250;</button>
           <span class="date-nav-today" id="date-today-btn" onclick="navToToday()" style="display:none">Today</span>
         </div>
@@ -3226,6 +3257,61 @@ function updateDateNav() {
   const todayBtn = document.getElementById('date-today-btn');
   if (todayBtn) todayBtn.style.display = isToday() ? 'none' : 'inline';
 }
+/* ── Date picker ── */
+let _dpYear = null, _dpMonth = null;
+function toggleDatePicker() {
+  const popup = document.getElementById('date-picker-popup');
+  if (!popup) return;
+  const isOpen = popup.classList.contains('open');
+  if (isOpen) { popup.classList.remove('open'); return; }
+  // Initialise to current viewDate
+  const parts = (viewDate||todayStr()).split('-').map(Number);
+  _dpYear = parts[0]; _dpMonth = parts[1]-1;
+  renderDatePicker();
+  popup.classList.add('open');
+}
+function dpNavMonth(delta) {
+  _dpMonth += delta;
+  if (_dpMonth > 11) { _dpMonth = 0; _dpYear++; }
+  if (_dpMonth < 0)  { _dpMonth = 11; _dpYear--; }
+  renderDatePicker();
+}
+function renderDatePicker() {
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const lbl = document.getElementById('dp-month-label');
+  const grid = document.getElementById('dp-grid');
+  if (!lbl || !grid) return;
+  lbl.textContent = months[_dpMonth] + ' ' + _dpYear;
+  const today = todayStr();
+  const selParts = (viewDate||today).split('-').map(Number);
+  const firstDay = new Date(_dpYear, _dpMonth, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(_dpYear, _dpMonth+1, 0).getDate();
+  const startOffset = (firstDay + 6) % 7; // Monday start
+  let html = ['Mo','Tu','We','Th','Fr','Sa','Su'].map(d=>`<div class="dp-day-header">${d}</div>`).join('');
+  for (let i=0; i<startOffset; i++) html += `<div class="dp-day empty"></div>`;
+  for (let d=1; d<=daysInMonth; d++) {
+    const dateStr = _dpYear+'-'+String(_dpMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const isToday = dateStr === today;
+    const isSel   = dateStr === viewDate;
+    const cls = ['dp-day', isToday?'today':'', isSel?'selected':''].filter(Boolean).join(' ');
+    html += `<div class="${cls}" onclick="dpSelectDate('${dateStr}')">${d}</div>`;
+  }
+  grid.innerHTML = html;
+}
+function dpSelectDate(dateStr) {
+  document.getElementById('date-picker-popup')?.classList.remove('open');
+  viewDate = dateStr;
+  updateDateNav();
+  loadDateData();
+}
+// Close picker on outside click
+document.addEventListener('click', e => {
+  const popup = document.getElementById('date-picker-popup');
+  const label = document.getElementById('page-date');
+  if (popup && !popup.contains(e.target) && e.target !== label) {
+    popup.classList.remove('open');
+  }
+}, true);
 function navDate(delta) {
   // Guard: if viewDate is invalid, reset to today
   if (!viewDate || !/^\d{4}-\d{2}-\d{2}$/.test(viewDate)) viewDate = todayStr();
