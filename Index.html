@@ -5264,11 +5264,22 @@ function groupByShipment(e) {
   const runOrder = [];
   (e.routes||[]).forEach(route => {
     const area = route.area||'';
-    const runNum = route.runNum || 0;
-    const runKey = 'run_' + runNum;
     const multiLoad = route.multiLoad || false;
     const runLabel = route.runLabel || area;
     const runShips = route.runShips || [area];
+    // Use same key logic as getRunGroups: VPK uses sorted shipment numbers (unique),
+    // Banbury/Wellington use route letter base. This avoids runNum collisions in
+    // two-section VPK files where evening loads restart numbering from 1.
+    const firstShip = String((runShips||[])[0]||'');
+    const isVpk = /^\d{8,}$/.test(firstShip);
+    let runKey;
+    if (isVpk) {
+      runKey = [...runShips].sort().join('|');
+    } else {
+      const m = String(runLabel||area).match(/^[A-Za-z]+[- ]([A-Za-z]+)/i);
+      runKey = m ? m[1].toUpperCase() : (runLabel||area||'run');
+    }
+    const runNum = route.runNum || 0;
     if (!runMap[runKey]) {
       runMap[runKey] = {
         runKey, runNum, runLabel, multiLoad, runShips,
