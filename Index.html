@@ -5257,7 +5257,13 @@ function loadsDrillDown(sid) {
   const pillBg  = pct>=90?'var(--red-l)':pct>=75?'var(--amber-l)':'var(--green-l)';
   const isMe = sid === currentSiteId;
   // Group stops by shipment/load
-  const shipments = groupByShipment(e);
+  let shipments;
+  try { shipments = groupByShipment(e); } catch(ge) {
+    console.error('groupByShipment error:', ge);
+    document.getElementById('loads-drilldown-content').innerHTML = '<div style="padding:40px;color:red">Group error: '+ge.message+'</div>';
+    return;
+  }
+  try {
   document.getElementById('loads-drilldown-content').innerHTML = `
     <div class="loads-drilldown-header">
       <div style="width:10px;height:10px;border-radius:50%;background:${meta.color};flex-shrink:0"></div>
@@ -5328,6 +5334,7 @@ function loadsDrillDown(sid) {
         </div>
       </div>`;
     }).join('')}`;
+  } catch(re) { console.error('drilldown render error:', re); document.getElementById('loads-drilldown-content').innerHTML = '<div style="padding:32px;color:red;font-size:13px"><b>Error rendering drilldown:</b><br>' + re.message + '</div>'; }
 }
 function toggleShipment(id) {
   document.getElementById(id)?.classList.toggle('open');
