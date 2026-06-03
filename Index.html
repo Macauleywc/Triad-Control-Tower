@@ -1628,7 +1628,7 @@ button, input, select, textarea { font-family: var(--font-body); }
 .kpi-bar{flex:1;border-radius:3px 3px 0 0;min-height:4px;transition:height .4s ease}
 .kpi-trend-row{display:flex;align-items:center;gap:6px;padding-left:12px;margin-top:8px}
 .kpi-trend{font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px}
-.kpi-section-title{font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--ink);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.kpi-section-title{font-family:inherit;font-size:16px;font-weight:700;color:#1a1a2e;margin-bottom:14px;display:flex;align-items:center;gap:10px}
 .kpi-site-breakdown{background:#fff;border:1px solid var(--rule);border-radius:var(--r-lg);overflow:hidden;margin-bottom:20px}
 .kpi-breakdown-head{display:grid;grid-template-columns:140px 1fr 1fr 1fr 1fr 100px;padding:10px 20px;background:var(--cream);border-bottom:1px solid var(--rule);gap:12px}
 .kpi-breakdown-head span{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);text-align:right}
@@ -2747,8 +2747,8 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
         </button>
 
 <!-- Export config modal -->
-<div id="kpi-export-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
-  <div style="background:var(--bg);border-radius:16px;width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);border:1px solid var(--rule)">
+<div id="kpi-export-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#ffffff;border-radius:16px;width:520px;max-height:88vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.3);border:none;position:relative">
 
     <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--rule)">
       <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--ink)">Export PDF report</div>
@@ -2826,15 +2826,15 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
         <button class="lb-toggle-btn" id="exp-p-custom" onclick="setExportPeriod('custom')">Custom</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <input type="date" id="export-from" style="font-size:12px;padding:7px 10px;border:1px solid var(--rule);border-radius:8px;font-family:var(--font-mono);color:var(--ink);background:var(--bg)">
+        <input type="date" id="export-from" style="font-size:12px;padding:7px 10px;border:1px solid #dde0e8;border-radius:8px;font-family:var(--font-mono);color:#1a1a2e;background:#ffffff">
         <span style="color:var(--ink3)">&#8594;</span>
-        <input type="date" id="export-to" style="font-size:12px;padding:7px 10px;border:1px solid var(--rule);border-radius:8px;font-family:var(--font-mono);color:var(--ink);background:var(--bg)">
+        <input type="date" id="export-to" style="font-size:12px;padding:7px 10px;border:1px solid #dde0e8;border-radius:8px;font-family:var(--font-mono);color:#1a1a2e;background:#ffffff">
       </div>
     </div>
 
     <div style="padding:18px 22px;border-bottom:1px solid var(--rule)">
       <div style="font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;font-family:var(--font-mono);margin-bottom:8px">Report title <span style="text-transform:none;font-size:10px;font-weight:400;letter-spacing:0">&#8212; optional</span></div>
-      <input type="text" id="export-title" placeholder="e.g. Weekly KPI Summary &#8212; Triad Network, May 2026" style="width:100%;font-size:13px;padding:9px 12px;border:1px solid var(--rule);border-radius:8px;font-family:var(--font-body);box-sizing:border-box;color:var(--ink);background:var(--bg)">
+      <input type="text" id="export-title" placeholder="e.g. Weekly KPI Summary &#8212; Triad Network, May 2026" style="width:100%;font-size:13px;padding:9px 12px;border:1px solid #dde0e8;border-radius:8px;font-family:inherit;box-sizing:border-box;color:#1a1a2e;background:#ffffff">
     </div>
 
     <div style="display:flex;gap:10px;padding:18px 22px">
