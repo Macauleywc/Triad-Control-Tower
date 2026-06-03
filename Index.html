@@ -4710,7 +4710,7 @@ function applyKpiCustomRange() {
 }
 
 function getKpiDateRange(period) {
-  const today = todayStr();
+  const today = viewDate || todayStr();  // use the currently viewed date, not actual today
   const parts = today.split('-').map(Number);
   const d = new Date(parts[0], parts[1]-1, parts[2]);
   if (period === 'today') return { start: today, end: today };
@@ -4739,6 +4739,8 @@ async function loadKpiPeriodData(customFrom, customTo) {
   let start, end;
   if (customFrom && customTo) { start = customFrom; end = customTo; }
   else { const r = getKpiDateRange(kpiPeriod); start = r.start; end = r.end; }
+  // For 'today', just use cached todayData — no Supabase query needed
+  if (kpiPeriod === 'today' && !customFrom) { kpiPeriodData = [...todayData]; if (loading) loading.style.display = 'none'; renderKPIs(); return; }
   // Update label
   const lbl = document.getElementById('kpi-period-label');
   if (lbl) lbl.textContent = start === end ? fmtShortDate(start) : fmtShortDate(start)+' → '+fmtShortDate(end);
@@ -4874,9 +4876,12 @@ async function runKpiExport() {
   else { const r = getKpiDateRange(kpiPeriod); start = r.start; end = r.end; }
   const loading = document.getElementById('kpi-loading');
   if (loading) loading.style.display = 'inline';
-  let exportData = kpiPeriod === 'today' ? todayData : kpiPeriodData;
-  // If custom dates or data not yet loaded, fetch from Supabase
-  if (fromVal && toVal && sb && isConfigured) {
+  // For 'today' with no custom override, use todayData directly (already loaded for viewDate)
+  const isViewingToday = (!fromVal && !toVal && kpiPeriod === 'today') ||
+    (fromVal === (viewDate||todayStr()) && toVal === (viewDate||todayStr()));
+  let exportData = isViewingToday ? [...todayData] : [...kpiPeriodData];
+  // Fetch from Supabase only if dates differ from what's already loaded
+  if (!isViewingToday && fromVal && toVal && sb && isConfigured) {
     const { data: plans, error } = await sb.from('daily_plans')
       .select('*, routes(*)').gte('plan_date', start).lte('plan_date', end).order('plan_date',{ascending:true});
     if (!error && plans) {
