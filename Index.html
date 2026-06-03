@@ -2750,71 +2750,93 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
 <div id="kpi-export-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
   <div style="background:var(--bg);border-radius:16px;width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);border:1px solid var(--rule)">
 
-    <!-- Header -->
     <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--rule)">
       <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--ink)">Export PDF report</div>
       <button onclick="closeKpiExport()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--ink3);line-height:1;padding:0">&times;</button>
     </div>
 
-    <!-- Depots -->
     <div style="padding:18px 22px;border-bottom:1px solid var(--rule)">
       <div style="font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;font-family:var(--font-mono);margin-bottom:10px">Depots</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="export-sites">
-        ${[['desborough','#E8520A','Desborough','Premier Logistics'],['selby','#1e3a6e','Selby','Campeys'],['banbury','#c0392b','Banbury','Wrings Transport'],['wellington','#1a7a4a','Wellington','Wrings Transport']].map(([v,c,n,s])=>`
-        <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid ${c};border-radius:10px;cursor:pointer;background:${c}08">
-          <div style="width:3px;height:32px;border-radius:2px;background:${c};flex-shrink:0"></div>
-          <div style="flex:1">
-            <div style="font-size:13px;font-weight:600;color:var(--ink)">${n}</div>
-            <div style="font-size:11px;color:var(--ink3);margin-top:1px">${s}</div>
-          </div>
-          <input type="checkbox" value="${v}" checked style="width:15px;height:15px;accent-color:var(--navy);cursor:pointer">
-        </label>`).join('')}
+      <div id="export-sites" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid #E8520A;border-radius:10px;cursor:pointer;background:#E8520A08">
+          <div style="width:3px;height:32px;border-radius:2px;background:#E8520A;flex-shrink:0"></div>
+          <div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--ink)">Desborough</div><div style="font-size:11px;color:var(--ink3);margin-top:1px">Premier Logistics</div></div>
+          <input type="checkbox" value="desborough" checked style="width:15px;height:15px;accent-color:var(--navy);cursor:pointer">
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid #1e3a6e;border-radius:10px;cursor:pointer;background:#1e3a6e08">
+          <div style="width:3px;height:32px;border-radius:2px;background:#1e3a6e;flex-shrink:0"></div>
+          <div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--ink)">Selby</div><div style="font-size:11px;color:var(--ink3);margin-top:1px">Campeys</div></div>
+          <input type="checkbox" value="selby" checked style="width:15px;height:15px;accent-color:var(--navy);cursor:pointer">
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid #c0392b;border-radius:10px;cursor:pointer;background:#c0392b08">
+          <div style="width:3px;height:32px;border-radius:2px;background:#c0392b;flex-shrink:0"></div>
+          <div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--ink)">Banbury</div><div style="font-size:11px;color:var(--ink3);margin-top:1px">Wrings Transport</div></div>
+          <input type="checkbox" value="banbury" checked style="width:15px;height:15px;accent-color:var(--navy);cursor:pointer">
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid #1a7a4a;border-radius:10px;cursor:pointer;background:#1a7a4a08">
+          <div style="width:3px;height:32px;border-radius:2px;background:#1a7a4a;flex-shrink:0"></div>
+          <div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--ink)">Wellington</div><div style="font-size:11px;color:var(--ink3);margin-top:1px">Wrings Transport</div></div>
+          <input type="checkbox" value="wellington" checked style="width:15px;height:15px;accent-color:var(--navy);cursor:pointer">
+        </label>
       </div>
     </div>
 
-    <!-- Sections -->
     <div style="padding:18px 22px;border-bottom:1px solid var(--rule)">
       <div style="font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;font-family:var(--font-mono);margin-bottom:10px">Report sections</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px" id="export-sections">
-        ${[
-          ['headline','📊','Headline metrics','Total runs, stops & pallets'],
-          ['site-breakdown','📋','Site breakdown','Per-depot summary table'],
-          ['daily-breakdown','📅','Daily breakdown','Day-by-day network totals'],
-          ['cost','💷','Estimated costs','Per-route cost summary'],
-          ['utilisation','⚡','Utilisation','Fill % per site'],
-          ['load-sharing','🔄','Load sharing','Transfer opportunities'],
-        ].map(([v,ic,n,d])=>`
-        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;cursor:pointer;transition:border-color .12s" onmouseover="this.style.borderColor='var(--navy)'" onmouseout="this.style.borderColor='var(--rule)'">
-          <span style="font-size:18px;line-height:1.4">${ic}</span>
-          <div style="flex:1">
-            <div style="font-size:12px;font-weight:600;color:var(--ink)">${n}</div>
-            <div style="font-size:11px;color:var(--ink3);margin-top:2px">${d}</div>
-          </div>
-          <input type="checkbox" value="${v}" checked style="width:14px;height:14px;accent-color:var(--navy);cursor:pointer;margin-top:2px">
-        </label>`).join('')}
+      <div id="export-sections" style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;cursor:pointer">
+          <span style="font-size:16px;line-height:1.5">&#128202;</span>
+          <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--ink)">Headline metrics</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">Total runs, stops &amp; pallets</div></div>
+          <input type="checkbox" value="headline" checked style="width:14px;height:14px;accent-color:var(--navy);cursor:pointer;margin-top:2px">
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;cursor:pointer">
+          <span style="font-size:16px;line-height:1.5">&#128203;</span>
+          <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--ink)">Site breakdown</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">Per-depot summary table</div></div>
+          <input type="checkbox" value="site-breakdown" checked style="width:14px;height:14px;accent-color:var(--navy);cursor:pointer;margin-top:2px">
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;cursor:pointer">
+          <span style="font-size:16px;line-height:1.5">&#128197;</span>
+          <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--ink)">Daily breakdown</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">Day-by-day network totals</div></div>
+          <input type="checkbox" value="daily-breakdown" checked style="width:14px;height:14px;accent-color:var(--navy);cursor:pointer;margin-top:2px">
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;cursor:pointer">
+          <span style="font-size:16px;line-height:1.5">&#128183;</span>
+          <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--ink)">Estimated costs</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">Per-route cost summary</div></div>
+          <input type="checkbox" value="cost" checked style="width:14px;height:14px;accent-color:var(--navy);cursor:pointer;margin-top:2px">
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;cursor:pointer">
+          <span style="font-size:16px;line-height:1.5">&#9889;</span>
+          <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--ink)">Utilisation</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">Fill % per site</div></div>
+          <input type="checkbox" value="utilisation" checked style="width:14px;height:14px;accent-color:var(--navy);cursor:pointer;margin-top:2px">
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;cursor:pointer">
+          <span style="font-size:16px;line-height:1.5">&#128260;</span>
+          <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--ink)">Load sharing</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">Transfer opportunities</div></div>
+          <input type="checkbox" value="load-sharing" style="width:14px;height:14px;accent-color:var(--navy);cursor:pointer;margin-top:2px">
+        </label>
       </div>
     </div>
 
-    <!-- Date range -->
     <div style="padding:18px 22px;border-bottom:1px solid var(--rule)">
       <div style="font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;font-family:var(--font-mono);margin-bottom:10px">Date range</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-        ${['today','week','month','custom'].map(p=>`<button class="lb-toggle-btn" id="exp-p-${p}" onclick="setExportPeriod('${p}')">${p==='today'?'Today':p==='week'?'This week':p==='month'?'This month':'Custom'}</button>`).join('')}
+        <button class="lb-toggle-btn" id="exp-p-today" onclick="setExportPeriod('today')">Today</button>
+        <button class="lb-toggle-btn" id="exp-p-week" onclick="setExportPeriod('week')">This week</button>
+        <button class="lb-toggle-btn" id="exp-p-month" onclick="setExportPeriod('month')">This month</button>
+        <button class="lb-toggle-btn" id="exp-p-custom" onclick="setExportPeriod('custom')">Custom</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <input type="date" id="export-from" style="font-size:12px;padding:7px 10px;border:1px solid var(--rule);border-radius:8px;font-family:var(--font-mono);color:var(--ink);background:var(--bg)">
-        <span style="color:var(--ink3)">→</span>
+        <span style="color:var(--ink3)">&#8594;</span>
         <input type="date" id="export-to" style="font-size:12px;padding:7px 10px;border:1px solid var(--rule);border-radius:8px;font-family:var(--font-mono);color:var(--ink);background:var(--bg)">
       </div>
     </div>
 
-    <!-- Title -->
     <div style="padding:18px 22px;border-bottom:1px solid var(--rule)">
-      <div style="font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;font-family:var(--font-mono);margin-bottom:8px">Report title <span style="text-transform:none;font-size:10px;font-weight:400;letter-spacing:0;color:var(--ink3)">— optional</span></div>
-      <input type="text" id="export-title" placeholder="e.g. Weekly KPI Summary — Triad Network, May 2026" style="width:100%;font-size:13px;padding:9px 12px;border:1px solid var(--rule);border-radius:8px;font-family:var(--font-body);box-sizing:border-box;color:var(--ink);background:var(--bg)">
+      <div style="font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;font-family:var(--font-mono);margin-bottom:8px">Report title <span style="text-transform:none;font-size:10px;font-weight:400;letter-spacing:0">&#8212; optional</span></div>
+      <input type="text" id="export-title" placeholder="e.g. Weekly KPI Summary &#8212; Triad Network, May 2026" style="width:100%;font-size:13px;padding:9px 12px;border:1px solid var(--rule);border-radius:8px;font-family:var(--font-body);box-sizing:border-box;color:var(--ink);background:var(--bg)">
     </div>
 
-    <!-- Footer -->
     <div style="display:flex;gap:10px;padding:18px 22px">
       <button onclick="closeKpiExport()" style="flex:1;padding:11px;border:1px solid var(--rule);border-radius:10px;background:none;cursor:pointer;font-size:13px;font-family:var(--font-body);color:var(--ink2)">Cancel</button>
       <button onclick="runKpiExport()" style="flex:2;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;font-family:var(--font-body);display:flex;align-items:center;justify-content:center;gap:8px">
