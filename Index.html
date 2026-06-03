@@ -12,6 +12,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3/dist/msal-browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
 /* ══════════════════════════════════════════
    TOKENS
@@ -1327,6 +1329,15 @@ button, input, select, textarea { font-family: var(--font-body); }
    DELIVERY POINT LEADERBOARD
 ══════════════════════════════════════════ */
 .lb-toggle-row { display:flex; gap:8px; margin-bottom:16px; }
+.export-check-row {
+  display:flex; align-items:center; gap:8px;
+  padding:9px 12px; border:1px solid var(--rule); border-radius:8px;
+  cursor:pointer; font-size:13px; color:var(--ink); transition:background .12s;
+  user-select:none;
+}
+.export-check-row:hover { background:var(--cream); }
+.export-check-row input[type=checkbox] { width:15px; height:15px; accent-color:var(--navy); cursor:pointer; }
+.export-site-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
 .lb-toggle-btn {
   padding:7px 18px; border:1px solid var(--rule); border-radius:20px;
   font-size:12px; font-weight:600; font-family:var(--font-mono);
@@ -2725,14 +2736,118 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
     </div>
     <!-- ─── KPI TAB (admin only) ─── -->
     <div id="tab-kpi" class="content" style="display:none">
-      <div style="margin-bottom:24px">
-        <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:var(--ink);margin-bottom:4px">KPIs &amp; Performance</div>
-        <div style="font-size:13px;color:var(--ink3)">Network performance across all four sites. Visible to Desborough only.</div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:var(--ink);margin-bottom:4px">KPIs &amp; Performance</div>
+          <div style="font-size:13px;color:var(--ink3)">Network performance across all four sites.</div>
+        </div>
+        <button onclick="openKpiExport()" style="display:flex;align-items:center;gap:7px;padding:9px 18px;background:var(--navy);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-body)">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v8M4 6l3 3 3-3M2 11h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Export PDF
+        </button>
+
+<!-- Export config modal -->
+<div id="kpi-export-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--bg);border-radius:16px;width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);border:1px solid var(--rule)">
+
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--rule)">
+      <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--ink)">Export PDF report</div>
+      <button onclick="closeKpiExport()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--ink3);line-height:1;padding:0">&times;</button>
+    </div>
+
+    <!-- Depots -->
+    <div style="padding:18px 22px;border-bottom:1px solid var(--rule)">
+      <div style="font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;font-family:var(--font-mono);margin-bottom:10px">Depots</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="export-sites">
+        ${[['desborough','#E8520A','Desborough','Premier Logistics'],['selby','#1e3a6e','Selby','Campeys'],['banbury','#c0392b','Banbury','Wrings Transport'],['wellington','#1a7a4a','Wellington','Wrings Transport']].map(([v,c,n,s])=>`
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid ${c};border-radius:10px;cursor:pointer;background:${c}08">
+          <div style="width:3px;height:32px;border-radius:2px;background:${c};flex-shrink:0"></div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:var(--ink)">${n}</div>
+            <div style="font-size:11px;color:var(--ink3);margin-top:1px">${s}</div>
+          </div>
+          <input type="checkbox" value="${v}" checked style="width:15px;height:15px;accent-color:var(--navy);cursor:pointer">
+        </label>`).join('')}
+      </div>
+    </div>
+
+    <!-- Sections -->
+    <div style="padding:18px 22px;border-bottom:1px solid var(--rule)">
+      <div style="font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;font-family:var(--font-mono);margin-bottom:10px">Report sections</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px" id="export-sections">
+        ${[
+          ['headline','📊','Headline metrics','Total runs, stops & pallets'],
+          ['site-breakdown','📋','Site breakdown','Per-depot summary table'],
+          ['daily-breakdown','📅','Daily breakdown','Day-by-day network totals'],
+          ['cost','💷','Estimated costs','Per-route cost summary'],
+          ['utilisation','⚡','Utilisation','Fill % per site'],
+          ['load-sharing','🔄','Load sharing','Transfer opportunities'],
+        ].map(([v,ic,n,d])=>`
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;cursor:pointer;transition:border-color .12s" onmouseover="this.style.borderColor='var(--navy)'" onmouseout="this.style.borderColor='var(--rule)'">
+          <span style="font-size:18px;line-height:1.4">${ic}</span>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:600;color:var(--ink)">${n}</div>
+            <div style="font-size:11px;color:var(--ink3);margin-top:2px">${d}</div>
+          </div>
+          <input type="checkbox" value="${v}" checked style="width:14px;height:14px;accent-color:var(--navy);cursor:pointer;margin-top:2px">
+        </label>`).join('')}
+      </div>
+    </div>
+
+    <!-- Date range -->
+    <div style="padding:18px 22px;border-bottom:1px solid var(--rule)">
+      <div style="font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;font-family:var(--font-mono);margin-bottom:10px">Date range</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+        ${['today','week','month','custom'].map(p=>`<button class="lb-toggle-btn" id="exp-p-${p}" onclick="setExportPeriod('${p}')">${p==='today'?'Today':p==='week'?'This week':p==='month'?'This month':'Custom'}</button>`).join('')}
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="date" id="export-from" style="font-size:12px;padding:7px 10px;border:1px solid var(--rule);border-radius:8px;font-family:var(--font-mono);color:var(--ink);background:var(--bg)">
+        <span style="color:var(--ink3)">→</span>
+        <input type="date" id="export-to" style="font-size:12px;padding:7px 10px;border:1px solid var(--rule);border-radius:8px;font-family:var(--font-mono);color:var(--ink);background:var(--bg)">
+      </div>
+    </div>
+
+    <!-- Title -->
+    <div style="padding:18px 22px;border-bottom:1px solid var(--rule)">
+      <div style="font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;font-family:var(--font-mono);margin-bottom:8px">Report title <span style="text-transform:none;font-size:10px;font-weight:400;letter-spacing:0;color:var(--ink3)">— optional</span></div>
+      <input type="text" id="export-title" placeholder="e.g. Weekly KPI Summary — Triad Network, May 2026" style="width:100%;font-size:13px;padding:9px 12px;border:1px solid var(--rule);border-radius:8px;font-family:var(--font-body);box-sizing:border-box;color:var(--ink);background:var(--bg)">
+    </div>
+
+    <!-- Footer -->
+    <div style="display:flex;gap:10px;padding:18px 22px">
+      <button onclick="closeKpiExport()" style="flex:1;padding:11px;border:1px solid var(--rule);border-radius:10px;background:none;cursor:pointer;font-size:13px;font-family:var(--font-body);color:var(--ink2)">Cancel</button>
+      <button onclick="runKpiExport()" style="flex:2;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;font-family:var(--font-body);display:flex;align-items:center;justify-content:center;gap:8px">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v8M4 6l3 3 3-3M2 11h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Generate &amp; download PDF
+      </button>
+    </div>
+
+  </div>
+</div>
+      </div>
+      <!-- Period selector -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:24px;flex-wrap:wrap">
+        <span style="font-size:12px;font-weight:600;color:var(--ink3);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.05em">Period:</span>
+        <button class="lb-toggle-btn active" id="kpi-p-today" onclick="setKpiPeriod('today')">Today</button>
+        <button class="lb-toggle-btn" id="kpi-p-week" onclick="setKpiPeriod('week')">This week</button>
+        <button class="lb-toggle-btn" id="kpi-p-month" onclick="setKpiPeriod('month')">This month</button>
+        <button class="lb-toggle-btn" id="kpi-p-custom" onclick="setKpiPeriod('custom')">Custom</button>
+        <span id="kpi-custom-range" style="display:none;align-items:center;gap:6px">
+          <input type="date" id="kpi-from" style="font-size:12px;padding:5px 8px;border:1px solid var(--rule);border-radius:8px;font-family:var(--font-mono)">
+          <span style="color:var(--ink3)">→</span>
+          <input type="date" id="kpi-to" style="font-size:12px;padding:5px 8px;border:1px solid var(--rule);border-radius:8px;font-family:var(--font-mono)">
+          <button onclick="applyKpiCustomRange()" style="padding:5px 12px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer">Go</button>
+        </span>
+        <span id="kpi-period-label" style="font-size:11px;color:var(--ink3);font-family:var(--font-mono);margin-left:4px"></span>
+        <span id="kpi-loading" style="display:none;font-size:11px;color:var(--ink3);font-family:var(--font-mono)">Loading…</span>
       </div>
       <!-- 6 headline KPI cards -->
       <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:28px" id="kpi-grid"></div>
+      <!-- Period daily breakdown (hidden for Today) -->
+      <div id="kpi-period-breakdown" style="display:none;margin-bottom:24px"></div>
       <!-- Site breakdown -->
-      <div class="kpi-section-title">Site breakdown — today</div>
+      <div class="kpi-section-title" id="kpi-breakdown-title">Site breakdown — today</div>
       <div class="kpi-site-breakdown">
         <div class="kpi-breakdown-head">
           <span>Site</span><span>Runs</span><span>Loads</span><span>Stops</span><span>Pallets</span><span>Util %</span><span>Status</span>
@@ -4440,7 +4555,7 @@ function showTab(tab) {
   });
   document.querySelectorAll('.sb-link').forEach(b => b.classList.toggle('active', b.dataset.tab===tab));
   document.getElementById('page-title').textContent = PAGE_TITLES[tab]||tab;
-  if (tab==='kpi')     renderKPIs();
+  if (tab==='kpi')     { if(kpiPeriod==='today'&&kpiPeriodData.length===0){kpiPeriodData=[...todayData];} renderKPIs(); }
   if (tab==='admin')   renderAdmin();
   if (tab==='loads')   renderLoads();
   if (tab==='mapview') renderMap();
@@ -4549,7 +4664,331 @@ let demoAudit = [];
 /* ══════════════════════════════════════════
    KPI RENDER
 ══════════════════════════════════════════ */
+/* ══════════════════════════════════════════
+   KPI PERIOD SELECTOR
+══════════════════════════════════════════ */
+let kpiPeriod = 'today';
+let kpiPeriodData = []; // aggregated plan data for the selected period
+
+function setKpiPeriod(p) {
+  kpiPeriod = p;
+  ['today','week','month','custom'].forEach(id => {
+    document.getElementById('kpi-p-'+id)?.classList.toggle('active', id===p);
+  });
+  const customEl = document.getElementById('kpi-custom-range');
+  if (customEl) customEl.style.display = p==='custom' ? 'flex' : 'none';
+  if (p !== 'custom') loadKpiPeriodData();
+}
+
+function applyKpiCustomRange() {
+  const from = document.getElementById('kpi-from')?.value;
+  const to   = document.getElementById('kpi-to')?.value;
+  if (!from || !to) return;
+  loadKpiPeriodData(from, to);
+}
+
+function getKpiDateRange(period) {
+  const today = todayStr();
+  const parts = today.split('-').map(Number);
+  const d = new Date(parts[0], parts[1]-1, parts[2]);
+  if (period === 'today') return { start: today, end: today };
+  if (period === 'week') {
+    const dow = (d.getDay()+6)%7; // Mon=0
+    const mon = new Date(d); mon.setDate(d.getDate()-dow);
+    const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+    return { start: fmtDateStr(mon), end: fmtDateStr(sun) };
+  }
+  if (period === 'month') {
+    const start = `${parts[0]}-${String(parts[1]).padStart(2,'0')}-01`;
+    const lastDay = new Date(parts[0], parts[1], 0).getDate();
+    const end = `${parts[0]}-${String(parts[1]).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+    return { start, end };
+  }
+  return { start: today, end: today };
+}
+
+function fmtDateStr(d) {
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+async function loadKpiPeriodData(customFrom, customTo) {
+  const loading = document.getElementById('kpi-loading');
+  if (loading) loading.style.display = 'inline';
+  let start, end;
+  if (customFrom && customTo) { start = customFrom; end = customTo; }
+  else { const r = getKpiDateRange(kpiPeriod); start = r.start; end = r.end; }
+  // Update label
+  const lbl = document.getElementById('kpi-period-label');
+  if (lbl) lbl.textContent = start === end ? fmtShortDate(start) : fmtShortDate(start)+' → '+fmtShortDate(end);
+  if (kpiPeriod === 'today') {
+    kpiPeriodData = [...todayData];
+    if (loading) loading.style.display = 'none';
+    renderKPIs();
+    return;
+  }
+  if (sb && isConfigured) {
+    const { data: plans, error } = await sb.from('daily_plans')
+      .select('*, routes(*)')
+      .gte('plan_date', start).lte('plan_date', end)
+      .order('plan_date', { ascending: true });
+    if (!error && plans) {
+      kpiPeriodData = plans.map(p => ({
+        site: p.site_id, date: p.plan_date, capacity: p.capacity,
+        notes: p.notes||'', uploaded_by: p.uploaded_by||'',
+        total_loads: p.total_loads||null, total_trailers: p.total_trailers||null,
+        routes: (p.routes||[]).map(r => ({
+          area: r.area, pc: r.postcodes||'',
+          stops: r.stops, pallets: r.pallets, weight: r.weight_t,
+          stops_detail: r.stops_detail||[],
+          runNum: r.run_num||null, runLabel: r.run_label||r.area,
+          multiLoad: r.multi_load||false, runShips: r.run_ships||[]
+        }))
+      }));
+    }
+  } else {
+    // Demo: filter allData for the date range
+    kpiPeriodData = allData.filter(e => e.date >= start && e.date <= end);
+  }
+  if (loading) loading.style.display = 'none';
+  renderKPIs();
+}
+
+function fmtShortDate(d) {
+  if (!d) return '';
+  const parts = d.split('-').map(Number);
+  return new Date(parts[0],parts[1]-1,parts[2]).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'});
+}
+
+function renderKpiPeriodBreakdown(data) {
+  const el = document.getElementById('kpi-period-breakdown');
+  if (!el || kpiPeriod === 'today') { if (el) el.style.display = 'none'; return; }
+  // Group by date
+  const dateMap = {};
+  data.forEach(e => {
+    if (!dateMap[e.date]) dateMap[e.date] = [];
+    dateMap[e.date].push(e);
+  });
+  const dates = Object.keys(dateMap).sort();
+  if (!dates.length) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  const rows = dates.map(date => {
+    const entries = dateMap[date];
+    const totalLoads   = entries.reduce((a,e)=>a+(groupByShipment(e).length),0);
+    const totalStops   = entries.reduce((a,e)=>a+sumStops(e),0);
+    const totalPallets = entries.reduce((a,e)=>a+sumPallets(e),0);
+    const sites = entries.map(e=>SITES_META[e.site]?.name||e.site).join(', ');
+    return `<tr>
+      <td style="font-family:var(--font-mono);font-size:12px;color:var(--ink3)">${fmtShortDate(date)}</td>
+      <td>${sites}</td>
+      <td style="font-family:var(--font-mono);text-align:right">${totalLoads}</td>
+      <td style="font-family:var(--font-mono);text-align:right">${totalStops}</td>
+      <td style="font-family:var(--font-mono);text-align:right;font-weight:600">${totalPallets}</td>
+    </tr>`;
+  }).join('');
+  // Totals row
+  const totLoads   = dates.reduce((a,d)=>a+dateMap[d].reduce((b,e)=>b+groupByShipment(e).length,0),0);
+  const totStops   = dates.reduce((a,d)=>a+dateMap[d].reduce((b,e)=>b+sumStops(e),0),0);
+  const totPallets = dates.reduce((a,d)=>a+dateMap[d].reduce((b,e)=>b+sumPallets(e),0),0);
+  el.innerHTML = `
+    <div class="kpi-section-title">Daily breakdown — ${dates.length} day${dates.length!==1?'s':''}</div>
+    <div class="hist-table-wrap">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="border-bottom:1px solid var(--rule)">
+          <th style="text-align:left;padding:8px 12px;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">Date</th>
+          <th style="text-align:left;padding:8px 12px;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">Sites</th>
+          <th style="text-align:right;padding:8px 12px;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">Runs</th>
+          <th style="text-align:right;padding:8px 12px;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">Stops</th>
+          <th style="text-align:right;padding:8px 12px;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">Pallets</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr style="border-top:2px solid var(--rule);background:var(--cream)">
+          <td colspan="2" style="padding:8px 12px;font-weight:700;font-size:12px">Total</td>
+          <td style="padding:8px 12px;font-family:var(--font-mono);font-weight:700;text-align:right">${totLoads}</td>
+          <td style="padding:8px 12px;font-family:var(--font-mono);font-weight:700;text-align:right">${totStops}</td>
+          <td style="padding:8px 12px;font-family:var(--font-mono);font-weight:700;text-align:right">${totPallets}</td>
+        </tr></tfoot>
+      </table>
+    </div>`;
+}
+
+/* ══════════════════════════════════════════
+   PDF EXPORT
+══════════════════════════════════════════ */
+function setExportPeriod(p) {
+  ['today','week','month','custom'].forEach(id => {
+    document.getElementById('exp-p-'+id)?.classList.toggle('active', id===p);
+  });
+  const r = getKpiDateRange(p);
+  const fromEl = document.getElementById('export-from');
+  const toEl   = document.getElementById('export-to');
+  if (p !== 'custom') {
+    if (fromEl) fromEl.value = r.start;
+    if (toEl)   toEl.value   = r.end;
+  }
+}
+function openKpiExport() {
+  const modal = document.getElementById('kpi-export-modal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  // Sync period buttons with current selection
+  setTimeout(() => setExportPeriod(kpiPeriod), 10);
+}
+function closeKpiExport() {
+  const modal = document.getElementById('kpi-export-modal');
+  if (modal) modal.style.display = 'none';
+}
+async function runKpiExport() {
+  // Gather selections
+  const siteChecks = [...document.querySelectorAll('#export-sites input:checked')].map(i=>i.value);
+  const sections   = new Set([...document.querySelectorAll('#export-sections input:checked')].map(i=>i.value));
+  const fromVal    = document.getElementById('export-from')?.value;
+  const toVal      = document.getElementById('export-to')?.value;
+  const customTitle= document.getElementById('export-title')?.value?.trim();
+  if (!siteChecks.length) { alert('Please select at least one site.'); return; }
+  closeKpiExport();
+  // Load data for the selected period
+  let start, end;
+  if (fromVal && toVal) { start = fromVal; end = toVal; }
+  else { const r = getKpiDateRange(kpiPeriod); start = r.start; end = r.end; }
+  const loading = document.getElementById('kpi-loading');
+  if (loading) loading.style.display = 'inline';
+  let exportData = kpiPeriod === 'today' ? todayData : kpiPeriodData;
+  // If custom dates or data not yet loaded, fetch from Supabase
+  if (fromVal && toVal && sb && isConfigured) {
+    const { data: plans, error } = await sb.from('daily_plans')
+      .select('*, routes(*)').gte('plan_date', start).lte('plan_date', end).order('plan_date',{ascending:true});
+    if (!error && plans) {
+      exportData = plans.map(p => ({
+        site: p.site_id, date: p.plan_date, capacity: p.capacity,
+        total_loads: p.total_loads, total_trailers: p.total_trailers,
+        routes: (p.routes||[]).map(r => ({
+          area:r.area, pc:r.postcodes||'', stops:r.stops, pallets:r.pallets,
+          stops_detail:r.stops_detail||[], runNum:r.run_num, runLabel:r.run_label||r.area,
+          multiLoad:r.multi_load||false, runShips:r.run_ships||[]
+        }))
+      }));
+    }
+  }
+  if (loading) loading.style.display = 'none';
+  // Filter to selected sites
+  exportData = exportData.filter(e => siteChecks.includes(e.site));
+  await exportKpiPdf(exportData, {start, end, siteChecks, sections, customTitle});
+}
+async function exportKpiPdf(data, opts) {
+  const { start, end, siteChecks, sections, customTitle } = opts||{};
+  const { jsPDF } = window.jspdf || {};
+  if (!jsPDF) { alert('PDF library not loaded yet — please wait a moment and try again.'); return; }
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const period = customTitle || (start===end ? fmtShortDate(start) : fmtShortDate(start)+' → '+fmtShortDate(end));
+  data = data || (kpiPeriod === 'today' ? todayData : kpiPeriodData);
+  const incl = sections || new Set(['headline','site-breakdown','daily-breakdown','utilisation','cost']);
+  const W = 210, margin = 14;
+  // Header bar
+  doc.setFillColor(18, 25, 45);
+  doc.rect(0, 0, W, 22, 'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(16); doc.setFont('helvetica','bold');
+  doc.text('TRIAD Control Tower', margin, 14);
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.text('KPIs & Performance Report', W-margin, 14, {align:'right'});
+  // Period line
+  doc.setFillColor(240,241,245);
+  doc.rect(0, 22, W, 12, 'F');
+  doc.setTextColor(80,90,110); doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.text('Period: '+period, margin, 30);
+  doc.setTextColor(150,155,165); doc.setFont('helvetica','normal'); doc.setFontSize(9);
+  doc.text('Generated '+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}), W-margin, 30, {align:'right'});
+  // Headline metrics
+  let y = 42;
+  const sitesLabel = siteChecks && siteChecks.length < 4 ? siteChecks.map(s=>SITES_META[s]?.name||s).join(', ') : 'All sites';
+  doc.setFontSize(8); doc.setTextColor(120,130,145);
+  doc.text('Sites: '+sitesLabel, margin, 38);
+  const totLoads   = data.reduce((a,e)=>a+groupByShipment(e).length,0);
+  const totStops   = data.reduce((a,e)=>a+sumStops(e),0);
+  const totPallets = data.reduce((a,e)=>a+sumPallets(e),0);
+  const totSites   = new Set(data.map(e=>e.site)).size;
+  const metrics = [
+    ['Total Runs', String(totLoads)],
+    ['Total Stops', String(totStops)],
+    ['Total Pallets', String(totPallets)],
+    ['Sites Active', String(totSites)+'/4'],
+  ];
+  const mW = (W - margin*2 - 9) / 4;
+  metrics.forEach((m, i) => {
+    const x = margin + i*(mW+3);
+    doc.setFillColor(255,255,255); doc.roundedRect(x, y, mW, 20, 2, 2, 'FD');
+    doc.setTextColor(18,25,45); doc.setFontSize(18); doc.setFont('helvetica','bold');
+    doc.text(m[1], x+mW/2, y+12, {align:'center'});
+    doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(120,130,145);
+    doc.text(m[0].toUpperCase(), x+mW/2, y+18, {align:'center'});
+  });
+  y += 28;
+  // Site breakdown table
+  doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(18,25,45);
+  doc.text('Site Breakdown', margin, y); y += 6;
+  const siteRows = Object.values(Object.groupBy ? Object.groupBy(data, e=>e.site) : data.reduce((acc,e)=>{(acc[e.site]=acc[e.site]||[]).push(e);return acc;},{}))
+    .map(entries => {
+      const s = entries[0]; const meta = SITES_META[s.site]||{};
+      const runs = entries.reduce((a,e)=>a+groupByShipment(e).length,0);
+      const stops = entries.reduce((a,e)=>a+sumStops(e),0);
+      const pallets = entries.reduce((a,e)=>a+sumPallets(e),0);
+      const cap = (s.capacity||80) * entries.length;
+      return [meta.name||s.site, String(runs), String(stops), String(pallets), Math.round(pallets/cap*100)+'%'];
+    });
+  doc.autoTable({
+    startY: y,
+    head: [['Site', 'Runs', 'Stops', 'Pallets', 'Avg Fill']],
+    body: siteRows,
+    theme: 'grid',
+    headStyles: { fillColor:[18,25,45], textColor:255, fontStyle:'bold', fontSize:9 },
+    bodyStyles: { fontSize: 9, cellPadding: 3 },
+    columnStyles: { 1:{halign:'right'}, 2:{halign:'right'}, 3:{halign:'right'}, 4:{halign:'right'} },
+    margin: { left: margin, right: margin },
+  });
+  y = doc.lastAutoTable.finalY + 10;
+  // Daily breakdown if period > 1 day
+  if (kpiPeriod !== 'today') {
+    const dateMap = {};
+    data.forEach(e => { (dateMap[e.date]=dateMap[e.date]||[]).push(e); });
+    const dates = Object.keys(dateMap).sort();
+    if (dates.length > 1) {
+      doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(18,25,45);
+      doc.text('Daily Breakdown', margin, y); y += 4;
+      const dayRows = dates.map(date => {
+        const entries = dateMap[date];
+        const runs = entries.reduce((a,e)=>a+groupByShipment(e).length,0);
+        const stops = entries.reduce((a,e)=>a+sumStops(e),0);
+        const pallets = entries.reduce((a,e)=>a+sumPallets(e),0);
+        const sites = entries.map(e=>SITES_META[e.site]?.name||e.site).join(', ');
+        return [fmtShortDate(date), sites, String(runs), String(stops), String(pallets)];
+      });
+      doc.autoTable({
+        startY: y,
+        head: [['Date', 'Sites', 'Runs', 'Stops', 'Pallets']],
+        body: dayRows,
+        theme: 'striped',
+        headStyles: { fillColor:[18,25,45], textColor:255, fontStyle:'bold', fontSize:9 },
+        bodyStyles: { fontSize: 9, cellPadding: 3 },
+        columnStyles: { 2:{halign:'right'}, 3:{halign:'right'}, 4:{halign:'right'} },
+        margin: { left: margin, right: margin },
+      });
+    }
+  }
+  // Footer
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i=1; i<=pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(150,155,165);
+    doc.text('Triad Control Tower — Confidential', margin, 292);
+    doc.text('Page '+i+' of '+pageCount, W-margin, 292, {align:'right'});
+  }
+  doc.save('Triad-KPI-'+period.replace(/[^a-z0-9]+/gi,'-')+'.pdf');
+}
+
 function renderKPIs() {
+  const dataSet = kpiPeriod === 'today' ? todayData : kpiPeriodData;
+  const el_bt = document.getElementById('kpi-breakdown-title'); if(el_bt) el_bt.textContent = kpiPeriod==='today'?'Site breakdown — today':'Site breakdown — period total';
+  renderKpiPeriodBreakdown(dataSet);
   const kpiGrid       = document.getElementById('kpi-grid');
   const kpiCompliance = document.getElementById('kpi-compliance');
   const kpiBreakdown  = document.getElementById('kpi-breakdown');
