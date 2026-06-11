@@ -7999,7 +7999,13 @@ function readFileBuffer(file) {
 function detectVpkFormat(wb, fname) {
   const daySheetNames = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
   const ws = wb.Sheets[wb.SheetNames[0]];
-  const isMultiDay   = wb.SheetNames.some(n => daySheetNames.includes(n.toLowerCase()));
+  // Detect VPK multi-sheet by content: multiple sheets each containing 'Delivery Schedule'
+  const isVpkMultiSheet = wb.SheetNames.length > 1 && wb.SheetNames.filter(n => {
+    const s = wb.Sheets[n]; if (!s) return false;
+    const r0 = (XLSX.utils.sheet_to_json(s, {header:1,defval:null,raw:false})[0]||[]);
+    return r0.some(c => String(c||'').includes('Delivery Schedule'));
+  }).length > 1;
+  const isMultiDay = wb.SheetNames.some(n => daySheetNames.includes(n.toLowerCase())) || isVpkMultiSheet;
   const firstRows    = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false}).slice(0,12);
   // Wellington: check first 12 rows AND all cells in first sheet for 'Wrings-' pattern
   const isWellington = firstRows.some(r => r && String(r[0]||'').toLowerCase().startsWith('wrings'))
@@ -8217,8 +8223,13 @@ function vpkShowMultiDayPreview(wb, site, format) {
   const dayNames = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
   const allDayData = [];
   for (const sheetName of wb.SheetNames) {
-    if (!dayNames.includes(sheetName.toLowerCase())) continue;
     const sheetWs = wb.Sheets[sheetName];
+    if (!dayNames.includes(sheetName.toLowerCase())) {
+      // For VPK, also accept generic sheet names if they contain a Delivery Schedule header
+      if (format !== 'vpk') continue;
+      const r0 = (XLSX.utils.sheet_to_json(sheetWs||{}, {header:1,defval:null,raw:false})[0]||[]);
+      if (!r0.some(c => String(c||'').includes('Delivery Schedule'))) continue;
+    }
     // For VPK format, read date and pallets directly from cells
     if (format === 'vpk') {
       // Date is at row 3 col 6 in VPK schedule
