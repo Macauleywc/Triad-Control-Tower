@@ -2206,23 +2206,33 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
 .date-nav-today:hover { background: var(--navy); color: #fff; }
 .date-picker-popup {
   position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%);
-  background: #fff; border: 1px solid var(--rule); border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0,0,0,.12); padding: 14px; z-index: 9999;
-  min-width: 260px; display: none; font-family: var(--font-body);
+  background: #fff; border: 1px solid var(--rule); border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.15); padding: 16px; z-index: 9999;
+  min-width: 280px; display: none; font-family: var(--font-body);
 }
 .date-picker-popup.open { display: block; }
-.dp-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.dp-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .dp-month-label { font-weight: 700; font-size: 14px; color: var(--ink); }
 .dp-nav { background: none; border: 1px solid var(--rule); border-radius: 6px; width: 26px; height: 26px; cursor: pointer; font-size: 14px; color: var(--ink2); display: flex; align-items: center; justify-content: center; }
 .dp-nav:hover { background: var(--cream2); }
-.dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-.dp-day-header { text-align: center; font-family: var(--font-mono); font-size: 9px; font-weight: 700; color: var(--ink3); text-transform: uppercase; padding: 3px 0; }
-.dp-day { text-align: center; padding: 5px 2px; border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--ink); transition: all .1s; }
-.dp-day:hover { background: var(--cream2); }
+.dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; }
+.dp-day-header { text-align: center; font-family: var(--font-mono); font-size: 9px; font-weight: 700; color: var(--ink3); text-transform: uppercase; padding: 4px 0 6px; }
+.dp-day { text-align: center; padding: 6px 2px; border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--ink); transition: background .08s; position: relative; }
+.dp-day:hover:not(.empty) { background: var(--cream2); }
 .dp-day.today { font-weight: 700; color: var(--navy); }
-.dp-day.selected { background: var(--navy); color: #fff; font-weight: 700; }
+.dp-day.dp-range-start,.dp-day.dp-range-end { background: var(--navy) !important; color: #fff !important; font-weight: 700; border-radius: 6px; }
+.dp-day.dp-in-range { background: rgba(18,25,45,.08); border-radius: 0; color: var(--ink); }
+.dp-day.dp-range-start { border-radius: 6px 0 0 6px; }
+.dp-day.dp-range-end { border-radius: 0 6px 6px 0; }
+.dp-day.dp-range-start.dp-range-end { border-radius: 6px; }
+.dp-day.dp-hover-range { background: rgba(18,25,45,.05); border-radius: 0; }
 .dp-day.other-month { color: var(--ink3); }
 .dp-day.empty { cursor: default; }
+.dp-range-hint { font-size: 10px; color: var(--ink3); text-align: center; padding: 8px 0 4px; font-family: var(--font-mono); min-height: 18px; }
+.dp-range-actions { display: flex; gap: 8px; margin-top: 10px; border-top: 1px solid var(--rule); padding-top: 10px; }
+.dp-quick-btn { flex: 1; padding: 5px 4px; border: 1px solid var(--rule); border-radius: 7px; background: none; font-size: 11px; cursor: pointer; color: var(--ink2); font-family: var(--font-body); transition: all .1s; }
+.dp-quick-btn:hover { background: var(--cream2); border-color: var(--navy); color: var(--navy); }
+.dp-apply-btn { padding: 6px 14px; background: var(--navy); color: #fff; border: none; border-radius: 7px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: var(--font-body); }
 .date-nav-label { cursor: pointer; user-select: none; }
 .date-nav-label:hover { background: var(--cream2); border-radius: 6px; }
 /* ══════════════════════════════════════════
@@ -2439,6 +2449,13 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
                 <button class="dp-nav" onclick="dpNavMonth(1)">&#8250;</button>
               </div>
               <div class="dp-grid" id="dp-grid"></div>
+              <div class="dp-range-hint" id="dp-range-hint">Click a date — or click two dates to select a range</div>
+              <div class="dp-range-actions">
+                <button class="dp-quick-btn" onclick="dpQuickRange('week')">This week</button>
+                <button class="dp-quick-btn" onclick="dpQuickRange('month')">This month</button>
+                <button class="dp-quick-btn" onclick="dpQuickRange('clear')">Clear</button>
+                <button class="dp-apply-btn" id="dp-apply-btn" onclick="dpApplyRange()">Apply</button>
+              </div>
             </div>
           </div>
           <button class="date-nav-btn" id="date-next" onclick="navDate(1)" data-tip="Next day">&#8250;</button>
@@ -3396,14 +3413,25 @@ function updateDateNav() {
 }
 /* ── Date picker ── */
 let _dpYear = null, _dpMonth = null;
+// ── Date range picker ──
+let _dpRangeStart = null, _dpRangeEnd = null, _dpHover = null;
+
 function toggleDatePicker() {
   const popup = document.getElementById('date-picker-popup');
   if (!popup) return;
-  const isOpen = popup.classList.contains('open');
-  if (isOpen) { popup.classList.remove('open'); return; }
-  // Initialise to current viewDate
+  if (popup.classList.contains('open')) { popup.classList.remove('open'); return; }
   const parts = (viewDate||todayStr()).split('-').map(Number);
   _dpYear = parts[0]; _dpMonth = parts[1]-1;
+  // Pre-fill range from KPI period if on KPI tab
+  const onKpi = document.getElementById('tab-kpi')?.style.display !== 'none';
+  if (onKpi && kpiPeriod !== 'today') {
+    const r = getKpiDateRange(kpiPeriod);
+    _dpRangeStart = r.start; _dpRangeEnd = r.end;
+    const sp = r.start.split('-').map(Number);
+    _dpYear = sp[0]; _dpMonth = sp[1]-1;
+  } else {
+    _dpRangeStart = viewDate; _dpRangeEnd = null;
+  }
   renderDatePicker();
   popup.classList.add('open');
 }
@@ -3417,29 +3445,100 @@ function renderDatePicker() {
   const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const lbl = document.getElementById('dp-month-label');
   const grid = document.getElementById('dp-grid');
+  const hint = document.getElementById('dp-range-hint');
   if (!lbl || !grid) return;
   lbl.textContent = months[_dpMonth] + ' ' + _dpYear;
   const today = todayStr();
-  const selParts = (viewDate||today).split('-').map(Number);
-  const firstDay = new Date(_dpYear, _dpMonth, 1).getDay(); // 0=Sun
+  const s = _dpRangeStart, e = _dpRangeEnd;
+  const rangeMin = s && e ? (s < e ? s : e) : s;
+  const rangeMax = s && e ? (s > e ? s : e) : s;
+  const firstDay = new Date(_dpYear, _dpMonth, 1).getDay();
   const daysInMonth = new Date(_dpYear, _dpMonth+1, 0).getDate();
-  const startOffset = (firstDay + 6) % 7; // Monday start
+  const startOffset = (firstDay + 6) % 7;
   let html = ['Mo','Tu','We','Th','Fr','Sa','Su'].map(d=>`<div class="dp-day-header">${d}</div>`).join('');
   for (let i=0; i<startOffset; i++) html += `<div class="dp-day empty"></div>`;
   for (let d=1; d<=daysInMonth; d++) {
-    const dateStr = _dpYear+'-'+String(_dpMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
-    const isToday = dateStr === today;
-    const isSel   = dateStr === viewDate;
-    const cls = ['dp-day', isToday?'today':'', isSel?'selected':''].filter(Boolean).join(' ');
-    html += `<div class="${cls}" onclick="dpSelectDate('${dateStr}')">${d}</div>`;
+    const ds = _dpYear+'-'+String(_dpMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const isToday = ds === today;
+    const isStart = ds === rangeMin;
+    const isEnd   = ds === rangeMax && rangeMax !== rangeMin;
+    const inRange = rangeMin && rangeMax && ds > rangeMin && ds < rangeMax;
+    const cls = ['dp-day',
+      isToday?'today':'',
+      isStart?'dp-range-start':'',
+      isEnd?'dp-range-end':'',
+      (isStart && !isEnd)?'':'',
+      inRange?'dp-in-range':'',
+    ].filter(Boolean).join(' ');
+    html += `<div class="${cls}" onclick="dpSelectDate('${ds}')" onmouseenter="dpHover('${ds}')">${d}</div>`;
   }
   grid.innerHTML = html;
+  // Update hint
+  if (hint) {
+    if (!s) hint.textContent = 'Click a start date';
+    else if (!e) hint.textContent = 'Start: '+fmtShortDate(s)+' — now click an end date';
+    else hint.textContent = fmtShortDate(s)+' → '+fmtShortDate(e);
+  }
+}
+function dpHover(dateStr) {
+  if (!_dpRangeStart || _dpRangeEnd) return; // only highlight while picking end
+  _dpHover = dateStr;
+  // Paint hover range
+  const grid = document.getElementById('dp-grid');
+  if (!grid) return;
+  const s = _dpRangeStart;
+  const hMin = s < dateStr ? s : dateStr;
+  const hMax = s > dateStr ? s : dateStr;
+  grid.querySelectorAll('.dp-day:not(.empty)').forEach(el => {
+    const onclick = el.getAttribute('onclick')||'';
+    const m = onclick.match(/'(\d{4}-\d{2}-\d{2})'/);
+    if (!m) return;
+    const ds = m[1];
+    el.classList.toggle('dp-hover-range', ds > hMin && ds < hMax);
+    el.classList.toggle('dp-range-end',    ds === hMax && hMax !== s);
+  });
 }
 function dpSelectDate(dateStr) {
+  if (!_dpRangeStart || _dpRangeEnd) {
+    // Start fresh
+    _dpRangeStart = dateStr; _dpRangeEnd = null;
+  } else {
+    // Set end
+    if (dateStr === _dpRangeStart) {
+      // Single day — apply immediately
+      _dpRangeEnd = null;
+      dpApplyRange();
+      return;
+    }
+    _dpRangeEnd = dateStr;
+  }
+  renderDatePicker();
+}
+function dpQuickRange(type) {
+  const r = type === 'week' ? getKpiDateRange('week') : type === 'month' ? getKpiDateRange('month') : null;
+  if (!r) { _dpRangeStart = null; _dpRangeEnd = null; }
+  else { _dpRangeStart = r.start; _dpRangeEnd = r.end; }
+  renderDatePicker();
+}
+function dpApplyRange() {
   document.getElementById('date-picker-popup')?.classList.remove('open');
-  viewDate = dateStr;
-  updateDateNav();
-  loadDateData();
+  const s = _dpRangeStart, e = _dpRangeEnd;
+  const start = s && e ? (s < e ? s : e) : s;
+  const end   = s && e ? (s > e ? s : e) : e;
+  const onKpi = document.getElementById('tab-kpi')?.style.display !== 'none';
+  if (onKpi && start && end && start !== end) {
+    // Load KPI period for the range
+    setKpiPeriod('custom');
+    loadKpiPeriodData(start, end);
+    // Also sync the export date inputs
+    const fromEl = document.getElementById('kpi-from'); if(fromEl) fromEl.value = start;
+    const toEl   = document.getElementById('kpi-to');   if(toEl)   toEl.value   = end;
+  } else if (start) {
+    // Single date navigation
+    viewDate = start;
+    updateDateNav();
+    loadDateData();
+  }
 }
 // Close picker on outside click
 document.addEventListener('click', e => {
