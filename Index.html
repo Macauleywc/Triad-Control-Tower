@@ -3475,8 +3475,8 @@ async function loadDateData() {
   if (sb && isConfigured) {
     const { data: plans, error } = await sb.from('daily_plans')
       .select('*, routes(*)').eq('plan_date', viewDate);
-    if (!error) {
-      // Supabase returned successfully — use that data
+    if (!error && (plans||[]).length > 0) {
+      // Supabase returned data — use it, merging cache routes for plans with empty routes
       todayData = (plans||[]).map(p => {
         const cached = allData.find(c => c.site === p.site_id && c.date === p.plan_date);
         const dbRoutes = (p.routes||[]).map(r => ({
@@ -3486,7 +3486,6 @@ async function loadDateData() {
           runNum: r.run_num||r.runNum, runLabel: r.run_label||r.runLabel||r.area,
           multiLoad: r.multi_load||r.multiLoad||false, runShips: r.run_ships||r.runShips||[]
         }));
-        // If DB has no routes but cache does, use cache routes (handles old broken saves)
         const routes = (dbRoutes.length > 0) ? dbRoutes : (cached?.routes || []);
         return {
           site: p.site_id, date: p.plan_date, capacity: p.capacity,
@@ -3496,8 +3495,11 @@ async function loadDateData() {
           routes
         };
       });
-      // Only update allData cache on a successful Supabase response
       allData = [...allData.filter(e => e.date !== viewDate), ...todayData];
+    } else if (!error && (plans||[]).length === 0) {
+      // Supabase returned empty — preserve locally cached data (race condition after import,
+      // or a date with no data that was never uploaded)
+      todayData = allData.filter(e => e.date === viewDate);
     }
     // If error: todayData stays as allData cache (already set above), allData unchanged
   }
