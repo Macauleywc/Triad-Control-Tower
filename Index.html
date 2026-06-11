@@ -5500,7 +5500,16 @@ function renderLeaderboard() {
   const statsEl = document.getElementById('lb-stats-bar');
   if (!el) return;
   const isAllTime = _lbMode === 'alltime';
-  const dataSet   = isAllTime ? allData : todayData;
+  // Use the same filtered period data as the rest of the KPI page
+  const rawSet    = isAllTime ? allData : (kpiPeriod === 'today' ? todayData : kpiPeriodData);
+  const kpiFilter = window._kpiSiteFilter;
+  const dataSet   = kpiFilter ? rawSet.filter(e => kpiFilter.has(e.site)) : rawSet;
+  // Update period button label to reflect selected period
+  const todayBtn = document.getElementById('lb-btn-today');
+  if (todayBtn) {
+    const lbl = document.getElementById('kpi-period-label')?.textContent;
+    todayBtn.textContent = (lbl && kpiPeriod !== 'today') ? lbl : 'Today';
+  }
   if (!dataSet.length) {
     if (statsEl) statsEl.innerHTML = '';
     el.innerHTML = `<div style="text-align:center;padding:32px;color:var(--ink3);font-size:13px">No data yet — import today's schedules to see results.</div>`;
@@ -5527,7 +5536,7 @@ function renderLeaderboard() {
     </div>
     <div class="lb-stat-box">
       <div class="lb-stat-val" style="color:var(--navy)">${totPal.toLocaleString()}</div>
-      <div class="lb-stat-lbl">${isAllTime ? 'Total pallets (all time)' : 'Total pallets today'}</div>
+      <div class="lb-stat-lbl">${isAllTime ? 'Total pallets (all time)' : kpiPeriod !== 'today' ? 'Total pallets — '+(document.getElementById('kpi-period-label')?.textContent||'period') : 'Total pallets today'}</div>
     </div>`;
   const maxPallets = Math.max(...points.map(p => p.totalPallets), 1);
   function renderRow(pt, idx, globalRank) {
@@ -5542,8 +5551,9 @@ function renderLeaderboard() {
     const domSite = sortedSites[0];
     const barCol  = domSite?.color || 'var(--navy)';
     const barW    = Math.round((pt.totalPallets / maxPallets) * 100);
-    const extraVal   = isAllTime ? pt.deliveryDays.size : Object.values(pt.siteBreakdown).reduce((a,s) => a + (s.stops||1), 0);
-    const extraLabel = isAllTime ? 'days' : 'stops';
+    const isMultiDayPeriod = kpiPeriod !== 'today';
+    const extraVal   = (isAllTime||isMultiDayPeriod) ? pt.deliveryDays.size : Object.values(pt.siteBreakdown).reduce((a,s) => a + (s.stops||1), 0);
+    const extraLabel = (isAllTime||isMultiDayPeriod) ? 'days' : 'stops';
     return `<div class="lb-row ${isMulti?'is-multi':'is-single'}">
       <div class="lb-row-rank">${rankLabel}</div>
       <div class="lb-row-main">
