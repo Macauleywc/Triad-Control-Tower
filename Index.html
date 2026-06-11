@@ -2233,6 +2233,14 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
 .dp-quick-btn { flex: 1; padding: 5px 4px; border: 1px solid var(--rule); border-radius: 7px; background: none; font-size: 11px; cursor: pointer; color: var(--ink2); font-family: var(--font-body); transition: all .1s; }
 .dp-quick-btn:hover { background: var(--cream2); border-color: var(--navy); color: var(--navy); }
 .dp-apply-btn { padding: 6px 14px; background: var(--navy); color: #fff; border: none; border-radius: 7px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: var(--font-body); }
+.dp-sites { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--rule); }
+.dp-site-chip { display: flex; align-items: center; gap: 5px; padding: 4px 9px 4px 7px; border-radius: 20px; border: 1.5px solid var(--rule); cursor: pointer; font-size: 11px; font-weight: 500; color: var(--ink2); background: none; font-family: var(--font-body); transition: all .1s; }
+.dp-site-chip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dp-site-chip.active { color: #fff; border-color: transparent; }
+.dp-site-chip.active[data-site=desborough] { background: #E8520A; }
+.dp-site-chip.active[data-site=selby]       { background: #1e3a6e; }
+.dp-site-chip.active[data-site=banbury]      { background: #c0392b; }
+.dp-site-chip.active[data-site=wellington]   { background: #1a7a4a; }
 .date-nav-label { cursor: pointer; user-select: none; }
 .date-nav-label:hover { background: var(--cream2); border-radius: 6px; }
 /* ══════════════════════════════════════════
@@ -2455,6 +2463,12 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
                 <button class="dp-quick-btn" onclick="dpQuickRange('month')">This month</button>
                 <button class="dp-quick-btn" onclick="dpQuickRange('clear')">Clear</button>
                 <button class="dp-apply-btn" id="dp-apply-btn" onclick="dpApplyRange()">Apply</button>
+              </div>
+              <div class="dp-sites" id="dp-sites">
+                <button class="dp-site-chip active" data-site="desborough" onclick="dpToggleSite('desborough')"><span class="dot" style="background:#E8520A"></span>Desborough</button>
+                <button class="dp-site-chip active" data-site="selby"       onclick="dpToggleSite('selby')"      ><span class="dot" style="background:#1e3a6e"></span>Selby</button>
+                <button class="dp-site-chip active" data-site="banbury"     onclick="dpToggleSite('banbury')"    ><span class="dot" style="background:#c0392b"></span>Banbury</button>
+                <button class="dp-site-chip active" data-site="wellington"  onclick="dpToggleSite('wellington')" ><span class="dot" style="background:#1a7a4a"></span>Wellington</button>
               </div>
             </div>
           </div>
@@ -3514,29 +3528,54 @@ function dpSelectDate(dateStr) {
   }
   renderDatePicker();
 }
+// Active site filter — persists across picker opens
+let _dpActiveSites = new Set(['desborough','selby','banbury','wellington']);
+
+function dpToggleSite(sid) {
+  if (_dpActiveSites.has(sid)) {
+    if (_dpActiveSites.size > 1) _dpActiveSites.delete(sid); // keep at least one
+  } else {
+    _dpActiveSites.add(sid);
+  }
+  // Update chip appearance
+  document.querySelectorAll('.dp-site-chip').forEach(chip => {
+    chip.classList.toggle('active', _dpActiveSites.has(chip.dataset.site));
+  });
+}
+
 function dpQuickRange(type) {
   const r = type === 'week' ? getKpiDateRange('week') : type === 'month' ? getKpiDateRange('month') : null;
   if (!r) { _dpRangeStart = null; _dpRangeEnd = null; }
   else { _dpRangeStart = r.start; _dpRangeEnd = r.end; }
   renderDatePicker();
 }
+
 function dpApplyRange() {
   document.getElementById('date-picker-popup')?.classList.remove('open');
   const s = _dpRangeStart, e = _dpRangeEnd;
   const start = s && e ? (s < e ? s : e) : s;
   const end   = s && e ? (s > e ? s : e) : e;
   const onKpi = document.getElementById('tab-kpi')?.style.display !== 'none';
+
+  // Apply site filter to todayData / kpiPeriodData
+  const filterSites = data => data.filter(e => _dpActiveSites.has(e.site));
+
   if (onKpi && start && end && start !== end) {
-    // Load KPI period for the range
     setKpiPeriod('custom');
-    loadKpiPeriodData(start, end);
-    // Also sync the export date inputs
+    // Store site filter for KPI to respect
+    window._kpiSiteFilter = _dpActiveSites.size < 4 ? new Set(_dpActiveSites) : null;
     const fromEl = document.getElementById('kpi-from'); if(fromEl) fromEl.value = start;
     const toEl   = document.getElementById('kpi-to');   if(toEl)   toEl.value   = end;
+    loadKpiPeriodData(start, end).then ? loadKpiPeriodData(start, end) : loadKpiPeriodData(start, end);
+  } else if (onKpi && start) {
+    // Single day on KPI — just filter
+    window._kpiSiteFilter = _dpActiveSites.size < 4 ? new Set(_dpActiveSites) : null;
+    loadKpiPeriodData(start, start);
   } else if (start) {
-    // Single date navigation
     viewDate = start;
     updateDateNav();
+    // Apply site filter: hide sites not selected
+    window._siteFilter = _dpActiveSites.size < 4 ? new Set(_dpActiveSites) : null;
     loadDateData();
   }
 }
@@ -3757,6 +3796,11 @@ function computeOpps(data) {
 /* ══════════════════════════════════════════
    RENDER
 ══════════════════════════════════════════ */
+function getFilteredTodayData() {
+  const f = window._siteFilter || window._kpiSiteFilter;
+  if (!f || f.size >= 4) return todayData;
+  return todayData.filter(e => f.has(e.site));
+}
 function renderAll() {
   try {
   const opps = computeOpps(todayData);
@@ -4032,9 +4076,10 @@ function renderSiteCards() {
   const el = document.getElementById('sites-grid');
   // Preserve collapsed state across re-renders
   if(!window._cardCollapsed) window._cardCollapsed = {};
-  el.innerHTML = Object.keys(SITES_META).map(sid => {
+  const _sf = window._siteFilter;
+  el.innerHTML = Object.keys(SITES_META).filter(sid => !_sf || _sf.has(sid)).map(sid => {
     const meta      = SITES_META[sid];
-    const e         = todayData.find(d=>d.site===sid);
+    const e         = getFilteredTodayData().find(d=>d.site===sid);
     const isMe      = sid === currentSiteId;
     const collapsed = window._cardCollapsed[sid] || false;
     // Treat plan with no routes as no-data (broken save, or genuinely empty date)
@@ -5247,7 +5292,8 @@ async function exportKpiPdf(data, opts) {
 }
 
 function renderKPIs() {
-  const dataSet = kpiPeriod === 'today' ? todayData : kpiPeriodData;
+  const rawSet = kpiPeriod === 'today' ? todayData : kpiPeriodData;
+  const kpiFilter = window._kpiSiteFilter; const dataSet = kpiFilter ? rawSet.filter(e=>kpiFilter.has(e.site)) : rawSet;
   const el_bt = document.getElementById('kpi-breakdown-title'); if(el_bt) el_bt.textContent = kpiPeriod==='today'?'Site breakdown — today':'Site breakdown — period total';
   renderKpiPeriodBreakdown(dataSet);
   const kpiGrid       = document.getElementById('kpi-grid');
