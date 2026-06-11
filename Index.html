@@ -5300,7 +5300,7 @@ function renderKPIs() {
   const kpiCompliance = document.getElementById('kpi-compliance');
   const kpiBreakdown  = document.getElementById('kpi-breakdown');
   const kpiSavings    = document.getElementById('kpi-savings');
-  if (!todayData.length) {
+  if (!dataSet.length && !todayData.length) {
     if (kpiGrid) kpiGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--ink3);font-size:13px">No delivery data uploaded yet. Ask each site to upload their daily plan.</div>';
     if (kpiCompliance) kpiCompliance.innerHTML = Object.keys(SITES_META).map(sid=>{
       const meta=SITES_META[sid];
@@ -5310,19 +5310,23 @@ function renderKPIs() {
     if (kpiSavings) kpiSavings.innerHTML = '';
     return;
   }
-  const opps        = computeOpps(todayData);
-  const totStops    = todayData.reduce((a,e)=>a+sumStops(e),0);
-  const totPallets  = todayData.reduce((a,e)=>a+sumPallets(e),0);
-  const totWeight   = todayData.reduce((a,e)=>a+sumWeight(e),0);
-  const totLoads    = todayData.reduce((a,e)=>a+countLoads(e),0);
-  const totRuns     = todayData.reduce((a,e)=>a + groupByShipment(e).length, 0);
-
-  const capSites    = todayData.filter(e=>e.capacity);
-  const avgUtil     = capSites.length ? Math.round(capSites.reduce((a,e)=>a+sumStops(e)/(e.capacity||80),0)/capSites.length*100) : 0;
+  // Use dataSet (period-filtered + site-filtered) for all headline metrics
+  const isMultiDay  = kpiPeriod !== 'today';
+  const opps        = computeOpps(todayData); // load sharing always uses live today
+  const totStops    = dataSet.reduce((a,e)=>a+sumStops(e),0);
+  const totPallets  = dataSet.reduce((a,e)=>a+sumPallets(e),0);
+  const totWeight   = dataSet.reduce((a,e)=>a+sumWeight(e),0);
+  const totLoads    = dataSet.reduce((a,e)=>a+countLoads(e),0);
+  const totRuns     = dataSet.reduce((a,e)=>a+groupByShipment(e).length,0);
+  // Utilisation: pallets vs vehicle capacity (runs × 40 target pallets)
+  const totCap      = dataSet.reduce((a,e)=>a+groupByShipment(e).length*40,0);
+  const avgUtil     = totCap>0 ? Math.round(totPallets/totCap*100) : 0;
   const totalSavings = opps.reduce((a,o)=>a+o.saving,0);
-  const uploaded    = todayData.length;
-  const overCap     = todayData.filter(e=>sumStops(e)/(e.capacity||80)>=0.9).length;
+  // Compliance: use todayData for today, count unique sites in period for range
+  const uploadedSites = isMultiDay ? new Set(dataSet.map(e=>e.site)).size : todayData.length;
+  const overCap     = dataSet.filter(e=>sumPallets(e)>groupByShipment(e).length*40).length;
   const costPerMile = 0.45;
+  const daysLabel   = isMultiDay ? (() => {const ds=new Set(dataSet.map(e=>e.date));return ds.size+' day'+(ds.size!==1?'s':'');})() : '1 day';
   // ── 6 KPI cards ──
   function kpiCard(accent, label, value, unit, sub, pill, pillColor) {
     return `<div class="kpi-card">
@@ -5334,25 +5338,38 @@ function renderKPIs() {
     </div>`;
   }
   const utilCol  = avgUtil>=90?'var(--red)':avgUtil>=75?'var(--amber)':'var(--green)';
-  const compCol  = uploaded===4?'var(--green)':'var(--amber)';
+  const compCol  = uploadedSites===4?'var(--green)':'var(--amber)';
   const overCol  = overCap>0?'var(--red)':'var(--green)';
   if (kpiGrid) kpiGrid.innerHTML = [
-    kpiCard('var(--navy)',  'Total runs today',     totRuns,   '',    `${totLoads} loads across ${uploaded} site${uploaded!==1?'s':''}`, `${totRuns} vehicle runs`, 'var(--navy)'),
-    kpiCard('var(--navy2)', 'Total stops',          totStops,  '',    `${totPallets} pallets · ${totWeight.toFixed(1)}t estimated weight`, null, null),
-    kpiCard(utilCol,        'Avg utilisation',       avgUtil,  '%',   `Across ${capSites.length} site${capSites.length!==1?'s':''} with data`,
+    kpiCard('var(--navy)',  isMultiDay?'Total runs — '+daysLabel:'Total runs today',
+      totRuns,   '',    `${totLoads} loads · ${new Set(dataSet.map(e=>e.site)).size} site${new Set(dataSet.map(e=>e.site)).size!==1?'s':''}`, `${totRuns} vehicle runs`, 'var(--navy)'),
+    kpiCard('var(--navy2)', isMultiDay?'Total stops — '+daysLabel:'Total stops',
+      totStops,  '',    `${totPallets.toLocaleString()} pallets · ${totWeight.toFixed(1)}t estimated weight`, null, null),
+    kpiCard(utilCol, 'Avg utilisation', avgUtil, '%',
+      isMultiDay ? `${daysLabel} · ${new Set(dataSet.map(e=>e.site)).size} sites` : `Across ${new Set(dataSet.map(e=>e.site)).size} site${new Set(dataSet.map(e=>e.site)).size!==1?'s':''} with data`,
       avgUtil>=90?'⚠ Over capacity':avgUtil>=75?'Near capacity':'✓ Healthy', utilCol),
-    kpiCard(overCol,        'Over capacity',         overCap,  '/'+todayData.length, overCap===0?'All sites within capacity':`${overCap} site${overCap!==1?'s':''} need attention`,
+    kpiCard(overCol, 'Over capacity', overCap, '/'+dataSet.length,
+      overCap===0?'All sites within capacity':`${overCap} plan${overCap!==1?'s':''} need attention`,
       overCap===0?'✓ All clear':'⚠ Action needed', overCol),
-    kpiCard('var(--green)', 'Sharing opportunities', opps.length, '', `Est. ${totalSavings} miles · ~£${Math.round(totalSavings*costPerMile)} savings · 30mi ring fence`,
+    kpiCard('var(--green)', 'Sharing opportunities', opps.length, '',
+      `Est. ${totalSavings} miles · ~£${Math.round(totalSavings*costPerMile)} savings · 30mi ring fence`,
       opps.length?`${opps.length} opp${opps.length!==1?'s':''}`:null, 'var(--green)'),
-    kpiCard(compCol,        'Upload compliance',     uploaded, '/4',  uploaded===4?'All sites submitted today':`${4-uploaded} site${4-uploaded!==1?'s':''} yet to upload`,
-      uploaded===4?'✓ Complete':'⏳ Pending', compCol),
+    kpiCard(compCol, isMultiDay?'Sites in period':'Upload compliance',
+      uploadedSites, '/4',
+      isMultiDay?`${uploadedSites} site${uploadedSites!==1?'s':''} submitted data`:(uploadedSites===4?'All sites submitted today':`${4-uploadedSites} site${4-uploadedSites!==1?'s':''} yet to upload`),
+      isMultiDay?(uploadedSites===4?'✓ All sites':'⚠ Missing sites'):(uploadedSites===4?'✓ Complete':'⏳ Pending'), compCol),
   ].join('');
-  // ── Site breakdown — now includes runs and loads ──
-  const maxS = Math.max(...todayData.map(e=>sumStops(e)), 1);
+  // ── Site breakdown — aggregate across all days in period ──
+  const siteDataMap = dataSet.reduce((acc,e)=>{(acc[e.site]=acc[e.site]||[]).push(e);return acc;},{});
+  const maxS = Math.max(...Object.values(siteDataMap).map(arr=>arr.reduce((a,e)=>a+sumStops(e),0)), 1);
   if (kpiBreakdown) kpiBreakdown.innerHTML = Object.keys(SITES_META).map(sid => {
     const meta = SITES_META[sid];
-    const e    = todayData.find(d=>d.site===sid);
+    const entries = siteDataMap[sid] || [];
+    const e    = entries.length === 1 ? entries[0] : entries.length > 0 ? {
+      site: sid, capacity: entries[0].capacity,
+      routes: entries.flatMap(en=>en.routes||[]),
+      total_trailers: entries.reduce((a,en)=>a+(en.total_trailers||0),0),
+    } : null;
     if (!e) return `<div class="kpi-breakdown-row">
       <div class="kpi-site-label">
         ${meta.logo?`<img src="${meta.logo}" style="height:20px;width:auto;object-fit:contain" alt="${meta.name}">`:`<div style="width:8px;height:8px;border-radius:50%;background:${meta.color}40"></div>`}
@@ -5365,12 +5382,14 @@ function renderKPIs() {
       <div class="kpi-cell" style="color:var(--ink3)">—</div>
       <div class="kpi-cell"><span class="compliance-status cs-miss">No data</span></div>
     </div>`;
-    const runs   = groupByShipment(e).length;
-    const loads  = countLoads(e);
-    const s      = sumStops(e);
-    const p      = sumPallets(e);
-    const cap    = e.capacity||80;
-    const pct    = Math.round(s/cap*100);
+    // Aggregate across all days in the period for this site
+    const runs   = entries.reduce((a,en)=>a+groupByShipment(en).length, 0);
+    const loads  = entries.reduce((a,en)=>a+countLoads(en), 0);
+    const s      = entries.reduce((a,en)=>a+sumStops(en), 0);
+    const p      = entries.reduce((a,en)=>a+sumPallets(en), 0);
+    // Utilisation: pallets vs (runs × 40 target)
+    const cap    = runs * 40 || 40;
+    const pct    = Math.round(p/cap*100);
     const col    = pct>=90?'var(--red)':pct>=75?'var(--amber)':'var(--green)';
     const pill   = pct>=90?'cs-miss':pct>=75?'cs-warn':'cs-ok';
     const lbl    = pct>=90?'Over':pct>=75?'Near cap':'On track';
@@ -5391,20 +5410,22 @@ function renderKPIs() {
   }).join('');
   // ── Compliance ──
   if (kpiCompliance) kpiCompliance.innerHTML = Object.keys(SITES_META).map(sid => {
-    const meta = SITES_META[sid];
-    const e    = todayData.find(d=>d.site===sid);
-    const has  = !!e;
-    const runs = e ? groupByShipment(e).length : 0;
-    const loads = e ? countLoads(e) : 0;
+    const meta    = SITES_META[sid];
+    const entries = siteDataMap[sid] || [];
+    const has     = entries.length > 0;
+    const runs    = entries.reduce((a,en)=>a+groupByShipment(en).length,0);
+    const loads   = entries.reduce((a,en)=>a+countLoads(en),0);
+    const stops   = entries.reduce((a,en)=>a+sumStops(en),0);
+    const daysStr = isMultiDay && has ? ` · ${new Set(entries.map(en=>en.date)).size} day${new Set(entries.map(en=>en.date)).size!==1?'s':''}` : '';
     return `<div class="compliance-row">
       <div class="compliance-site">
         <div class="compliance-dot" style="background:${has?meta.color:meta.color+'40'}"></div>
         <div>
           <div>${meta.name} <span style="font-size:11px;color:var(--ink3);font-weight:400">${meta.biz}</span></div>
-          ${has?`<div style="font-size:11px;font-family:var(--font-mono);color:var(--ink3)">${runs} runs · ${loads} loads · ${sumStops(e)} stops</div>`:''}
+          ${has?`<div style="font-size:11px;font-family:var(--font-mono);color:var(--ink3)">${runs} runs · ${loads} loads · ${stops} stops${daysStr}</div>`:''}
         </div>
       </div>
-      <span class="compliance-status ${has?'cs-ok':'cs-miss'}">${has?'✓ Submitted':'Not uploaded'}</span>
+      <span class="compliance-status ${has?'cs-ok':'cs-miss'}">${has?(isMultiDay?'✓ '+new Set(entries.map(en=>en.date)).size+' days':'✓ Submitted'):'Not uploaded'}</span>
     </div>`;
   }).join('');
   // ── Sharing opportunities ──
