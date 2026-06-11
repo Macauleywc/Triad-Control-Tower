@@ -4911,105 +4911,238 @@ async function exportKpiPdf(data, opts) {
   const period = customTitle || (start===end ? fmtShortDate(start) : fmtShortDate(start)+' → '+fmtShortDate(end));
   data = data || (kpiPeriod === 'today' ? todayData : kpiPeriodData);
   const incl = sections || new Set(['headline','site-breakdown','daily-breakdown','utilisation','cost']);
-  const W = 210, margin = 14;
-  // Header bar
-  doc.setFillColor(18, 25, 45);
-  doc.rect(0, 0, W, 22, 'F');
-  doc.setTextColor(255,255,255);
-  doc.setFontSize(16); doc.setFont('helvetica','bold');
-  doc.text('TRIAD Control Tower', margin, 14);
-  doc.setFontSize(9); doc.setFont('helvetica','normal');
-  doc.text('KPIs & Performance Report', W-margin, 14, {align:'right'});
-  // Period line
-  doc.setFillColor(240,241,245);
-  doc.rect(0, 22, W, 12, 'F');
-  doc.setTextColor(80,90,110); doc.setFontSize(10); doc.setFont('helvetica','bold');
-  doc.text('Period: '+period, margin, 30);
-  doc.setTextColor(150,155,165); doc.setFont('helvetica','normal'); doc.setFontSize(9);
-  doc.text('Generated '+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}), W-margin, 30, {align:'right'});
-  // Headline metrics
-  let y = 42;
-  const sitesLabel = siteChecks && siteChecks.length < 4 ? siteChecks.map(s=>SITES_META[s]?.name||s).join(', ') : 'All sites';
-  doc.setFontSize(8); doc.setTextColor(120,130,145);
-  doc.text('Sites: '+sitesLabel, margin, 38);
-  const totLoads   = data.reduce((a,e)=>a+groupByShipment(e).length,0);
+  const W = 210, margin = 14, contentW = W - margin*2;
+  const NAVY=[18,25,45], WHITE=[255,255,255], CREAM=[248,249,251], RULE=[220,222,228];
+  const INK3=[120,130,150], INK=[40,45,55];
+  const SITE_COLORS = { desborough:[232,82,10], selby:[30,58,110], banbury:[192,57,43], wellington:[26,122,74] };
+  function hex2rgb(h){const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return[r,g,b];}
+  function siteRgb(site){return SITE_COLORS[site]||NAVY;}
+
+  // ── HEADER ──
+  doc.setFillColor(...NAVY); doc.rect(0,0,W,26,'F');
+  doc.setFillColor(232,82,10); doc.rect(0,0,4,26,'F'); // orange left stripe
+  doc.setTextColor(...WHITE);
+  doc.setFontSize(17); doc.setFont('helvetica','bold');
+  doc.text('Triad Control Tower', margin+2, 11);
+  doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(180,190,210);
+  doc.text('KPIs & Performance Report', margin+2, 18);
+  doc.setTextColor(180,190,210); doc.setFontSize(8);
+  doc.text('Generated '+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+' '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}), W-margin, 18, {align:'right'});
+
+  // ── PERIOD / SITES BANNER ──
+  doc.setFillColor(...CREAM); doc.rect(0,26,W,14,'F');
+  doc.setDrawColor(...RULE); doc.setLineWidth(0.3); doc.line(0,40,W,40);
+  doc.setTextColor(...INK); doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.text(period, margin, 34);
+  const sitesLabel = siteChecks && siteChecks.length < 4 ? siteChecks.map(s=>SITES_META[s]?.name||s).join(' · ') : 'All four sites';
+  doc.setTextColor(...INK3); doc.setFontSize(8); doc.setFont('helvetica','normal');
+  doc.text(sitesLabel, W-margin, 34, {align:'right'});
+
+  // ── HEADLINE KPI TILES ──
+  let y = 46;
+  const totRuns    = data.reduce((a,e)=>a+groupByShipment(e).length,0);
+  const totLoads   = data.reduce((a,e)=>a+(e.total_trailers||(e.routes||[]).length),0);
   const totStops   = data.reduce((a,e)=>a+sumStops(e),0);
   const totPallets = data.reduce((a,e)=>a+sumPallets(e),0);
   const totSites   = new Set(data.map(e=>e.site)).size;
-  const metrics = [
-    ['Total Runs', String(totLoads)],
-    ['Total Stops', String(totStops)],
-    ['Total Pallets', String(totPallets)],
-    ['Sites Active', String(totSites)+'/4'],
+  const totCap     = data.reduce((a,e)=>a+(e.total_trailers||groupByShipment(e).length)*40,0);
+  const avgUtil    = totCap>0 ? Math.round(totPallets/totCap*100) : 0;
+  const totCost    = data.reduce((a,e)=>{
+    return a+(e.routes||[]).reduce((b,r)=>{
+      const ic=(r.stops_detail||[]).find(s=>s.actualCost)?.actualCost;
+      if(ic)return b+parseFloat(ic);
+      const rc=calcRunCost(e.site,r.postcodes||r.pc||'');
+      return b+(rc?parseFloat(rc.cost):0);
+    },0);
+  },0);
+  const cppAll = totPallets>0&&totCost>0 ? (totCost/totPallets).toFixed(2) : null;
+
+  const tiles = [
+    {label:'Vehicle Runs',  value:String(totRuns),  sub: totLoads !== totRuns ? totLoads+' loads' : null},
+    {label:'Delivery Stops',value:String(totStops),  sub:null},
+    {label:'Total Pallets', value:totPallets.toLocaleString(), sub:null},
+    {label:'Avg Utilisation',value:avgUtil+'%',       sub:null},
+    {label:'Est. Network Cost',value:totCost>0?'£'+Math.round(totCost).toLocaleString():'—', sub:cppAll?'£'+cppAll+'/plt':null},
+    {label:'Sites Active',  value:totSites+'/4',      sub:null},
   ];
-  const mW = (W - margin*2 - 9) / 4;
-  metrics.forEach((m, i) => {
-    const x = margin + i*(mW+3);
-    doc.setFillColor(255,255,255); doc.roundedRect(x, y, mW, 20, 2, 2, 'FD');
-    doc.setTextColor(18,25,45); doc.setFontSize(18); doc.setFont('helvetica','bold');
-    doc.text(m[1], x+mW/2, y+12, {align:'center'});
-    doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(120,130,145);
-    doc.text(m[0].toUpperCase(), x+mW/2, y+18, {align:'center'});
+  const tW=(contentW-10)/3, tH=22;
+  tiles.forEach((t,i)=>{
+    const col=i%3, row=Math.floor(i/3);
+    const tx=margin+col*(tW+5), ty=y+row*(tH+4);
+    doc.setFillColor(...WHITE); doc.setDrawColor(...RULE); doc.setLineWidth(0.3);
+    doc.roundedRect(tx,ty,tW,tH,2,2,'FD');
+    // top colour bar
+    const barCol = i===0?SITE_COLORS.desborough : i===3?[39,174,96] : i===4?[41,128,185] : NAVY;
+    doc.setFillColor(...barCol); doc.roundedRect(tx,ty,tW,3,1,1,'F');
+    doc.setTextColor(...INK); doc.setFontSize(15); doc.setFont('helvetica','bold');
+    doc.text(t.value, tx+tW/2, ty+13, {align:'center'});
+    doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(...INK3);
+    doc.text(t.label.toUpperCase(), tx+tW/2, ty+18, {align:'center'});
+    if(t.sub){doc.setFontSize(7);doc.setTextColor(...INK3);doc.text(t.sub,tx+tW/2,ty+21.5,{align:'center'});}
   });
-  y += 28;
-  // Site breakdown table
-  doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(18,25,45);
-  doc.text('Site Breakdown', margin, y); y += 6;
-  const siteRows = Object.values(Object.groupBy ? Object.groupBy(data, e=>e.site) : data.reduce((acc,e)=>{(acc[e.site]=acc[e.site]||[]).push(e);return acc;},{}))
-    .map(entries => {
-      const s = entries[0]; const meta = SITES_META[s.site]||{};
-      const runs = entries.reduce((a,e)=>a+groupByShipment(e).length,0);
-      const stops = entries.reduce((a,e)=>a+sumStops(e),0);
+  y += Math.ceil(tiles.length/3)*(tH+4) + 8;
+
+  // ── SITE BREAKDOWN ──
+  if(incl.has('site-breakdown')||incl.has('headline')){
+    doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(...NAVY);
+    doc.text('Site Breakdown', margin, y); y+=2;
+    doc.setDrawColor(...RULE); doc.setLineWidth(0.3); doc.line(margin,y,W-margin,y); y+=5;
+
+    const siteOrder = ['desborough','selby','banbury','wellington'];
+    const siteMap = data.reduce((acc,e)=>{(acc[e.site]=acc[e.site]||[]).push(e);return acc;},{});
+    const siteRows = siteOrder.filter(s=>siteMap[s]).map(sid=>{
+      const entries=siteMap[sid], meta=SITES_META[sid]||{};
+      const runs    = entries.reduce((a,e)=>a+groupByShipment(e).length,0);
+      const loads   = entries.reduce((a,e)=>a+(e.total_trailers||(e.routes||[]).length),0);
+      const stops   = entries.reduce((a,e)=>a+sumStops(e),0);
       const pallets = entries.reduce((a,e)=>a+sumPallets(e),0);
-      const cap = (s.capacity||80) * entries.length;
-      return [meta.name||s.site, String(runs), String(stops), String(pallets), Math.round(pallets/cap*100)+'%'];
+      // Correct utilisation: pallets vs vehicle capacity (runs × 40 pallets target)
+      const cap  = runs*40;
+      const util = cap>0 ? Math.round(pallets/cap*100) : 0;
+      const cost = entries.reduce((a,e)=>{
+        return a+(e.routes||[]).reduce((b,r)=>{
+          const ic=(r.stops_detail||[]).find(s=>s.actualCost)?.actualCost;
+          if(ic)return b+parseFloat(ic);
+          const rc=calcRunCost(sid,r.postcodes||r.pc||'');
+          return b+(rc?parseFloat(rc.cost):0);
+        },0);
+      },0);
+      const cpp = pallets>0&&cost>0 ? '£'+(cost/pallets).toFixed(2) : '—';
+      const costStr = cost>0 ? '£'+Math.round(cost).toLocaleString() : '—';
+      return { sid, name:meta.name||sid, runs, loads, stops, pallets, util, cost, cpp, costStr };
     });
-  doc.autoTable({
-    startY: y,
-    head: [['Site', 'Runs', 'Stops', 'Pallets', 'Avg Fill']],
-    body: siteRows,
-    theme: 'grid',
-    headStyles: { fillColor:[18,25,45], textColor:255, fontStyle:'bold', fontSize:9 },
-    bodyStyles: { fontSize: 9, cellPadding: 3 },
-    columnStyles: { 1:{halign:'right'}, 2:{halign:'right'}, 3:{halign:'right'}, 4:{halign:'right'} },
-    margin: { left: margin, right: margin },
-  });
-  y = doc.lastAutoTable.finalY + 10;
-  // Daily breakdown if period > 1 day
-  if (kpiPeriod !== 'today') {
-    const dateMap = {};
-    data.forEach(e => { (dateMap[e.date]=dateMap[e.date]||[]).push(e); });
-    const dates = Object.keys(dateMap).sort();
-    if (dates.length > 1) {
-      doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(18,25,45);
-      doc.text('Daily Breakdown', margin, y); y += 4;
-      const dayRows = dates.map(date => {
-        const entries = dateMap[date];
-        const runs = entries.reduce((a,e)=>a+groupByShipment(e).length,0);
-        const stops = entries.reduce((a,e)=>a+sumStops(e),0);
-        const pallets = entries.reduce((a,e)=>a+sumPallets(e),0);
-        const sites = entries.map(e=>SITES_META[e.site]?.name||e.site).join(', ');
-        return [fmtShortDate(date), sites, String(runs), String(stops), String(pallets)];
+
+    doc.autoTable({
+      startY: y,
+      head: [['Site','Runs','Loads','Stops','Pallets','Util %','Est. Cost','£/Plt']],
+      body: siteRows.map(r=>[r.name,r.runs,r.loads,r.stops,r.pallets.toLocaleString(),r.util+'%',r.costStr,r.cpp]),
+      theme: 'grid',
+      headStyles:{ fillColor:NAVY, textColor:WHITE, fontStyle:'bold', fontSize:8, cellPadding:3 },
+      bodyStyles:{ fontSize:8, cellPadding:3 },
+      columnStyles:{
+        0:{fontStyle:'bold', cellWidth:36},
+        1:{halign:'right',cellWidth:14},
+        2:{halign:'right',cellWidth:14},
+        3:{halign:'right',cellWidth:14},
+        4:{halign:'right',cellWidth:18},
+        5:{halign:'right',cellWidth:14},
+        6:{halign:'right',cellWidth:24},
+        7:{halign:'right',cellWidth:18},
+      },
+      didParseCell(data){
+        if(data.section==='body'){
+          const r=siteRows[data.row.index];
+          if(!r)return;
+          const rgb=siteRgb(r.sid);
+          if(data.column.index===0){data.cell.styles.textColor=rgb;}
+          if(data.column.index===5){
+            const u=r.util;
+            data.cell.styles.textColor=u>=90?[39,174,96]:u>=70?[230,126,34]:[192,57,43];
+            data.cell.styles.fontStyle='bold';
+          }
+        }
+      },
+      didDrawCell(data){
+        // draw site colour bar on left of first column body rows
+        if(data.section==='body' && data.column.index===0){
+          const r=siteRows[data.row.index]; if(!r)return;
+          const rgb=siteRgb(r.sid);
+          doc.setFillColor(...rgb);
+          doc.rect(data.cell.x, data.cell.y, 2, data.cell.height, 'F');
+        }
+      },
+      margin:{left:margin,right:margin},
+      foot:[['Total','','',String(totStops),totPallets.toLocaleString(),avgUtil+'%',totCost>0?'£'+Math.round(totCost).toLocaleString():'—',cppAll?'£'+cppAll:'—']],
+      footStyles:{fillColor:CREAM,textColor:INK,fontStyle:'bold',fontSize:8,cellPadding:3},
+    });
+    y = doc.lastAutoTable.finalY + 10;
+  }
+
+  // ── UTILISATION BARS (visual) ──
+  if(incl.has('utilisation') && y < 240){
+    const siteOrder=['desborough','selby','banbury','wellington'];
+    const siteMap=data.reduce((acc,e)=>{(acc[e.site]=acc[e.site]||[]).push(e);return acc;},{});
+    doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(...NAVY);
+    doc.text('Utilisation by Site', margin, y); y+=2;
+    doc.setDrawColor(...RULE); doc.line(margin,y,W-margin,y); y+=5;
+    const barH=7, barMaxW=contentW-50, labelW=36;
+    siteOrder.filter(s=>siteMap[s]).forEach(sid=>{
+      const entries=siteMap[sid], meta=SITES_META[sid]||{};
+      const runs=entries.reduce((a,e)=>a+groupByShipment(e).length,0);
+      const pallets=entries.reduce((a,e)=>a+sumPallets(e),0);
+      const util=Math.min(runs*40>0?pallets/(runs*40):0,1.5);
+      const pct=Math.round(util*100);
+      const rgb=siteRgb(sid);
+      doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(...INK);
+      doc.text(meta.name||sid, margin, y+barH/2+1.5);
+      // bar background
+      doc.setFillColor(...CREAM); doc.setDrawColor(...RULE); doc.setLineWidth(0.2);
+      doc.roundedRect(margin+labelW, y, barMaxW, barH, 1.5, 1.5, 'FD');
+      // bar fill
+      const fillW=Math.min(barMaxW*Math.min(pct,100)/100, barMaxW);
+      const fillCol=pct>=90?[39,174,96]:pct>=70?[230,126,34]:[192,57,43];
+      doc.setFillColor(...fillCol);
+      doc.roundedRect(margin+labelW, y, fillW, barH, 1.5, 1.5, 'F');
+      // pct label
+      doc.setFontSize(7.5); doc.setFont('helvetica','bold');
+      doc.setTextColor(...WHITE);
+      if(fillW>12) doc.text(pct+'%', margin+labelW+fillW-3, y+barH/2+1.5, {align:'right'});
+      else { doc.setTextColor(...INK); doc.text(pct+'%', margin+labelW+fillW+3, y+barH/2+1.5); }
+      y+=barH+4;
+    });
+    y+=6;
+  }
+
+  // ── DAILY BREAKDOWN ──
+  if(incl.has('daily-breakdown') && start !== end){
+    const dateMap={};
+    data.forEach(e=>{(dateMap[e.date]=dateMap[e.date]||[]).push(e);});
+    const dates=Object.keys(dateMap).sort();
+    if(dates.length>1){
+      if(y>230){doc.addPage();y=20;}
+      doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(...NAVY);
+      doc.text('Daily Breakdown', margin, y); y+=2;
+      doc.setDrawColor(...RULE); doc.line(margin,y,W-margin,y); y+=5;
+      const dayRows=dates.map(date=>{
+        const entries=dateMap[date];
+        const runs=entries.reduce((a,e)=>a+groupByShipment(e).length,0);
+        const stops=entries.reduce((a,e)=>a+sumStops(e),0);
+        const pallets=entries.reduce((a,e)=>a+sumPallets(e),0);
+        const cap=runs*40; const util=cap>0?Math.round(pallets/cap*100):0;
+        const cost=entries.reduce((a,e)=>a+(e.routes||[]).reduce((b,r)=>{
+          const ic=(r.stops_detail||[]).find(s=>s.actualCost)?.actualCost;
+          if(ic)return b+parseFloat(ic);
+          const rc=calcRunCost(e.site,r.postcodes||r.pc||'');
+          return b+(rc?parseFloat(rc.cost):0);
+        },0),0);
+        const sitesStr=entries.map(e=>SITES_META[e.site]?.name||e.site).join(', ');
+        return[fmtShortDate(date),sitesStr,String(runs),String(stops),pallets.toLocaleString(),util+'%',cost>0?'£'+Math.round(cost).toLocaleString():'—'];
       });
       doc.autoTable({
-        startY: y,
-        head: [['Date', 'Sites', 'Runs', 'Stops', 'Pallets']],
-        body: dayRows,
-        theme: 'striped',
-        headStyles: { fillColor:[18,25,45], textColor:255, fontStyle:'bold', fontSize:9 },
-        bodyStyles: { fontSize: 9, cellPadding: 3 },
-        columnStyles: { 2:{halign:'right'}, 3:{halign:'right'}, 4:{halign:'right'} },
-        margin: { left: margin, right: margin },
+        startY:y,
+        head:[['Date','Sites','Runs','Stops','Pallets','Util %','Est. Cost']],
+        body:dayRows,
+        theme:'striped',
+        headStyles:{fillColor:NAVY,textColor:WHITE,fontStyle:'bold',fontSize:8,cellPadding:3},
+        bodyStyles:{fontSize:8,cellPadding:3},
+        alternateRowStyles:{fillColor:CREAM},
+        columnStyles:{2:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'right',fontStyle:'bold'},6:{halign:'right'}},
+        margin:{left:margin,right:margin},
       });
+      y=doc.lastAutoTable.finalY+10;
     }
   }
-  // Footer
-  const pageCount = doc.internal.getNumberOfPages();
-  for (let i=1; i<=pageCount; i++) {
+
+  // ── FOOTER on every page ──
+  const pageCount=doc.internal.getNumberOfPages();
+  for(let i=1;i<=pageCount;i++){
     doc.setPage(i);
-    doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(150,155,165);
-    doc.text('Triad Control Tower — Confidential', margin, 292);
-    doc.text('Page '+i+' of '+pageCount, W-margin, 292, {align:'right'});
+    doc.setFillColor(...CREAM); doc.rect(0,285,W,12,'F');
+    doc.setDrawColor(...RULE); doc.setLineWidth(0.3); doc.line(0,285,W,285);
+    doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(...INK3);
+    doc.text('Triad Control Tower — Confidential', margin, 291);
+    doc.text('Page '+i+' of '+pageCount, W-margin, 291, {align:'right'});
+    doc.text(period, W/2, 291, {align:'center'});
   }
   doc.save('Triad-KPI-'+period.replace(/[^a-z0-9]+/gi,'-')+'.pdf');
 }
