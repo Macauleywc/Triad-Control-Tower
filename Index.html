@@ -6381,6 +6381,26 @@ function computeEnhancedOpps(data) {
         const isFullLoad = (palletsSaved + palletsCarrier) <= 80;
         const type = isFullLoad ? 'full_load' : 'relay';
 
+        // Get ALL stops from every route (for saved and carrier) that touches this district
+        const getAllRouteStops = (site) => {
+          const stops = [];
+          data.filter(e=>e.site===site).forEach(e=>{
+            (e.routes||[]).forEach(route=>{
+              const detail = route.stops_detail||[];
+              const hasDistrict = detail.some(s=>{
+                const pc=(s.postal||s.postcode||'').toUpperCase();
+                return pc.match(/^([A-Z]{1,2}[0-9]{1,2})/)?.[1] === district;
+              });
+              if(hasDistrict) stops.push(...detail);
+            });
+          });
+          // Deduplicate by postcode+customer
+          const seen=new Set();
+          return stops.filter(s=>{
+            const k=(s.customer||s.name||'')+(s.postal||s.postcode||'');
+            if(seen.has(k)) return false; seen.add(k); return true;
+          });
+        };
         const opp = {
           type, carrier, saved,
           carrierName: SITES_META[carrier]?.name || carrier,
@@ -6395,8 +6415,8 @@ function computeEnhancedOpps(data) {
           totalCostSaved: Math.round(totalCostSaved*100)/100,
           milesSaved: roundTripMiles,
           co2Saved,
-          carrierStops: siteData[carrier].stops,
-          savedStops:   siteData[saved].stops,
+          carrierStops: getAllRouteStops(carrier),
+          savedStops:   getAllRouteStops(saved),
           runLabel: siteData[saved].runLabel || district,
           date: viewDate || todayStr(),
         };
