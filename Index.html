@@ -6326,22 +6326,92 @@ function computeEnhancedOpps(data) {
     });
   });
 
+  // ── Light load detection (< 24 pallets) ──
+  const LIGHT_LOAD_THRESHOLD = 24;
+  const lightLoadOpps = [];
+  const lightSeen = new Set();
+
+  data.forEach(e => {
+    (e.routes||[]).forEach(route => {
+      const routePallets = (route.stops_detail||[]).reduce((a,s)=>a+(s.pallets||0),0) || route.pallets || 0;
+      if (routePallets === 0 || routePallets >= LIGHT_LOAD_THRESHOLD) return;
+      const routePCs = (route.pc||route.postcodes||'').split(',').map(p=>p.trim().toUpperCase()).filter(Boolean);
+      if (!routePCs.length) return;
+
+      // Find which other depot's routes pass through these postcodes
+      const potentialCarriers = [];
+      data.forEach(other => {
+        if (other.site === e.site) return;
+        (other.routes||[]).forEach(otherRoute => {
+          const otherPCs = (otherRoute.pc||otherRoute.postcodes||'').split(',').map(p=>p.trim().toUpperCase()).filter(Boolean);
+          const otherPallets = (otherRoute.stops_detail||[]).reduce((a,s)=>a+(s.pallets||0),0) || otherRoute.pallets || 0;
+          const overlap = routePCs.filter(pc => otherPCs.some(opc => opc.startsWith(pc.slice(0,3)) || pc.startsWith(opc.slice(0,3))));
+          if (!overlap.length) return;
+          const spareCapacity = 80 - otherPallets;
+          if (spareCapacity < routePallets) return; // carrier is already full
+          potentialCarriers.push({
+            site: other.site, route: otherRoute, overlap,
+            currentPallets: otherPallets, spareCapacity
+          });
+        });
+      });
+
+      const key = `${e.site}|${route.runLabel||route.area}`;
+      if (lightSeen.has(key)) return;
+      lightSeen.add(key);
+
+      // Cost of running this light load independently
+      const depotCoords = DEPOT_COORDS[e.site];
+      const avgDist = routePCs.reduce((a,pc) => {
+        const c = PC_AREA_COORDS[pc.match(/^([A-Z]{1,2}[0-9]{1,2})/)?.[1]];
+        if (!c || !depotCoords) return a + 50;
+        return a + kmToMiles(haversineKm(c.lat,c.lon,depotCoords.lat,depotCoords.lon));
+      }, 0) / (routePCs.length || 1);
+      const lightRoundTrip = Math.round(avgDist * 2);
+      const lightCost = TRANSFER_BASE_COST + lightRoundTrip * TRANSFER_PENCE_PER_MILE;
+      const lightMiles = lightRoundTrip;
+      const lightCO2   = Math.round(lightRoundTrip * CO2_KG_PER_MILE);
+
+      lightLoadOpps.push({
+        type: 'light_load',
+        site: e.site,
+        siteName: SITES_META[e.site]?.name || e.site,
+        route, routePallets,
+        threshold: LIGHT_LOAD_THRESHOLD,
+        shortfall: LIGHT_LOAD_THRESHOLD - routePallets,
+        potentialCarriers,
+        roundTripMiles: lightRoundTrip,
+        baseCost: TRANSFER_BASE_COST,
+        mileageCost: Math.round(lightRoundTrip * TRANSFER_PENCE_PER_MILE * 100)/100,
+        totalCostSaved: Math.round(lightCost * 100)/100,
+        milesSaved: lightMiles, co2Saved: lightCO2,
+        district: routePCs[0]?.match(/^([A-Z]{1,2}[0-9]{1,2})/)?.[1] || routePCs[0],
+        date: viewDate || todayStr(),
+      });
+    });
+  });
+
+  lightLoadOpps.sort((a,b) => a.routePallets - b.routePallets); // lowest pallets first
+
   // Sort by cost saving desc
   fullLoadOpps.sort((a,b) => b.totalCostSaved - a.totalCostSaved);
   relayOpps.sort((a,b) => b.totalCostSaved - a.totalCostSaved);
-  return { fullLoadOpps, relayOpps };
+  return { fullLoadOpps, relayOpps, lightLoadOpps };
 }
 
 // ── Render enhanced load sharing tab ──
 function renderAllOppsEnhanced() {
   const el = document.getElementById('all-opps');
   if (!el) return;
-  const { fullLoadOpps, relayOpps } = computeEnhancedOpps(todayData);
-  const total = fullLoadOpps.length + relayOpps.length;
+  const { fullLoadOpps, relayOpps, lightLoadOpps } = computeEnhancedOpps(todayData);
+  const total = fullLoadOpps.length + relayOpps.length + lightLoadOpps.length;
 
-  // Update badge
+  // Update badges
   const badge = document.getElementById('opp-badge');
   if (badge) { badge.textContent = total; badge.style.display = total ? '' : 'none'; }
+  // Light load count in sidebar (separate warning indicator)
+  const llBadge = document.getElementById('light-load-badge');
+  if (llBadge) { llBadge.textContent = lightLoadOpps.length; llBadge.style.display = lightLoadOpps.length ? '' : 'none'; llBadge.style.background = 'var(--red)'; }
 
   if (!total) {
     el.innerHTML = `<div style="text-align:center;padding:48px;color:var(--ink3)">
@@ -6413,8 +6483,9 @@ function renderAllOppsEnhanced() {
   }
 
   // Store opps globally for confirm modal access
-  window._currentFullLoadOpps = fullLoadOpps;
-  window._currentRelayOpps    = relayOpps;
+  window._currentFullLoadOpps  = fullLoadOpps;
+  window._currentRelayOpps     = relayOpps;
+  window._currentLightLoadOpps = lightLoadOpps;
 
   let html = `<div style="margin-bottom:20px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
@@ -6442,12 +6513,60 @@ function renderAllOppsEnhanced() {
     relayOpps.forEach((opp,i) => { html += oppCard(opp, i + fullLoadOpps.length); });
   }
 
+  if (lightLoadOpps.length) {
+    html += `<div style="display:flex;align-items:center;gap:8px;margin:${(fullLoadOpps.length||relayOpps.length)?'24px':0} 0 10px;padding-top:${(fullLoadOpps.length||relayOpps.length)?'20px':0};border-top:${(fullLoadOpps.length||relayOpps.length)?'1px solid var(--rule)':'none'}">
+      <span style="width:10px;height:10px;border-radius:50%;background:var(--red);display:inline-block"></span>
+      <span style="font-size:13px;font-weight:700;color:var(--ink)">Light loads — ${lightLoadOpps.length} run${lightLoadOpps.length!==1?'s':''} below 24 pallets</span>
+      <span style="font-size:12px;color:var(--ink3)">These should always be consolidated — running a truck under 24 pallets is not cost-effective</span>
+    </div>`;
+    lightLoadOpps.forEach((opp, i) => {
+      const siteColor = SITES_META[opp.site]?.color || 'var(--navy)';
+      const fillPct   = Math.round(opp.routePallets / 40 * 100);
+      const carrierLines = opp.potentialCarriers.length
+        ? opp.potentialCarriers.slice(0,3).map(c =>
+            `<div style="font-size:12px;color:var(--ink2);padding:4px 0">
+              <span style="color:${SITES_META[c.site]?.color||'var(--navy)'};font-weight:600">${SITES_META[c.site]?.name||c.site}</span> —
+              route <strong>${c.route.runLabel||c.route.area}</strong> has
+              <strong>${c.spareCapacity}p spare</strong> going through ${c.overlap.slice(0,3).join(', ')}
+            </div>`
+          ).join('')
+        : '<div style="font-size:12px;color:var(--ink3)">No direct carrier match found for today — consider holding this load until tomorrow.</div>';
+
+      html += `<div style="background:#fff;border:1px solid var(--rule);border-left:3px solid var(--red);border-radius:12px;overflow:hidden;margin-bottom:10px">
+        <div style="padding:14px 18px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+            <span style="padding:3px 10px;border-radius:20px;background:#fdecea;color:var(--red);font-size:11px;font-weight:700">LIGHT LOAD</span>
+            <span style="font-size:14px;font-weight:700;color:var(--ink)">${opp.siteName} — ${opp.route.runLabel||opp.district}</span>
+            <span style="font-size:12px;color:var(--ink3)">Only ${opp.routePallets} pallets (${fillPct}% fill) — needs ${opp.shortfall} more to reach threshold</span>
+          </div>
+          <!-- Fill bar -->
+          <div style="background:var(--cream);border-radius:4px;height:8px;margin-bottom:12px;position:relative">
+            <div style="height:100%;width:${fillPct}%;background:var(--red);border-radius:4px"></div>
+            <div style="position:absolute;top:0;left:${Math.round(24/40*100)}%;height:100%;width:2px;background:var(--ink3)" title="24 pallet threshold"></div>
+          </div>
+          <div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:6px">Potential carriers today:</div>
+          ${carrierLines}
+          <div style="margin-top:12px;display:flex;gap:10px">
+            <button onclick="openConfirmTransfer(${i + fullLoadOpps.length + relayOpps.length},'light_load')"
+              style="padding:7px 16px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-body)">
+              ✓ Confirm consolidated
+            </button>
+            <div style="font-size:11px;color:var(--ink3);display:flex;align-items:center">
+              Running independently costs est. <strong style="color:var(--red);margin-left:4px">£${opp.totalCostSaved.toFixed(2)}</strong>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    });
+    window._currentLightLoadOpps = lightLoadOpps;
+  }
+
   el.innerHTML = html;
 }
 
 // ── Confirm transfer modal ──
 function openConfirmTransfer(idx, type) {
-  const allOpps = [...(window._currentFullLoadOpps||[]), ...(window._currentRelayOpps||[])];
+  const allOpps = [...(window._currentFullLoadOpps||[]), ...(window._currentRelayOpps||[]), ...(window._currentLightLoadOpps||[])];
   const opp = allOpps[idx];
   if (!opp) return;
   window._confirmingOpp = opp;
