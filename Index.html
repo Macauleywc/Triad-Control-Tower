@@ -6337,9 +6337,10 @@ function computeEnhancedOpps(data) {
     });
   });
 
-  const fullLoadOpps = [];
-  const relayOpps   = [];
-  const seen = new Set();
+  // Group by SAVED site + district — one card per delivery problem
+  // Multiple potential carriers become options on the same card
+  const oppMap = {};    // key: saved|district
+  const relayOpps = []; // relay still separate
 
   Object.entries(districtMap).forEach(([district, siteData]) => {
     const sites = Object.keys(siteData);
@@ -6347,84 +6348,91 @@ function computeEnhancedOpps(data) {
     const coords = PC_AREA_COORDS[district];
     if (!coords) return;
 
-    sites.forEach(siteA => {
-      sites.forEach(siteB => {
-        if (siteA === siteB) return;
-        const key = [siteA,siteB,district].sort().join('|');
-        if (seen.has(key)) return;
-        seen.add(key);
-
-        const dA = DEPOT_COORDS[siteA], dB = DEPOT_COORDS[siteB];
-        if (!dA || !dB) return;
-
-        const distA = kmToMiles(haversineKm(coords.lat,coords.lon,dA.lat,dA.lon));
-        const distB = kmToMiles(haversineKm(coords.lat,coords.lon,dB.lat,dB.lon));
-
-        // The CLOSER depot should do the delivery — it handles the load
-        // The FURTHER depot saves the truck
-        const [carrier, saved, distCarrier, distSaved] =
-          distA <= distB ? [siteA, siteB, distA, distB] : [siteB, siteA, distB, distA];
-
-        // Only flag if the saving depot is meaningfully further away (>10 miles difference)
-        if (distSaved - distCarrier < 10) return;
-
-        const palletsSaved   = siteData[saved].pallets;
-        const palletsCarrier = siteData[carrier].pallets;
-        const roundTripMiles = Math.round(distSaved * 2);
-        const mileageCost    = roundTripMiles * TRANSFER_PENCE_PER_MILE;
-        const totalCostSaved = TRANSFER_BASE_COST + mileageCost;
-        const co2Saved       = Math.round(roundTripMiles * CO2_KG_PER_MILE);
-
-        // Distinguish full load vs relay
-        // Full load: carrier can absorb ALL of saved depot's pallets (combined ≤ 80)
-        // Relay: carrier could take SOME (partial relief)
-        const isFullLoad = (palletsSaved + palletsCarrier) <= 80;
-        const type = isFullLoad ? 'full_load' : 'relay';
-
-        // Get ALL stops from every route (for saved and carrier) that touches this district
-        const getAllRouteStops = (site) => {
-          const stops = [];
-          data.filter(e=>e.site===site).forEach(e=>{
-            (e.routes||[]).forEach(route=>{
-              const detail = route.stops_detail||[];
-              const hasDistrict = detail.some(s=>{
-                const pc=(s.postal||s.postcode||'').toUpperCase();
-                return pc.match(/^([A-Z]{1,2}[0-9]{1,2})/)?.[1] === district;
-              });
-              if(hasDistrict) stops.push(...detail);
-            });
+    const getAllRouteStops = (site) => {
+      const stops = [];
+      data.filter(e=>e.site===site).forEach(e=>{
+        (e.routes||[]).forEach(route=>{
+          const detail = route.stops_detail||[];
+          const hasDistrict = detail.some(s=>{
+            const pc=(s.postal||s.postcode||'').toUpperCase();
+            return pc.match(/^([A-Z]{1,2}[0-9]{1,2})/)?.[1] === district;
           });
-          // Deduplicate by postcode+customer
-          const seen=new Set();
-          return stops.filter(s=>{
-            const k=(s.customer||s.name||'')+(s.postal||s.postcode||'');
-            if(seen.has(k)) return false; seen.add(k); return true;
-          });
-        };
-        const opp = {
-          type, carrier, saved,
-          carrierName: SITES_META[carrier]?.name || carrier,
-          savedName:   SITES_META[saved]?.name   || saved,
-          district,
-          distCarrier: Math.round(distCarrier),
-          distSaved:   Math.round(distSaved),
-          palletsSaved, palletsCarrier,
-          roundTripMiles,
-          baseCost: TRANSFER_BASE_COST,
-          mileageCost: Math.round(mileageCost*100)/100,
-          totalCostSaved: Math.round(totalCostSaved*100)/100,
-          milesSaved: roundTripMiles,
-          co2Saved,
-          carrierStops: getAllRouteStops(carrier),
-          savedStops:   getAllRouteStops(saved),
-          runLabel: siteData[saved].runLabel || district,
-          date: viewDate || todayStr(),
-        };
-        if (isFullLoad) fullLoadOpps.push(opp);
-        else relayOpps.push(opp);
+          if(hasDistrict) stops.push(...detail);
+        });
       });
+      const uniqSeen=new Set();
+      return stops.filter(s=>{
+        const k=(s.customer||s.name||'')+(s.postal||s.postcode||'');
+        if(uniqSeen.has(k)) return false; uniqSeen.add(k); return true;
+      });
+    };
+
+    sites.forEach(saved => {
+      const dSaved   = DEPOT_COORDS[saved]; if (!dSaved) return;
+      const distSaved = kmToMiles(haversineKm(coords.lat,coords.lon,dSaved.lat,dSaved.lon));
+      const palletsSaved = siteData[saved].pallets;
+
+      // Find all potential carriers (closer to this district)
+      const carriers = [];
+      sites.forEach(carrier => {
+        if (carrier === saved) return;
+        const dCarrier = DEPOT_COORDS[carrier]; if (!dCarrier) return;
+        const distCarrier = kmToMiles(haversineKm(coords.lat,coords.lon,dCarrier.lat,dCarrier.lon));
+        if (distSaved - distCarrier < 10) return; // carrier must be meaningfully closer
+        const palletsCarrier = siteData[carrier].pallets;
+        carriers.push({
+          site: carrier,
+          name: SITES_META[carrier]?.name || carrier,
+          color: SITES_META[carrier]?.color || 'var(--navy)',
+          distCarrier: Math.round(distCarrier),
+          palletsCarrier,
+          isFullLoad: (palletsSaved + palletsCarrier) <= 80,
+        });
+      });
+      if (!carriers.length) return;
+
+      // Savings based on SAVED depot avoiding their own trip
+      const roundTripMiles = Math.round(distSaved * 2);
+      const mileageCost    = roundTripMiles * TRANSFER_PENCE_PER_MILE;
+      const totalCostSaved = TRANSFER_BASE_COST + mileageCost;
+      // CO2: Wellington avoids their full round trip; carrier was going anyway → minimal extra
+      const co2Saved = Math.round(roundTripMiles * CO2_KG_PER_MILE);
+      // VPK 10% discount on the avoided run
+      const vpkSaving = Math.round(totalCostSaved * 0.10 * 100)/100;
+
+      const isAnyFullLoad = carriers.some(c => c.isFullLoad);
+      const type = isAnyFullLoad ? 'full_load' : 'relay';
+      const problemKey = `${saved}|${district}`;
+
+      const opp = {
+        type, saved,
+        savedName: SITES_META[saved]?.name || saved,
+        savedColor: SITES_META[saved]?.color || 'var(--navy)',
+        district,
+        distSaved: Math.round(distSaved),
+        palletsSaved,
+        carriers, // array of potential carriers
+        selectedCarrier: carriers[0]?.site || null, // default to closest
+        roundTripMiles,
+        baseCost: TRANSFER_BASE_COST,
+        mileageCost: Math.round(mileageCost*100)/100,
+        totalCostSaved: Math.round(totalCostSaved*100)/100,
+        vpkSaving,
+        milesSaved: roundTripMiles,
+        co2Saved,
+        savedStops: getAllRouteStops(saved),
+        runLabel: siteData[saved].runLabel || district,
+        date: viewDate || todayStr(),
+        // carrier is separate — selected by user
+        carrier: carriers[0]?.site,
+        carrierName: carriers[0]?.name,
+      };
+      oppMap[problemKey] = opp;
     });
   });
+
+  const fullLoadOpps = Object.values(oppMap).filter(o=>o.type==='full_load');
+  fullLoadOpps.sort((a,b)=>b.totalCostSaved-a.totalCostSaved);
 
   // ── Light load detection (< 24 pallets) ──
   const LIGHT_LOAD_THRESHOLD = 24;
@@ -6550,43 +6558,55 @@ function renderAllOppsEnhanced() {
 
   function oppCard(opp, i) {
     const isFullLoad = opp.type === 'full_load';
-    const accent = isFullLoad ? 'var(--green)' : 'var(--amber)';
-    const badge  = isFullLoad
+    const savedColor = opp.savedColor || SITES_META[opp.saved]?.color || 'var(--navy)';
+    const selCarrier = opp.carriers?.find(c=>c.site===opp.selectedCarrier) || opp.carriers?.[0];
+    const badge = isFullLoad
       ? `<span style="padding:3px 10px;border-radius:20px;background:#e8f5e9;color:#2e7d32;font-size:11px;font-weight:700">FULL LOAD</span>`
       : `<span style="padding:3px 10px;border-radius:20px;background:#fff8e1;color:#f57f17;font-size:11px;font-weight:700">RELAY</span>`;
-    const carrierColor = SITES_META[opp.carrier]?.color || 'var(--navy)';
-    const savedColor   = SITES_META[opp.saved]?.color   || 'var(--navy)';
-    return `<div style="background:#fff;border:1px solid var(--rule);border-radius:12px;overflow:hidden;margin-bottom:12px">
-      <div style="height:3px;background:linear-gradient(90deg,${carrierColor},${savedColor})"></div>
+    // Carrier selector chips
+    const carrierChips = (opp.carriers||[]).map(c=>{
+      const isSel = c.site === (opp.selectedCarrier || opp.carriers[0]?.site);
+      return `<button onclick="selectOppCarrier(${i},'${c.site}')"
+        style="padding:5px 12px;border-radius:20px;border:1.5px solid ${isSel?c.color:'var(--rule)'};background:${isSel?c.color+'15':'none'};color:${isSel?c.color:'var(--ink3)'};font-size:12px;font-weight:${isSel?700:400};cursor:pointer;font-family:var(--font-body)">
+        ${c.name} · ${c.distCarrier} mi
+      </button>`;
+    }).join('');
+    return `<div id="opp-card-${i}" style="background:#fff;border:1px solid var(--rule);border-radius:12px;overflow:hidden;margin-bottom:12px">
+      <div style="height:3px;background:${savedColor}"></div>
       <div style="padding:16px 20px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
           ${badge}
-          <span style="font-size:14px;font-weight:700;color:var(--ink)">${opp.carrierName} → handles ${opp.savedName}'s ${opp.district} delivery</span>
+          <span style="font-size:14px;font-weight:700;color:var(--ink)">${opp.savedName} · ${opp.district} delivery</span>
+          <span style="font-size:12px;color:var(--ink3)">${opp.palletsSaved}p · ${opp.distSaved} mi from ${opp.savedName}</span>
         </div>
+        <!-- Carrier selector -->
+        <div style="margin-bottom:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Who is taking this delivery?</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">${carrierChips}</div>
+        </div>
+        <!-- Metrics -->
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
           <div style="background:var(--cream);border-radius:8px;padding:10px;text-align:center">
-            <div style="font-size:16px;font-weight:700;color:var(--green)">£${opp.totalCostSaved.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-            <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.05em;margin-top:2px">Truck saved</div>
+            <div style="font-size:15px;font-weight:700;color:var(--green)">£${opp.totalCostSaved.toFixed(2)}</div>
+            <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.05em;margin-top:2px">${opp.savedName} truck saved</div>
+          </div>
+          <div style="background:#e8f5e9;border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:15px;font-weight:700;color:#2e7d32">£${opp.vpkSaving.toFixed(2)}</div>
+            <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.05em;margin-top:2px">VPK 10% discount</div>
           </div>
           <div style="background:var(--cream);border-radius:8px;padding:10px;text-align:center">
-            <div style="font-size:16px;font-weight:700;color:var(--navy)">${opp.milesSaved} mi</div>
-            <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.05em;margin-top:2px">Miles saved</div>
+            <div style="font-size:15px;font-weight:700;color:var(--navy)">${opp.milesSaved} mi</div>
+            <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.05em;margin-top:2px">${opp.savedName} miles avoided</div>
           </div>
           <div style="background:var(--cream);border-radius:8px;padding:10px;text-align:center">
-            <div style="font-size:16px;font-weight:700;color:var(--ink)">${opp.co2Saved} kg</div>
-            <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.05em;margin-top:2px">CO₂ avoided</div>
-          </div>
-          <div style="background:var(--cream);border-radius:8px;padding:10px;text-align:center">
-            <div style="font-size:16px;font-weight:700;color:var(--ink)">${opp.palletsSaved}p</div>
-            <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.05em;margin-top:2px">Pallets relayed</div>
+            <div style="font-size:15px;font-weight:700;color:var(--ink)">${opp.co2Saved} kg</div>
+            <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.05em;margin-top:2px">${opp.savedName} CO₂ avoided</div>
           </div>
         </div>
         <div style="font-size:12px;color:var(--ink3);margin-bottom:14px;line-height:1.5">
-          <strong style="color:var(--ink)">${opp.district}</strong> — 
-          <span style="color:${carrierColor}">${opp.carrierName}</span> is <strong>${opp.distCarrier} mi</strong> away · 
-          <span style="color:${savedColor}">${opp.savedName}</span> is <strong>${opp.distSaved} mi</strong> away — 
-          saving ${opp.distSaved - opp.distCarrier} miles one-way · 
-          base £${opp.baseCost} + £${(opp.roundTripMiles*0.5).toFixed(2)} mileage (${opp.roundTripMiles} mi RT)
+          <span style="color:${savedColor};font-weight:600">${opp.savedName}</span> avoids ${opp.distSaved} mi one-way (${opp.roundTripMiles} mi RT) ·
+          base £${opp.baseCost} + £${opp.mileageCost} mileage ·
+          ${selCarrier ? `<span style="color:${selCarrier.color||'var(--navy)'};font-weight:600">${selCarrier.name}</span> carries it (already ${selCarrier.distCarrier} mi away — no extra truck needed)` : ''}
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
           <button onclick="openConfirmTransfer(${i},'${opp.type}')" 
@@ -6732,6 +6752,23 @@ function renderAllOppsEnhanced() {
   el.innerHTML = html;
 }
 
+// ── Select carrier on opportunity card ──
+function selectOppCarrier(cardIdx, carrierSite) {
+  const allOpps = [...(window._currentFullLoadOpps||[]), ...(window._currentRelayOpps||[])];
+  const opp = allOpps[cardIdx];
+  if (!opp) return;
+  opp.selectedCarrier = carrierSite;
+  opp.carrier         = carrierSite;
+  opp.carrierName     = SITES_META[carrierSite]?.name || carrierSite;
+  // Re-render just this card
+  const cardEl = document.getElementById('opp-card-'+cardIdx);
+  if (cardEl) {
+    const tempDiv = document.createElement('div');
+    // Re-render via full refresh (simplest approach)
+    renderAllOppsEnhanced();
+  }
+}
+
 // ── Confirm transfer modal ──
 function openConfirmTransfer(idx, type) {
   const allOpps = [...(window._currentFullLoadOpps||[]), ...(window._currentRelayOpps||[]), ...(window._currentLightLoadOpps||[])];
@@ -6742,14 +6779,16 @@ function openConfirmTransfer(idx, type) {
   const modal = document.createElement('div');
   modal.id = 'confirm-transfer-modal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center';
+  const carrierName = opp.carrierName || (opp.carriers?.[0]?.name) || 'Carrier';
   modal.innerHTML = `<div style="background:#fff;border-radius:16px;padding:28px;width:480px;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
       <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--ink)">Confirm transfer</div>
       <button onclick="document.getElementById('confirm-transfer-modal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--ink3)">&times;</button>
     </div>
     <div style="background:var(--cream);border-radius:10px;padding:14px;margin-bottom:20px;font-size:13px">
-      <div style="font-weight:700;color:var(--ink);margin-bottom:4px">${opp.carrierName} carries ${opp.savedName}'s ${opp.district} pallets</div>
-      <div style="color:var(--ink2)">Est. saving: <strong style="color:var(--green)">£${opp.totalCostSaved.toFixed(2)}</strong> · ${opp.milesSaved} miles · ${opp.co2Saved} kg CO₂</div>
+      <div style="font-weight:700;color:var(--ink);margin-bottom:4px">${carrierName} carries ${opp.savedName}'s ${opp.district} pallets</div>
+      <div style="color:var(--ink2);margin-bottom:4px">Truck saved: <strong style="color:var(--green)">£${opp.totalCostSaved.toFixed(2)}</strong> · VPK 10% discount: <strong style="color:#2e7d32">£${opp.vpkSaving?.toFixed(2)||'—'}</strong></div>
+      <div style="color:var(--ink2)">${opp.milesSaved} miles · ${opp.co2Saved} kg CO₂ avoided by ${opp.savedName}</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
       <div>
