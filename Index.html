@@ -6370,7 +6370,22 @@ function computeEnhancedOpps(data) {
     sites.forEach(saved => {
       const dSaved   = DEPOT_COORDS[saved]; if (!dSaved) return;
       const distSaved = kmToMiles(haversineKm(coords.lat,coords.lon,dSaved.lat,dSaved.lon));
-      const palletsSaved = siteData[saved].pallets;
+      // District pallets (overlap only) vs full route pallets (whole run)
+      const districtPallets = siteData[saved].pallets;
+      const fullRoutePallets = (() => {
+        let total = 0;
+        data.filter(e => e.site === saved).forEach(e => {
+          (e.routes||[]).forEach(route => {
+            const detail = route.stops_detail||[];
+            const hasDistrict = detail.some(s => {
+              const pc = (s.postal||s.postcode||'').toUpperCase();
+              return pc.match(/^([A-Z]{1,2}[0-9]{1,2})/)?.[1] === district;
+            });
+            if (hasDistrict) total += detail.reduce((a,s)=>a+(s.pallets||0),0) || route.pallets || 0;
+          });
+        });
+        return total || districtPallets;
+      })();
 
       // Find all potential carriers (closer to this district)
       const carriers = [];
@@ -6378,7 +6393,7 @@ function computeEnhancedOpps(data) {
         if (carrier === saved) return;
         const dCarrier = DEPOT_COORDS[carrier]; if (!dCarrier) return;
         const distCarrier = kmToMiles(haversineKm(coords.lat,coords.lon,dCarrier.lat,dCarrier.lon));
-        if (distSaved - distCarrier < 10) return; // carrier must be meaningfully closer
+        if (distSaved - distCarrier < 10) return;
         const palletsCarrier = siteData[carrier].pallets;
         carriers.push({
           site: carrier,
@@ -6386,22 +6401,21 @@ function computeEnhancedOpps(data) {
           color: SITES_META[carrier]?.color || 'var(--navy)',
           distCarrier: Math.round(distCarrier),
           palletsCarrier,
-          isFullLoad: (palletsSaved + palletsCarrier) <= 80,
+          isFullLoad: (districtPallets + palletsCarrier) <= 80,
         });
       });
       if (!carriers.length) return;
 
-      // Savings based on SAVED depot avoiding their own trip
+      const isAnyFullLoad = carriers.some(c => c.isFullLoad);
+      const type = isAnyFullLoad ? 'full_load' : 'relay';
+      // Full load: use whole route pallets. Relay: district overlap only.
+      const palletsSaved = isAnyFullLoad ? fullRoutePallets : districtPallets;
+
       const roundTripMiles = Math.round(distSaved * 2);
       const mileageCost    = roundTripMiles * TRANSFER_PENCE_PER_MILE;
       const totalCostSaved = TRANSFER_BASE_COST + mileageCost;
-      // CO2: Wellington avoids their full round trip; carrier was going anyway → minimal extra
       const co2Saved = Math.round(roundTripMiles * CO2_KG_PER_MILE);
-      // VPK 10% discount on the avoided run
       const vpkSaving = Math.round(totalCostSaved * 0.10 * 100)/100;
-
-      const isAnyFullLoad = carriers.some(c => c.isFullLoad);
-      const type = isAnyFullLoad ? 'full_load' : 'relay';
       const problemKey = `${saved}|${district}`;
 
       const opp = {
@@ -6820,8 +6834,9 @@ function openConfirmTransfer(idx, type) {
           <input type="date" id="ct-date" value="${viewDate||todayStr()}" style="width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;font-size:13px;font-family:var(--font-body);box-sizing:border-box">
         </div>
         <div>
-          <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Actual miles (one way)</div>
-          <input type="number" id="ct-miles" value="${opp.distSaved}" min="1" style="width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;font-size:13px;font-family:var(--font-body);box-sizing:border-box">
+          <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Miles saved (round trip)</div>
+          <input type="number" id="ct-miles" value="${opp.roundTripMiles}" min="1" style="width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;font-size:13px;font-family:var(--font-body);box-sizing:border-box">
+          <div style="font-size:10px;color:var(--ink3);margin-top:3px">${opp.savedName}: ${opp.distSaved} mi × 2 = full return journey avoided</div>
         </div>
       </div>
 
@@ -6869,8 +6884,7 @@ function openConfirmTransfer(idx, type) {
 
   // Live recalc when miles change
   document.getElementById('ct-miles').addEventListener('input', () => {
-    const miles = parseFloat(document.getElementById('ct-miles').value)||0;
-    const rt = miles * 2;
+    const rt   = parseFloat(document.getElementById('ct-miles').value)||0; // already round trip
     const cost = TRANSFER_BASE_COST + rt * TRANSFER_PENCE_PER_MILE;
     const co2  = Math.round(rt * CO2_KG_PER_MILE);
     document.getElementById('ct-cost-preview').textContent = '£'+cost.toFixed(2);
@@ -6884,25 +6898,24 @@ async function saveConfirmedTransfer() {
   if (!opp) return;
   const date    = document.getElementById('ct-date').value;
   const pallets = parseInt(document.getElementById('ct-pallets').value)||0;
-  const miles   = parseFloat(document.getElementById('ct-miles').value)||0;
+  const rtMiles = parseFloat(document.getElementById('ct-miles').value)||0; // already round trip
   const type    = document.getElementById('ct-type')?.value || 'full_load';
   const notes   = document.getElementById('ct-notes').value.trim();
-  const rt      = miles * 2;
-  const mileage = Math.round(rt * TRANSFER_PENCE_PER_MILE * 100)/100;
+  const mileage = Math.round(rtMiles * TRANSFER_PENCE_PER_MILE * 100)/100;
   const cost    = Math.round((TRANSFER_BASE_COST + mileage)*100)/100;
-  const co2     = Math.round(rt * CO2_KG_PER_MILE);
+  const co2     = Math.round(rtMiles * CO2_KG_PER_MILE);
 
   const record = {
     transfer_date: date, type,
-    from_site: opp.carrier, to_site: opp.saved,
+    from_site: opp.carrier||opp.carriers?.[0]?.site, to_site: opp.saved,
     route_area: opp.runLabel||opp.district,
     district: opp.district,
     pallets_transferred: pallets,
-    one_way_miles: miles,
+    one_way_miles: Math.round(rtMiles/2),
     base_cost: TRANSFER_BASE_COST,
     mileage_cost: mileage,
     total_cost_saved: cost,
-    miles_saved: Math.round(rt),
+    miles_saved: Math.round(rtMiles),
     co2_kg_saved: co2,
     confirmed_by: currentUser?.email || currentUser?.id || 'unknown',
     notes, plan_date: date
