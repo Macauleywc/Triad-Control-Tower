@@ -1362,7 +1362,7 @@ button, input, select, textarea { font-family: var(--font-body); }
 .lb-section-head.multi { color:var(--amber); }
 .lb-section-head.single { color:var(--ink3); }
 .lb-row {
-  display:grid; grid-template-columns:36px 1fr auto auto; gap:0;
+  display:grid; grid-template-columns:36px 1fr auto auto 24px; flex-wrap:wrap; gap:0;
   align-items:center; background:#fff;
   border:1px solid var(--rule); border-radius:10px;
   margin-bottom:6px; overflow:hidden; transition:box-shadow .15s;
@@ -1398,6 +1398,11 @@ button, input, select, textarea { font-family: var(--font-body); }
 .lb-pal-lbl { font-family:var(--font-mono); font-size:10px; color:var(--ink3); }
 .lb-pal-bar { height:3px; border-radius:2px; background:var(--rule); margin-top:4px; overflow:hidden; }
 .lb-pal-bar-fill { height:100%; border-radius:2px; }
+.lb-row { cursor:pointer; }
+.lb-row-detail { display:none; padding:0 14px 12px 52px; }
+.lb-row.open .lb-row-detail { display:block; }
+.lb-row-chevron { font-size:12px; color:var(--ink3); transition:transform .15s; padding:0 10px; display:flex; align-items:center; }
+.lb-row.open .lb-row-chevron { transform:rotate(90deg); }
 .lb-row-extra {
   padding:12px 14px 12px 0; text-align:right; min-width:60px;
 }
@@ -5678,14 +5683,14 @@ function renderLeaderboard() {
     const isMultiDayPeriod = kpiPeriod !== 'today';
     const extraVal   = (isAllTime||isMultiDayPeriod) ? pt.deliveryDays.size : Object.values(pt.siteBreakdown).reduce((a,s) => a + (s.stops||1), 0);
     const extraLabel = (isAllTime||isMultiDayPeriod) ? 'days' : 'stops';
-    return `<div class="lb-row ${isMulti?'is-multi':'is-single'}">
+    const rowId = 'lb-row-'+idx;
+    return `<div class="lb-row ${isMulti?'is-multi':'is-single'}" id="${rowId}" onclick="toggleLbRow('${rowId}')">
       <div class="lb-row-rank">${rankLabel}</div>
       <div class="lb-row-main">
-        <div class="lb-row-customer">${pt.customer}</div>
-        <div class="lb-row-meta">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="lb-row-customer">${pt.customer}</div>
           <span class="lb-postcode">${pt.postcode}</span>
           ${sitesCountBadge}
-          ${chips}
         </div>
       </div>
       <div class="lb-row-pallets">
@@ -5696,6 +5701,13 @@ function renderLeaderboard() {
       <div class="lb-row-extra">
         <div class="lb-extra-val">${extraVal}</div>
         <div class="lb-extra-lbl">${extraLabel}</div>
+      </div>
+      <div class="lb-row-chevron">›</div>
+      <!-- Expanded detail -->
+      <div class="lb-row-detail" style="grid-column:1/-1">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding-top:4px;border-top:1px solid var(--rule)">
+          ${chips}
+        </div>
       </div>
     </div>`;
   }
@@ -5713,6 +5725,10 @@ function renderLeaderboard() {
 /* ══════════════════════════════════════════
    ADMIN RENDER
 ══════════════════════════════════════════ */
+function toggleLbRow(id) {
+  document.getElementById(id)?.classList.toggle('open');
+}
+
 function buildSiteRadios() {
   const el = document.getElementById('site-radio-group');
   if (!el) return;
