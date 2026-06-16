@@ -1617,6 +1617,19 @@ button, input, select, textarea { font-family: var(--font-body); }
    KPI SECTION
 ══════════════════════════════════════════ */
 .kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:24px}
+.kpi-section-header{display:flex;align-items:center;gap:10px;margin:24px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--rule)}
+.kpi-section-header-label{font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;font-family:var(--font-mono)}
+.kpi-section-header-line{flex:1;height:1px}
+.kpi-stat-row{display:grid;gap:10px;margin-bottom:12px}
+.kpi-stat-tile{background:#fff;border:1px solid var(--rule);border-radius:10px;padding:16px 18px}
+.kpi-stat-tile .stat-val{font-family:var(--font-head);font-size:28px;font-weight:800;letter-spacing:-1px;color:var(--ink);line-height:1}
+.kpi-stat-tile .stat-lbl{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-top:5px}
+.kpi-stat-tile .stat-sub{font-size:11px;color:var(--ink3);margin-top:4px}
+.kpi-savings-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}
+.kpi-savings-tile{background:#fff;border:1px solid var(--rule);border-radius:10px;padding:14px;text-align:center}
+.kpi-savings-tile.green{background:#f0fdf4;border-color:#c8e6c9}
+.kpi-savings-tile .sv{font-size:20px;font-weight:700;color:var(--ink);line-height:1}
+.kpi-savings-tile .sl{font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
 .kpi-card{background:#fff;border:1px solid var(--rule);border-radius:var(--r-lg);padding:22px 24px;position:relative;overflow:hidden;transition:box-shadow .2s,transform .2s}
 .kpi-card:hover{box-shadow:0 6px 24px rgba(0,0,0,.07);transform:translateY(-2px)}
 .kpi-accent{position:absolute;top:0;left:0;width:4px;height:100%}
@@ -2906,12 +2919,25 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
         <span id="kpi-period-label" style="font-size:11px;color:var(--ink3);font-family:var(--font-mono);margin-left:4px"></span>
         <span id="kpi-loading" style="display:none;font-size:11px;color:var(--ink3);font-family:var(--font-mono)">Loading…</span>
       </div>
-      <!-- 6 headline KPI cards -->
-      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:28px" id="kpi-grid"></div>
+      <!-- Headline metrics: 4 hero + 4 supporting -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px" id="kpi-grid"></div>
+
+      <!-- Savings tracker -->
+      <div style="display:flex;align-items:center;gap:8px;margin:20px 0 10px">
+        <span style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;font-family:var(--font-mono)">Load sharing savings</span>
+        <div style="flex:1;height:1px;background:var(--rule)"></div>
+        <button onclick="showTab('savings')" style="font-size:11px;color:var(--navy);background:none;border:none;cursor:pointer;font-family:var(--font-body);text-decoration:underline">Full tracker →</button>
+      </div>
+      <div id="kpi-savings-tracker" style="margin-bottom:24px"></div>
+
       <!-- Period daily breakdown (hidden for Today) -->
       <div id="kpi-period-breakdown" style="display:none;margin-bottom:24px"></div>
+
       <!-- Site breakdown -->
-      <div class="kpi-section-title" id="kpi-breakdown-title">Site breakdown — today</div>
+      <div style="display:flex;align-items:center;gap:8px;margin:4px 0 10px">
+        <span class="kpi-section-title" id="kpi-breakdown-title" style="margin:0">Site breakdown — today</span>
+        <div style="flex:1;height:1px;background:var(--rule)"></div>
+      </div>
       <div class="kpi-site-breakdown">
         <div class="kpi-breakdown-head">
           <span>Site</span><span>Runs</span><span>Loads</span><span>Stops</span><span>Pallets</span><span>Util %</span><span>Status</span>
@@ -5352,25 +5378,111 @@ function renderKPIs() {
   const utilCol  = avgUtil>=90?'var(--red)':avgUtil>=75?'var(--amber)':'var(--green)';
   const compCol  = uploadedSites===4?'var(--green)':'var(--amber)';
   const overCol  = overCap>0?'var(--red)':'var(--green)';
-  if (kpiGrid) kpiGrid.innerHTML = [
-    kpiCard('var(--navy)',  isMultiDay?'Total runs — '+daysLabel:'Total runs today',
-      totRuns,   '',    `${totLoads} loads · ${new Set(dataSet.map(e=>e.site)).size} site${new Set(dataSet.map(e=>e.site)).size!==1?'s':''}`, `${totRuns} vehicle runs`, 'var(--navy)'),
-    kpiCard('var(--navy2)', isMultiDay?'Total stops — '+daysLabel:'Total stops',
-      totStops,  '',    `${totPallets.toLocaleString()} pallets · ${totWeight.toFixed(1)}t estimated weight`, null, null),
-    kpiCard(utilCol, 'Avg utilisation', avgUtil, '%',
-      isMultiDay ? `${daysLabel} · ${new Set(dataSet.map(e=>e.site)).size} sites` : `Across ${new Set(dataSet.map(e=>e.site)).size} site${new Set(dataSet.map(e=>e.site)).size!==1?'s':''} with data`,
-      avgUtil>=90?'⚠ Over capacity':avgUtil>=75?'Near capacity':'✓ Healthy', utilCol),
-    kpiCard(overCol, 'Over capacity', overCap, '/'+dataSet.length,
-      overCap===0?'All sites within capacity':`${overCap} plan${overCap!==1?'s':''} need attention`,
-      overCap===0?'✓ All clear':'⚠ Action needed', overCol),
-    kpiCard('var(--green)', 'Sharing opportunities', opps.length, '',
-      `Est. ${totalSavings} miles · ~£${Math.round(totalSavings*costPerMile)} savings · 30mi ring fence`,
-      opps.length?`${opps.length} opp${opps.length!==1?'s':''}`:null, 'var(--green)'),
-    kpiCard(compCol, isMultiDay?'Sites in period':'Upload compliance',
-      uploadedSites, '/4',
-      isMultiDay?`${uploadedSites} site${uploadedSites!==1?'s':''} submitted data`:(uploadedSites===4?'All sites submitted today':`${4-uploadedSites} site${4-uploadedSites!==1?'s':''} yet to upload`),
-      isMultiDay?(uploadedSites===4?'✓ All sites':'⚠ Missing sites'):(uploadedSites===4?'✓ Complete':'⏳ Pending'), compCol),
-  ].join('');
+  // ── Savings tracker data ──
+  const periodStart = (() => { if(kpiPeriod==='today') return viewDate||todayStr(); const r=getKpiDateRange(kpiPeriod); return r.start; })();
+  const periodEnd   = (() => { if(kpiPeriod==='today') return viewDate||todayStr(); const r=getKpiDateRange(kpiPeriod); return r.end; })();
+  const allTransfers     = _confirmedTransfers || [];
+  const periodTransfers  = allTransfers.filter(t => t.transfer_date >= periodStart && t.transfer_date <= periodEnd);
+  const ytdTransfers     = allTransfers.filter(t => t.transfer_date >= (viewDate||todayStr()).slice(0,4)+'-01-01');
+  const confCostPeriod   = periodTransfers.reduce((a,t)=>a+parseFloat(t.total_cost_saved||0),0);
+  const confMilesPeriod  = periodTransfers.reduce((a,t)=>a+parseFloat(t.miles_saved||0),0);
+  const confCO2Period    = periodTransfers.reduce((a,t)=>a+parseFloat(t.co2_kg_saved||0),0);
+  const confVpkPeriod    = periodTransfers.reduce((a,t)=>a+parseFloat(t.total_cost_saved||0)*0.10,0);
+  const confCostYtd      = ytdTransfers.reduce((a,t)=>a+parseFloat(t.total_cost_saved||0),0);
+  const confMilesYtd     = ytdTransfers.reduce((a,t)=>a+parseFloat(t.miles_saved||0),0);
+  const confCO2Ytd       = ytdTransfers.reduce((a,t)=>a+parseFloat(t.co2_kg_saved||0),0);
+  // Est network cost
+  const estCost  = dataSet.reduce((a,e)=>{
+    return a+(e.routes||[]).reduce((b,r)=>{
+      const ic=(r.stops_detail||[]).find(s=>s.actualCost)?.actualCost;
+      if(ic) return b+parseFloat(ic);
+      const rc=calcRunCost(e.site,r.postcodes||r.pc||'');
+      return b+(rc?parseFloat(rc.cost):0);
+    },0);
+  },0);
+  const cpp = totPallets>0&&estCost>0 ? (estCost/totPallets).toFixed(2) : null;
+  const periodLabel = isMultiDay ? daysLabel : 'today';
+
+  if (kpiGrid) kpiGrid.innerHTML = `
+    <!-- ── Row 1: 4 hero metrics ── -->
+    <div class="kpi-stat-tile" style="border-left:3px solid var(--navy)">
+      <div class="stat-val">${totRuns}</div>
+      <div class="stat-lbl">${isMultiDay?'Total runs — '+daysLabel:'Total runs today'}</div>
+      <div class="stat-sub">${totLoads} loads · ${new Set(dataSet.map(e=>e.site)).size} sites active</div>
+    </div>
+    <div class="kpi-stat-tile" style="border-left:3px solid var(--navy2)">
+      <div class="stat-val">${totStops}</div>
+      <div class="stat-lbl">Delivery stops</div>
+      <div class="stat-sub">${totPallets.toLocaleString()} pallets · ${totWeight.toFixed(1)}t</div>
+    </div>
+    <div class="kpi-stat-tile" style="border-left:3px solid ${utilCol}">
+      <div class="stat-val" style="color:${utilCol}">${avgUtil}%</div>
+      <div class="stat-lbl">Avg utilisation</div>
+      <div class="stat-sub">${avgUtil>=90?'⚠ Over capacity — action needed':avgUtil>=75?'Near capacity':'✓ Healthy — within target'}</div>
+    </div>
+    <div class="kpi-stat-tile" style="border-left:3px solid ${compCol}">
+      <div class="stat-val">${uploadedSites}<span style="font-size:18px;font-weight:400;color:var(--ink3)">/4</span></div>
+      <div class="stat-lbl">${isMultiDay?'Sites with data':'Upload compliance'}</div>
+      <div class="stat-sub">${uploadedSites===4?'✓ All sites submitted':`${4-uploadedSites} site${4-uploadedSites!==1?'s':''} yet to upload`}</div>
+    </div>
+
+    <!-- ── Row 2: 4 supporting metrics ── -->
+    <div class="kpi-stat-tile">
+      <div class="stat-val" style="font-size:22px">${estCost>0?'£'+Math.round(estCost).toLocaleString():'—'}</div>
+      <div class="stat-lbl">Est. network cost</div>
+      <div class="stat-sub">${cpp?'£'+cpp+' per pallet':isMultiDay?daysLabel:'today'}</div>
+    </div>
+    <div class="kpi-stat-tile">
+      <div class="stat-val" style="font-size:22px">${cpp?'£'+cpp:'—'}</div>
+      <div class="stat-lbl">Cost per pallet</div>
+      <div class="stat-sub">${totPallets.toLocaleString()} pallets across ${new Set(dataSet.map(e=>e.site)).size} sites</div>
+    </div>
+    <div class="kpi-stat-tile">
+      <div class="stat-val" style="font-size:22px">${overCap}</div>
+      <div class="stat-lbl">Sites over capacity</div>
+      <div class="stat-sub">${overCap===0?'✓ All sites within limit':`${overCap} plan${overCap!==1?'s':''} need attention`}</div>
+    </div>
+    <div class="kpi-stat-tile">
+      <div class="stat-val" style="font-size:22px">${opps.length}</div>
+      <div class="stat-lbl">Sharing opps today</div>
+      <div class="stat-sub">~${totalSavings} mi · ~£${Math.round(totalSavings*costPerMile)} if all taken</div>
+    </div>`;
+
+  // ── Savings tracker section ──
+  const savingsEl = document.getElementById('kpi-savings-tracker');
+  if (savingsEl) {
+    const noData = allTransfers.length === 0;
+    savingsEl.innerHTML = noData
+      ? `<div style="text-align:center;padding:24px;color:var(--ink3);font-size:13px">No confirmed transfers yet — confirm transfers in the Load sharing tab to start tracking savings.</div>`
+      : `<div class="kpi-savings-grid">
+          <div class="kpi-savings-tile green">
+            <div class="sv" style="color:#2e7d32">£${Math.round(confVpkPeriod).toLocaleString()}</div>
+            <div class="sl">VPK 10% — ${periodLabel}</div>
+          </div>
+          <div class="kpi-savings-tile">
+            <div class="sv" style="color:var(--green)">£${Math.round(confCostPeriod).toLocaleString()}</div>
+            <div class="sl">Truck cost saved — ${periodLabel}</div>
+          </div>
+          <div class="kpi-savings-tile">
+            <div class="sv">${Math.round(confMilesPeriod).toLocaleString()} mi</div>
+            <div class="sl">Miles avoided — ${periodLabel}</div>
+          </div>
+          <div class="kpi-savings-tile">
+            <div class="sv">${Math.round(confCO2Period)} kg</div>
+            <div class="sl">CO₂ avoided — ${periodLabel}</div>
+          </div>
+          <div class="kpi-savings-tile">
+            <div class="sv">${periodTransfers.length}</div>
+            <div class="sl">Transfers — ${periodLabel}</div>
+          </div>
+        </div>
+        ${ytdTransfers.length > periodTransfers.length ? `<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--ink3);padding:10px 0 2px">
+          <span>YTD: <strong style="color:var(--ink)">£${Math.round(confCostYtd).toLocaleString()}</strong> truck cost saved</span>
+          <span><strong style="color:var(--ink)">${Math.round(confMilesYtd).toLocaleString()} mi</strong> removed</span>
+          <span><strong style="color:var(--ink)">${Math.round(confCO2Ytd)} kg</strong> CO₂ avoided</span>
+          <span><strong style="color:var(--ink)">${ytdTransfers.length}</strong> total transfers</span>
+        </div>` : ''}`;
+  }
   // ── Site breakdown — aggregate across all days in period ──
   const siteDataMap = dataSet.reduce((acc,e)=>{(acc[e.site]=acc[e.site]||[]).push(e);return acc;},{});
   const maxS = Math.max(...Object.values(siteDataMap).map(arr=>arr.reduce((a,e)=>a+sumStops(e),0)), 1);
