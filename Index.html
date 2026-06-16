@@ -6210,6 +6210,86 @@ function setLoadsFilter(sid) {
    SAVINGS TRACKER — Full load & Relay detection + confirmation
 ══════════════════════════════════════════════════════════════ */
 
+// ── Ignored opportunities (persisted in localStorage) ──
+let _sharingViewDate = null; // null = use viewDate
+
+function getIgnoredOpps() {
+  try { return JSON.parse(localStorage.getItem('triad_ignored_opps')||'{}'); } catch(e) { return {}; }
+}
+function saveIgnoredOpps(obj) {
+  try { localStorage.setItem('triad_ignored_opps', JSON.stringify(obj)); } catch(e) {}
+}
+function oppIgnoreKey(opp) {
+  // Unique key per opportunity per date
+  const date = opp.date || viewDate || todayStr();
+  return `${date}|${opp.type}|${opp.carrier||opp.site}|${opp.saved||''}|${opp.district||''}`;
+}
+function isOppIgnored(opp) {
+  return !!getIgnoredOpps()[oppIgnoreKey(opp)];
+}
+function ignoreOpp(opp) {
+  const ignored = getIgnoredOpps();
+  ignored[oppIgnoreKey(opp)] = { date: opp.date||viewDate||todayStr(), type: opp.type, ignoredAt: new Date().toISOString() };
+  saveIgnoredOpps(ignored);
+  renderAllOppsEnhanced();
+}
+function unignoreOpp(key) {
+  const ignored = getIgnoredOpps();
+  delete ignored[key];
+  saveIgnoredOpps(ignored);
+  renderAllOppsEnhanced();
+}
+
+// ── Date navigation for Load Sharing tab ──
+function sharingNavDate(delta) {
+  const base = _sharingViewDate || viewDate || todayStr();
+  const d = new Date(base);
+  d.setDate(d.getDate() + delta);
+  _sharingViewDate = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  loadSharingDateData(_sharingViewDate);
+}
+function sharingGoToday() {
+  _sharingViewDate = viewDate || todayStr();
+  renderAllOppsEnhanced();
+}
+async function loadSharingDateData(date) {
+  if (date === (viewDate||todayStr())) {
+    renderAllOppsEnhanced(); return;
+  }
+  // Check allData cache first
+  const cached = allData.filter(e => e.date === date);
+  if (cached.length) {
+    window._sharingData = cached;
+    renderAllOppsEnhanced(); return;
+  }
+  // Fetch from Supabase
+  if (sb && isConfigured) {
+    const { data: plans, error } = await sb.from('daily_plans').select('*, routes(*)').eq('plan_date', date).order('site_id');
+    if (!error && plans?.length) {
+      window._sharingData = plans.map(p => ({
+        site: p.site_id, date: p.plan_date, capacity: p.capacity,
+        total_loads: p.total_loads, total_trailers: p.total_trailers,
+        routes: (p.routes||[]).map(r => ({
+          area:r.area, pc:r.postcodes||'', stops:r.stops, pallets:r.pallets,
+          stops_detail:r.stops_detail||[], runNum:r.run_num, runLabel:r.run_label||r.area,
+          multiLoad:r.multi_load||false, runShips:r.run_ships||[]
+        }))
+      }));
+    } else {
+      window._sharingData = [];
+    }
+  } else {
+    window._sharingData = [];
+  }
+  renderAllOppsEnhanced();
+}
+function getSharingData() {
+  if (_sharingViewDate && _sharingViewDate !== (viewDate||todayStr()) && window._sharingData) {
+    return window._sharingData;
+  }
+  return todayData;
+}
+
 const TRANSFER_BASE_COST = 444.77;
 const TRANSFER_PENCE_PER_MILE = 0.50;
 const CO2_KG_PER_MILE = 0.9; // HGV average
@@ -6403,21 +6483,47 @@ function computeEnhancedOpps(data) {
 function renderAllOppsEnhanced() {
   const el = document.getElementById('all-opps');
   if (!el) return;
-  const { fullLoadOpps, relayOpps, lightLoadOpps } = computeEnhancedOpps(todayData);
+  const sharingData = getSharingData();
+  const { fullLoadOpps, relayOpps, lightLoadOpps } = computeEnhancedOpps(sharingData);
+  const ignored = getIgnoredOpps();
+  const dateKey  = _sharingViewDate || viewDate || todayStr();
+
+  // Separate active vs ignored for each section
+  const activeFullLoad  = fullLoadOpps.filter(o => !isOppIgnored(o));
+  const ignoredFullLoad = fullLoadOpps.filter(o => isOppIgnored(o));
+  const activeRelay     = relayOpps.filter(o => !isOppIgnored(o));
+  const ignoredRelay    = relayOpps.filter(o => isOppIgnored(o));
+  const activeLight     = lightLoadOpps.filter(o => !isOppIgnored(o));
+  const ignoredLight    = lightLoadOpps.filter(o => isOppIgnored(o));
+  const totalActive     = activeFullLoad.length + activeRelay.length + activeLight.length;
+  const totalIgnored    = ignoredFullLoad.length + ignoredRelay.length + ignoredLight.length;
   const total = fullLoadOpps.length + relayOpps.length + lightLoadOpps.length;
 
   // Update badges
   const badge = document.getElementById('opp-badge');
-  if (badge) { badge.textContent = total; badge.style.display = total ? '' : 'none'; }
-  // Light load count in sidebar (separate warning indicator)
+  if (badge) { badge.textContent = totalActive||''; badge.style.display = totalActive ? '' : 'none'; }
   const llBadge = document.getElementById('light-load-badge');
-  if (llBadge) { llBadge.textContent = lightLoadOpps.length; llBadge.style.display = lightLoadOpps.length ? '' : 'none'; llBadge.style.background = 'var(--red)'; }
+  if (llBadge) { llBadge.textContent = activeLight.length; llBadge.style.display = activeLight.length ? '' : 'none'; llBadge.style.background = 'var(--red)'; }
+
+  // ── Date nav header ──
+  const dispDate = new Date(dateKey+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const isLive   = dateKey === (viewDate||todayStr());
+  let html = `
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <button onclick="sharingNavDate(-1)" style="width:28px;height:28px;border:1px solid var(--rule);border-radius:6px;background:none;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:var(--ink2)">&#8249;</button>
+      <span style="font-size:14px;font-weight:600;color:var(--ink);min-width:220px;text-align:center">${dispDate}</span>
+      <button onclick="sharingNavDate(1)" style="width:28px;height:28px;border:1px solid var(--rule);border-radius:6px;background:none;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:var(--ink2)">&#8250;</button>
+      ${!isLive?`<button onclick="sharingGoToday()" style="padding:4px 12px;border:1px solid var(--rule);border-radius:6px;background:none;cursor:pointer;font-size:12px;color:var(--ink2);font-family:var(--font-body)">Today</button>`:''}
+    </div>
+    <div style="font-size:12px;color:var(--ink3)">${total} opportunit${total!==1?'ies':'y'} · ${totalIgnored>0?`<span style="color:var(--ink3)">${totalIgnored} ignored</span>`:''}</div>
+  </div>`;
 
   if (!total) {
-    el.innerHTML = `<div style="text-align:center;padding:48px;color:var(--ink3)">
+    el.innerHTML = html + `<div style="text-align:center;padding:48px;color:var(--ink3)">
       <div style="font-size:32px;margin-bottom:12px">✓</div>
       <div style="font-size:14px;font-weight:600;color:var(--ink)">Network is well balanced</div>
-      <div style="font-size:13px;margin-top:6px">No sharing opportunities today — all loads are optimal.</div>
+      <div style="font-size:13px;margin-top:6px">No sharing opportunities for this date — all loads are optimal.</div>
     </div>`;
     return;
   }
@@ -6471,6 +6577,10 @@ function renderAllOppsEnhanced() {
             style="padding:8px 14px;border:1px solid var(--rule);background:none;border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--font-body);color:var(--ink2)">
             View stops
           </button>
+          <button onclick="ignoreOpp(${JSON.stringify(opp).replace(/"/g,'&quot;')})" 
+            style="padding:8px 14px;border:1px solid var(--rule);background:none;border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--font-body);color:var(--ink3)">
+            Ignore
+          </button>
         </div>
         <div style="display:none;margin-top:12px;padding:12px;background:var(--cream);border-radius:8px;font-size:12px">
           <div style="font-weight:600;color:var(--ink);margin-bottom:6px">${opp.savedName} stops in ${opp.district} (would be relayed to ${opp.carrierName}):</div>
@@ -6487,39 +6597,31 @@ function renderAllOppsEnhanced() {
   window._currentRelayOpps     = relayOpps;
   window._currentLightLoadOpps = lightLoadOpps;
 
-  let html = `<div style="margin-bottom:20px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-      <span style="font-size:14px;font-weight:700;color:var(--ink)">Load sharing opportunities — ${viewDate||todayStr()}</span>
-      <span style="font-size:12px;color:var(--ink3)">${total} opportunity${total!==1?'ies':''} found</span>
-    </div>
-    <p style="font-size:13px;color:var(--ink3);margin:0">When you confirm a transfer it's logged permanently in the savings tracker with the cost and miles saved.</p>
-  </div>`;
-
-  if (fullLoadOpps.length) {
+  if (activeFullLoad.length) {
     html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
       <span style="width:10px;height:10px;border-radius:50%;background:var(--green);display:inline-block"></span>
-      <span style="font-size:13px;font-weight:700;color:var(--ink)">Full load transfer — ${fullLoadOpps.length} opportunity${fullLoadOpps.length!==1?'ies':''}</span>
-      <span style="font-size:12px;color:var(--ink3)">Combined pallets ≤ 80 — one truck can handle both</span>
+      <span style="font-size:13px;font-weight:700;color:var(--ink)">Full load transfer — ${activeFullLoad.length}</span>
+      <span style="font-size:12px;color:var(--ink3)">Combined pallets ≤ 80 — one truck handles both</span>
     </div>`;
-    fullLoadOpps.forEach((opp,i) => { html += oppCard(opp, i); });
+    activeFullLoad.forEach((opp,i) => { html += oppCard(opp, fullLoadOpps.indexOf(opp)); });
   }
 
-  if (relayOpps.length) {
-    html += `<div style="display:flex;align-items:center;gap:8px;margin:${fullLoadOpps.length?'20px':0} 0 10px">
+  if (activeRelay.length) {
+    html += `<div style="display:flex;align-items:center;gap:8px;margin:${activeFullLoad.length?'20px':0} 0 10px">
       <span style="width:10px;height:10px;border-radius:50%;background:var(--amber);display:inline-block"></span>
-      <span style="font-size:13px;font-weight:700;color:var(--ink)">Relay / part-load transfer — ${relayOpps.length} opportunity${relayOpps.length!==1?'ies':''}</span>
-      <span style="font-size:12px;color:var(--ink3)">Partial relief — carrier takes some of the load</span>
+      <span style="font-size:13px;font-weight:700;color:var(--ink)">Relay / part-load — ${activeRelay.length}</span>
+      <span style="font-size:12px;color:var(--ink3)">Carrier takes some of the load en route</span>
     </div>`;
-    relayOpps.forEach((opp,i) => { html += oppCard(opp, i + fullLoadOpps.length); });
+    activeRelay.forEach((opp,i) => { html += oppCard(opp, fullLoadOpps.length + relayOpps.indexOf(opp)); });
   }
 
-  if (lightLoadOpps.length) {
-    html += `<div style="display:flex;align-items:center;gap:8px;margin:${(fullLoadOpps.length||relayOpps.length)?'24px':0} 0 10px;padding-top:${(fullLoadOpps.length||relayOpps.length)?'20px':0};border-top:${(fullLoadOpps.length||relayOpps.length)?'1px solid var(--rule)':'none'}">
+  if (activeLight.length) {
+    html += `<div style="display:flex;align-items:center;gap:8px;margin:${(activeFullLoad.length||activeRelay.length)?'24px':0} 0 10px;padding-top:${(activeFullLoad.length||activeRelay.length)?'20px':0};border-top:${(activeFullLoad.length||activeRelay.length)?'1px solid var(--rule)':'none'}">
       <span style="width:10px;height:10px;border-radius:50%;background:var(--red);display:inline-block"></span>
-      <span style="font-size:13px;font-weight:700;color:var(--ink)">Light loads — ${lightLoadOpps.length} run${lightLoadOpps.length!==1?'s':''} below 24 pallets</span>
+      <span style="font-size:13px;font-weight:700;color:var(--ink)">Light loads — ${activeLight.length} run${activeLight.length!==1?'s':''} below 24 pallets</span>
       <span style="font-size:12px;color:var(--ink3)">These should always be consolidated — running a truck under 24 pallets is not cost-effective</span>
     </div>`;
-    lightLoadOpps.forEach((opp, i) => {
+    activeLight.forEach((opp, i) => {
       const siteColor = SITES_META[opp.site]?.color || 'var(--navy)';
       const fillPct   = Math.round(opp.routePallets / 40 * 100);
       const carrierLines = opp.potentialCarriers.length
@@ -6546,10 +6648,14 @@ function renderAllOppsEnhanced() {
           </div>
           <div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:6px">Potential carriers today:</div>
           ${carrierLines}
-          <div style="margin-top:12px;display:flex;gap:10px">
-            <button onclick="openConfirmTransfer(${i + fullLoadOpps.length + relayOpps.length},'light_load')"
+          <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <button onclick="openConfirmTransfer(${fullLoadOpps.length + relayOpps.length + lightLoadOpps.indexOf(opp)},'light_load')"
               style="padding:7px 16px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-body)">
               ✓ Confirm consolidated
+            </button>
+            <button onclick="ignoreOpp(${JSON.stringify(opp).replace(/"/g,'&quot;')})"
+              style="padding:7px 14px;border:1px solid var(--rule);background:none;border-radius:8px;font-size:12px;cursor:pointer;font-family:var(--font-body);color:var(--ink3)">
+              Ignore
             </button>
             <div style="font-size:11px;color:var(--ink3);display:flex;align-items:center">
               Running independently costs est. <strong style="color:var(--red);margin-left:4px">£${opp.totalCostSaved.toFixed(2)}</strong>
@@ -6559,6 +6665,29 @@ function renderAllOppsEnhanced() {
       </div>`;
     });
     window._currentLightLoadOpps = lightLoadOpps;
+  }
+
+  // ── Ignored section ──
+  if (totalIgnored > 0) {
+    const allIgnoredOpps = [...ignoredFullLoad.map(o=>({...o,_section:'full'})), ...ignoredRelay.map(o=>({...o,_section:'relay'})), ...ignoredLight.map(o=>({...o,_section:'light'}))];
+    html += `<div style="margin-top:24px;border-top:1px solid var(--rule);padding-top:16px">
+      <details>
+        <summary style="cursor:pointer;font-size:12px;color:var(--ink3);font-weight:600;user-select:none;list-style:none;display:flex;align-items:center;gap:6px">
+          <span style="font-size:10px">▶</span> Ignored (${totalIgnored}) — click to review
+        </summary>
+        <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
+          ${allIgnoredOpps.map(opp => {
+            const key = oppIgnoreKey(opp);
+            const label = opp.type==='full_load'?'Full load':opp.type==='relay'?'Relay':'Light load';
+            const name  = opp.siteName || (opp.carrierName && opp.savedName ? opp.carrierName+'→'+opp.savedName : '');
+            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--cream);border-radius:8px;font-size:12px;color:var(--ink3)">
+              <span><strong style="color:var(--ink)">${label}</strong> · ${name} · ${opp.district||''} · £${(opp.totalCostSaved||0).toFixed(2)}</span>
+              <button onclick="unignoreOpp('${key}')" style="padding:4px 12px;border:1px solid var(--rule);border-radius:6px;background:#fff;cursor:pointer;font-size:11px;font-family:var(--font-body);color:var(--ink2)">Restore</button>
+            </div>`;
+          }).join('')}
+        </div>
+      </details>
+    </div>`;
   }
 
   el.innerHTML = html;
