@@ -6582,11 +6582,30 @@ function renderAllOppsEnhanced() {
             Ignore
           </button>
         </div>
-        <div style="display:none;margin-top:12px;padding:12px;background:var(--cream);border-radius:8px;font-size:12px">
-          <div style="font-weight:600;color:var(--ink);margin-bottom:6px">${opp.savedName} stops in ${opp.district} (would be relayed to ${opp.carrierName}):</div>
-          ${(opp.savedStops||[]).filter(s=>(s.postal||s.postcode||'').toUpperCase().startsWith(opp.district)).map(s=>
-            `<div style="padding:3px 0;color:var(--ink2)">${s.customer||s.name} · ${s.postal||s.postcode} · ${s.pallets||0}p</div>`
-          ).join('') || '<div style="color:var(--ink3)">Stop details unavailable — import includes stop data</div>'}
+        <div style="display:none;margin-top:12px;padding:14px;background:var(--cream);border-radius:8px;font-size:12px">
+          <div style="font-weight:600;color:var(--ink);margin-bottom:8px">${opp.savedName} — all stops on this run (would be relayed to ${opp.carrierName}):</div>
+          ${(opp.savedStops||[]).length ? `
+          <table style="width:100%;border-collapse:collapse">
+            <thead><tr style="border-bottom:1px solid var(--rule)">
+              <th style="text-align:left;padding:4px 8px;font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase">Customer</th>
+              <th style="text-align:left;padding:4px 8px;font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase">Postcode</th>
+              <th style="text-align:left;padding:4px 8px;font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase">Time</th>
+              <th style="text-align:right;padding:4px 8px;font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase">Pallets</th>
+            </tr></thead>
+            <tbody>${(opp.savedStops||[]).map((s,si) => {
+              const isInDistrict = (s.postal||s.postcode||'').toUpperCase().startsWith(opp.district);
+              return `<tr style="${isInDistrict?'background:rgba(39,174,96,.06)':''}">
+                <td style="padding:5px 8px;color:var(--ink)">${s.customer||s.name||'—'} ${isInDistrict?'<span style="font-size:10px;color:var(--green);font-weight:700">✓ match</span>':''}</td>
+                <td style="padding:5px 8px;font-family:var(--font-mono);color:var(--ink2)">${s.postal||s.postcode||'—'}</td>
+                <td style="padding:5px 8px;color:var(--ink3)">${s.delivTime||s.time||'—'}</td>
+                <td style="padding:5px 8px;text-align:right;font-family:var(--font-mono);font-weight:600">${s.pallets||0}p</td>
+              </tr>`;
+            }).join('')}</tbody>
+            <tfoot><tr style="border-top:1px solid var(--rule)">
+              <td colspan="3" style="padding:5px 8px;font-weight:600;color:var(--ink)">Total</td>
+              <td style="padding:5px 8px;text-align:right;font-family:var(--font-mono);font-weight:700">${(opp.savedStops||[]).reduce((a,s)=>a+(s.pallets||0),0)}p</td>
+            </tfoot>
+          </table>` : '<div style="color:var(--ink3)">Stop details unavailable — re-import to include stop data</div>'}
         </div>
       </div>
     </div>`;
