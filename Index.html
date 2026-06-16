@@ -6585,21 +6585,18 @@ function renderAllOppsEnhanced() {
           <div style="display:flex;gap:6px;flex-wrap:wrap">${carrierChips}</div>
         </div>
         <!-- Metrics -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
-          <div style="background:var(--cream);border-radius:8px;padding:10px;text-align:center">
-            <div style="font-size:15px;font-weight:700;color:var(--green)">£${opp.totalCostSaved.toFixed(2)}</div>
-            <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.05em;margin-top:2px">${opp.savedName} truck saved</div>
-          </div>
-          <div style="background:#e8f5e9;border-radius:8px;padding:10px;text-align:center">
-            <div style="font-size:15px;font-weight:700;color:#2e7d32">£${opp.vpkSaving.toFixed(2)}</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+          <div style="background:#e8f5e9;border:1px solid #c8e6c9;border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:#2e7d32">£${opp.vpkSaving.toFixed(2)}</div>
             <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.05em;margin-top:2px">VPK 10% discount</div>
+            <div style="font-size:10px;color:var(--ink3);margin-top:2px">on £${opp.totalCostSaved.toFixed(2)} run</div>
           </div>
-          <div style="background:var(--cream);border-radius:8px;padding:10px;text-align:center">
-            <div style="font-size:15px;font-weight:700;color:var(--navy)">${opp.milesSaved} mi</div>
+          <div style="background:var(--cream);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:var(--navy)">${opp.milesSaved} mi</div>
             <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.05em;margin-top:2px">${opp.savedName} miles avoided</div>
           </div>
-          <div style="background:var(--cream);border-radius:8px;padding:10px;text-align:center">
-            <div style="font-size:15px;font-weight:700;color:var(--ink)">${opp.co2Saved} kg</div>
+          <div style="background:var(--cream);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:var(--ink)">${opp.co2Saved} kg</div>
             <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.05em;margin-top:2px">${opp.savedName} CO₂ avoided</div>
           </div>
         </div>
