@@ -6777,56 +6777,92 @@ function openConfirmTransfer(idx, type) {
   modal.id = 'confirm-transfer-modal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center';
   const carrierName = opp.carrierName || (opp.carriers?.[0]?.name) || 'Carrier';
-  modal.innerHTML = `<div style="background:#fff;border-radius:16px;padding:28px;width:480px;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+  const isFullLoad  = type === 'full_load';
+  const savedColor  = opp.savedColor || SITES_META[opp.saved]?.color || 'var(--navy)';
+  const carrierColor= SITES_META[opp.carrier||opp.carriers?.[0]?.site]?.color || 'var(--navy)';
+  modal.innerHTML = `<div style="background:#fff;border-radius:16px;width:460px;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)">
+
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:20px 22px 16px;border-bottom:1px solid var(--rule)">
       <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--ink)">Confirm transfer</div>
-      <button onclick="document.getElementById('confirm-transfer-modal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--ink3)">&times;</button>
+      <button onclick="document.getElementById('confirm-transfer-modal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--ink3);line-height:1">&times;</button>
     </div>
-    <div style="background:var(--cream);border-radius:10px;padding:14px;margin-bottom:20px;font-size:13px">
-      <div style="font-weight:700;color:var(--ink);margin-bottom:4px">${carrierName} carries ${opp.savedName}'s ${opp.district} pallets</div>
-      <div style="color:var(--ink2);margin-bottom:4px">Truck saved: <strong style="color:var(--green)">£${opp.totalCostSaved.toFixed(2)}</strong> · VPK 10% discount: <strong style="color:#2e7d32">£${opp.vpkSaving?.toFixed(2)||'—'}</strong></div>
-      <div style="color:var(--ink2)">${opp.milesSaved} miles · ${opp.co2Saved} kg CO₂ avoided by ${opp.savedName}</div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-      <div>
-        <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Date</div>
-        <input type="date" id="ct-date" value="${viewDate||todayStr()}" style="width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;font-size:13px;font-family:var(--font-body);box-sizing:border-box">
+
+    <!-- Summary banner -->
+    <div style="padding:16px 22px;background:var(--cream);border-bottom:1px solid var(--rule)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span style="padding:2px 9px;border-radius:20px;background:${isFullLoad?'#e8f5e9':'#fff8e1'};color:${isFullLoad?'#2e7d32':'#f57f17'};font-size:11px;font-weight:700">${isFullLoad?'FULL LOAD':'RELAY'}</span>
+        <span style="font-size:13px;font-weight:600;color:var(--ink)">${opp.district} · <span style="color:${savedColor}">${opp.savedName}</span> → <span style="color:${carrierColor}">${carrierName}</span></span>
       </div>
-      <div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <div style="text-align:center;padding:8px;background:#fff;border-radius:8px">
+          <div style="font-size:14px;font-weight:700;color:#2e7d32">£${(opp.vpkSaving||0).toFixed(2)}</div>
+          <div style="font-size:10px;color:var(--ink3);margin-top:1px">VPK 10% saving</div>
+        </div>
+        <div style="text-align:center;padding:8px;background:#fff;border-radius:8px">
+          <div style="font-size:14px;font-weight:700;color:var(--navy)">${opp.milesSaved} mi</div>
+          <div style="font-size:10px;color:var(--ink3);margin-top:1px">${opp.savedName} avoids</div>
+        </div>
+        <div style="text-align:center;padding:8px;background:#fff;border-radius:8px">
+          <div style="font-size:14px;font-weight:700;color:var(--ink)">${opp.co2Saved} kg</div>
+          <div style="font-size:10px;color:var(--ink3);margin-top:1px">CO₂ avoided</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Form fields -->
+    <div style="padding:18px 22px">
+
+      <!-- Date + Miles row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Date</div>
+          <input type="date" id="ct-date" value="${viewDate||todayStr()}" style="width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;font-size:13px;font-family:var(--font-body);box-sizing:border-box">
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Actual miles (one way)</div>
+          <input type="number" id="ct-miles" value="${opp.distSaved}" min="1" style="width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;font-size:13px;font-family:var(--font-body);box-sizing:border-box">
+        </div>
+      </div>
+
+      ${isFullLoad ? `
+      <!-- Full load: whole load transferred, no pallet input needed -->
+      <input type="hidden" id="ct-pallets" value="${opp.palletsSaved}">
+      <div style="background:#f0fdf4;border:1px solid #c8e6c9;border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;color:#2e7d32">
+        <strong>Whole load transferred</strong> — all ${opp.palletsSaved} pallet${opp.palletsSaved!==1?'s':''} from ${opp.savedName}'s ${opp.district} run move to ${carrierName}
+      </div>` : `
+      <!-- Relay: specify how many pallets transferred -->
+      <div style="margin-bottom:14px">
         <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Pallets transferred</div>
         <input type="number" id="ct-pallets" value="${opp.palletsSaved}" min="1" max="80" style="width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;font-size:13px;font-family:var(--font-body);box-sizing:border-box">
+      </div>`}
+
+      <input type="hidden" id="ct-type" value="${type}">
+
+      <!-- Notes -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Notes <span style="font-weight:400;text-transform:none">— optional</span></div>
+        <textarea id="ct-notes" placeholder="e.g. Driver collected from Banbury yard at 06:00, delivered to Bristol by 10:30…"
+          style="width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;font-size:13px;font-family:var(--font-body);box-sizing:border-box;height:64px;resize:vertical"></textarea>
       </div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-      <div>
-        <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Actual miles (one way)</div>
-        <input type="number" id="ct-miles" value="${opp.distSaved}" min="1" style="width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;font-size:13px;font-family:var(--font-body);box-sizing:border-box">
+
+      <!-- Live cost recalc -->
+      <div style="background:var(--cream);border-radius:8px;padding:10px 12px;margin-bottom:16px;font-size:12px;color:var(--ink2);display:flex;gap:16px;flex-wrap:wrap">
+        <span>Truck cost: <strong id="ct-cost-preview">£${opp.totalCostSaved.toFixed(2)}</strong></span>
+        <span>Round trip: <strong id="ct-miles-preview">${opp.milesSaved} mi</strong></span>
+        <span>CO₂: <strong id="ct-co2-preview">${opp.co2Saved} kg</strong></span>
       </div>
-      <div>
-        <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Type</div>
-        <select id="ct-type" style="width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;font-size:13px;font-family:var(--font-body);box-sizing:border-box">
-          <option value="full_load" ${opp.type==='full_load'?'selected':''}>Full load transfer</option>
-          <option value="relay" ${opp.type==='relay'?'selected':''}>Relay / part-load</option>
-        </select>
+
+      <!-- Actions -->
+      <div style="display:flex;gap:10px">
+        <button onclick="document.getElementById('confirm-transfer-modal').remove()"
+          style="flex:1;padding:11px;border:1px solid var(--rule);border-radius:10px;background:none;cursor:pointer;font-size:13px;font-family:var(--font-body);color:var(--ink2)">Cancel</button>
+        <button onclick="saveConfirmedTransfer()"
+          style="flex:2;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;font-family:var(--font-body);display:flex;align-items:center;justify-content:center;gap:7px">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1v9M3 7l3.5 3.5L10 7M1 12h11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Save to savings tracker
+        </button>
       </div>
-    </div>
-    <div style="margin-bottom:20px">
-      <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Notes (optional)</div>
-      <textarea id="ct-notes" placeholder="e.g. Driver collected from Banbury yard at 06:00, delivered to Bristol by 10:30..." 
-        style="width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;font-size:13px;font-family:var(--font-body);box-sizing:border-box;height:70px;resize:vertical"></textarea>
-    </div>
-    <div id="ct-calc" style="background:var(--cream);border-radius:8px;padding:12px;margin-bottom:20px;font-size:12px;color:var(--ink2)">
-      Calculated cost: <strong id="ct-cost-preview">£${opp.totalCostSaved.toFixed(2)}</strong> · 
-      <strong id="ct-miles-preview">${opp.milesSaved} mi</strong> round trip · 
-      <strong id="ct-co2-preview">${opp.co2Saved} kg</strong> CO₂
-    </div>
-    <div style="display:flex;gap:10px">
-      <button onclick="document.getElementById('confirm-transfer-modal').remove()" 
-        style="flex:1;padding:11px;border:1px solid var(--rule);border-radius:10px;background:none;cursor:pointer;font-size:13px;font-family:var(--font-body);color:var(--ink2)">Cancel</button>
-      <button onclick="saveConfirmedTransfer()" 
-        style="flex:2;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;font-family:var(--font-body)">
-        💾 Save to savings tracker
-      </button>
     </div>
   </div>`;
   document.body.appendChild(modal);
@@ -6849,7 +6885,7 @@ async function saveConfirmedTransfer() {
   const date    = document.getElementById('ct-date').value;
   const pallets = parseInt(document.getElementById('ct-pallets').value)||0;
   const miles   = parseFloat(document.getElementById('ct-miles').value)||0;
-  const type    = document.getElementById('ct-type').value;
+  const type    = document.getElementById('ct-type')?.value || 'full_load';
   const notes   = document.getElementById('ct-notes').value.trim();
   const rt      = miles * 2;
   const mileage = Math.round(rt * TRANSFER_PENCE_PER_MILE * 100)/100;
