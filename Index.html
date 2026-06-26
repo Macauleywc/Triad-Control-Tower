@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TowerAI</title>
+<title>Triad Control Tower</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css"/>
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
@@ -2330,7 +2330,7 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
   <div class="login-grid"></div>
   <div class="login-left">
     <div style="flex:1">
-      <div style="font-family:var(--font-head);font-size:48px;font-weight:900;color:#fff;line-height:1;letter-spacing:-2px;margin-bottom:16px">TowerAI<br>AI</div>
+      <div style="font-family:var(--font-head);font-size:48px;font-weight:900;color:#fff;line-height:1;letter-spacing:-2px;margin-bottom:16px">Triad<br>Control<br>Tower</div>
       <div style="font-size:14px;color:rgba(255,255,255,0.4);line-height:1.6;max-width:260px">One network. Four depots. Total visibility.</div>
     </div>
     <div>
@@ -2371,7 +2371,7 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
         </div>
         <div>
           <div style="font-size:13px;font-weight:700;color:#fff;font-family:var(--font-head);letter-spacing:-0.2px">Control Tower</div>
-          <div style="font-size:10px;color:rgba(255,255,255,0.3);font-family:var(--font-mono);letter-spacing:.05em;text-transform:uppercase">TowerAI Network</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.3);font-family:var(--font-mono);letter-spacing:.05em;text-transform:uppercase">Triad Network</div>
         </div>
       </div>
     </div>
@@ -2894,7 +2894,7 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
 
     <div style="padding:18px 22px;border-bottom:1px solid var(--rule)">
       <div style="font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;font-family:var(--font-mono);margin-bottom:8px">Report title <span style="text-transform:none;font-size:10px;font-weight:400;letter-spacing:0">&#8212; optional</span></div>
-      <input type="text" id="export-title" placeholder="e.g. Weekly KPI Summary &#8212; TowerAI Network, May 2026" style="width:100%;font-size:13px;padding:9px 12px;border:1px solid #dde0e8;border-radius:8px;font-family:inherit;box-sizing:border-box;color:#1a1a2e;background:#ffffff">
+      <input type="text" id="export-title" placeholder="e.g. Weekly KPI Summary &#8212; Triad Network, May 2026" style="width:100%;font-size:13px;padding:9px 12px;border:1px solid #dde0e8;border-radius:8px;font-family:inherit;box-sizing:border-box;color:#1a1a2e;background:#ffffff">
     </div>
 
     <div style="display:flex;gap:10px;padding:18px 22px">
@@ -2972,7 +2972,7 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
     <div id="tab-admin" class="content" style="display:none">
       <div style="margin-bottom:24px">
         <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:var(--ink);margin-bottom:4px">User Admin</div>
-        <div style="font-size:13px;color:var(--ink3)">Manage user access to TowerAI. Only Super Admins can access this panel.</div>
+        <div style="font-size:13px;color:var(--ink3)">Manage user access to Control Tower. Only Super Admins can access this panel.</div>
       </div>
       <div class="admin-grid">
         <div>
@@ -3283,7 +3283,7 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
               </div>
               <div style="display:flex;gap:10px;margin-bottom:14px">
                 <button class="submit-btn" onclick="vpkLoadIntoTriad()" style="flex:1">
-                  ✓ Load into TowerAI →
+                  ✓ Load into Triad →
                 </button>
                 <button onclick="vpkDownloadQargo()" class="template-btn" style="padding:11px 18px">
                   <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1v8M3 6l3.5 4 3.5-4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 11h11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
@@ -4796,7 +4796,7 @@ function doExport(type) {
     body = JSON.stringify({exported:new Date().toISOString(),date:todayStr(),sites:todayData,opportunities:computeOpps(todayData)},null,2);
   } else if (type==='email') {
     title='Email draft'; lastExportExt='txt';
-    body = `Subject: TowerAI — Daily Plan — ${date}\n\n`;
+    body = `Subject: Triad Daily Plan — ${date}\n\n`;
     todayData.forEach(e=>{
       const meta=SITES_META[e.site]||{}, pct=Math.round(sumStops(e)/(e.capacity||80)*100);
       body+=`${meta.name} (${meta.biz}): ${sumStops(e)} stops / ${e.capacity} capacity (${pct}%) · ${sumPallets(e)} pallets · ${sumWeight(e).toFixed(1)}t\n`;
@@ -4805,11 +4805,11 @@ function doExport(type) {
     });
     const opps=computeOpps(todayData);
     if(opps.length){body+=`LOAD SHARING OPPORTUNITIES (${opps.length}):\n`;opps.forEach(o=>body+=`• ${o.fromName} → ${o.toName}: ${o.route.area} — ~${o.saving} miles\n`);}
-    body+=`\nRegards,\nTowerAI`;
+    body+=`\nRegards,\nTriad Control Tower`;
   } else if (type==='print') {
     const w = window.open('','_blank');
-    w.document.write(`<html><head><title>TowerAI Plan ${date}</title><style>body{font-family:'IBM Plex Sans',sans-serif;padding:32px;font-size:13px;color:#1a1a1a}h1{font-size:24px;font-weight:800;letter-spacing:-0.5px;margin-bottom:4px}h2{font-size:15px;font-weight:700;margin:24px 0 8px;border-bottom:2px solid #0F2B46;padding-bottom:6px;color:#0F2B46}table{width:100%;border-collapse:collapse;margin-top:8px}td,th{border-bottom:1px solid #e5e5e5;padding:8px 10px;text-align:left}th{font-size:11px;text-transform:uppercase;letter-spacing:0.07em;color:#666;font-weight:500}.meta{font-size:12px;color:#888;margin-bottom:24px}</style></head><body>`);
-    w.document.write(`<h1>TowerAI</h1><p class="meta">Daily plan · ${date} · ${currentUser?.email||'demo'}</p>`);
+    w.document.write(`<html><head><title>Triad Plan ${date}</title><style>body{font-family:'IBM Plex Sans',sans-serif;padding:32px;font-size:13px;color:#1a1a1a}h1{font-size:24px;font-weight:800;letter-spacing:-0.5px;margin-bottom:4px}h2{font-size:15px;font-weight:700;margin:24px 0 8px;border-bottom:2px solid #0F2B46;padding-bottom:6px;color:#0F2B46}table{width:100%;border-collapse:collapse;margin-top:8px}td,th{border-bottom:1px solid #e5e5e5;padding:8px 10px;text-align:left}th{font-size:11px;text-transform:uppercase;letter-spacing:0.07em;color:#666;font-weight:500}.meta{font-size:12px;color:#888;margin-bottom:24px}</style></head><body>`);
+    w.document.write(`<h1>Control Tower</h1><p class="meta">Daily plan · ${date} · ${currentUser?.email||'demo'}</p>`);
     todayData.forEach(e=>{const meta=SITES_META[e.site]||{},pct=Math.round(sumStops(e)/(e.capacity||80)*100);w.document.write(`<h2>${meta.name} — ${meta.biz} · ${pct}% utilisation</h2><p>${sumStops(e)} stops / ${e.capacity||80} capacity · ${sumPallets(e)} pallets · ${sumWeight(e).toFixed(1)}t${e.notes?' · '+e.notes:''}</p><table><tr><th>Route</th><th>Stops</th><th>Pallets</th><th>Weight</th></tr>${(e.routes||[]).map(r=>`<tr><td>${r.area}</td><td>${r.stops}</td><td>${r.pallets}</td><td>${Number(r.weight||0).toFixed(1)}t</td></tr>`).join('')}</table>`);});
     const opps=computeOpps(todayData);
     if(opps.length){w.document.write('<h2>Load sharing opportunities</h2><table><tr><th>From</th><th>To</th><th>Route</th><th>Saving</th></tr>'+opps.map(o=>`<tr><td>${o.fromName}</td><td>${o.toName}</td><td>${o.route.area}</td><td>~${o.saving} mi</td></tr>`).join('')+'</table>');}
@@ -5114,7 +5114,7 @@ async function exportKpiPdf(data, opts) {
   doc.setFillColor(232,82,10); doc.rect(0,0,4,26,'F'); // orange left stripe
   doc.setTextColor(...WHITE);
   doc.setFontSize(17); doc.setFont('helvetica','bold');
-  doc.text('TowerAI', margin+2, 11);
+  doc.text('Control Tower', margin+2, 11);
   doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(180,190,210);
   doc.text('KPIs & Performance Report', margin+2, 18);
   doc.setTextColor(180,190,210); doc.setFontSize(8);
@@ -5331,11 +5331,11 @@ async function exportKpiPdf(data, opts) {
     doc.setFillColor(...CREAM); doc.rect(0,285,W,12,'F');
     doc.setDrawColor(...RULE); doc.setLineWidth(0.3); doc.line(0,285,W,285);
     doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(...INK3);
-    doc.text('TowerAI — Confidential', margin, 291);
+    doc.text('Triad Control Tower — Confidential', margin, 291);
     doc.text('Page '+i+' of '+pageCount, W-margin, 291, {align:'right'});
     doc.text(period, W/2, 291, {align:'center'});
   }
-  doc.save('TowerAI-KPI-'+period.replace(/[^a-z0-9]+/gi,'-')+'.pdf');
+  doc.save('Triad-KPI-'+period.replace(/[^a-z0-9]+/gi,'-')+'.pdf');
 }
 
 function renderKPIs() {
@@ -7254,7 +7254,7 @@ function showVpkView() {
   const maxCost = Math.max(...months.map(m=>monthMap[m].cost), 1);
 
   const w = window.open('', '_blank');
-  w.document.write(`<!DOCTYPE html><html><head><title>TowerAI Network — VPK Savings Report</title>
+  w.document.write(`<!DOCTYPE html><html><head><title>Triad Network — VPK Savings Report</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, Arial, sans-serif; background: #f5f6fa; color: #1a1a2e; }
@@ -7288,7 +7288,7 @@ function showVpkView() {
   <div class="header">
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <div>
-        <div style="font-size:12px;color:#8090b0;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">TowerAI</div>
+        <div style="font-size:12px;color:#8090b0;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">Control Tower</div>
         <h1>VPK Packaging — Network Savings Report</h1>
         <p>Demonstrating the value of the shared distribution model${since?' · since '+since:''}</p>
       </div>
@@ -7301,7 +7301,7 @@ function showVpkView() {
   <div class="content">
     <div class="summary-statement">
       <h2>The Triad network has delivered ${transfers.length} confirmed load sharing transfers${since?' since '+since:''}</h2>
-      <p>By coordinating deliveries across four depots — Premier Logistics (Desborough), Campeys of Selby, and Wrings Transport (Banbury &amp; Wellington) — the TowerAI network has saved VPK Packaging 
+      <p>By coordinating deliveries across four depots — Premier Logistics (Desborough), Campeys of Selby, and Wrings Transport (Banbury &amp; Wellington) — the Triad network has saved VPK Packaging 
       <strong>£${Math.round(totalCost).toLocaleString()}</strong> in avoided transport costs, 
       removed <strong>${Math.round(totalMiles).toLocaleString()} miles</strong> from the road, 
       and avoided <strong>${Math.round(totalCO2/1000*10)/10} tonnes</strong> of CO₂ — 
@@ -7346,7 +7346,7 @@ function showVpkView() {
     </div>
   </div>
   </div><div class="footer">
-    <span>TowerAI — Confidential</span>
+    <span>Triad Control Tower — Confidential</span>
     <span>VPK Packaging Network Savings Report · ${new Date().getFullYear()}</span>
   </div>
   </body></html>`);
@@ -9301,8 +9301,8 @@ async function clearAllData() {
 }
 /* ══════════════════════════════════════════
    VPK IMPORT ENGINE
-   Embeds the full VPK → TowerAI parser
-   directly inside TowerAI
+   Embeds the full VPK → VPK → Qargo/Triad parser
+   directly inside the Control Tower
 ══════════════════════════════════════════ */
 let vpkParsedRows = [];
 let vpkMsalApp    = null;
@@ -9615,7 +9615,7 @@ async function vpkImportBatch() {
   }
   window._suppressNavAfterImport = false;
   window._batchImportItems = null;
-  if (btn) { btn.disabled = false; btn.textContent = '✓ Load into TowerAI →'; }
+  if (btn) { btn.disabled = false; btn.textContent = '✓ Load into Triad →'; }
   await loadDateData();
   showReqToast(`✓ ${imported} file${imported!==1?'s':''} imported successfully`);
   showTab('overview');
