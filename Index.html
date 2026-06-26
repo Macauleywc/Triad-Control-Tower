@@ -4265,12 +4265,13 @@ function renderSiteCards() {
           }).join('')}
         </div>
         ${['desborough','banbury','wellington','selby'].includes(sid) ? (() => {
-          const totalCost = (e.routes||[]).reduce((acc,r) => {
-            const importedCost = (r.stops_detail||[]).find(s => s.actualCost)?.actualCost;
+          // Use groupByShipment so multi-load runs aren't double-counted
+          const totalCost = groupByShipment(e).reduce((acc, run) => {
+            const allStopDetails = run.shipmentList.flatMap(s => s.stops);
+            const importedCost = allStopDetails.find(s => s.actualCost)?.actualCost;
             if (importedCost) return acc + parseFloat(importedCost);
-            // Use stop postcodes for accurate mileage calculation
-            const stopPCs = [...new Set((r.stops_detail||[]).map(s=>(s.postal||s.postcode||'').trim().toUpperCase()).filter(Boolean))].join(',');
-            const rc = calcRunCost(sid, stopPCs || r.postcodes || r.pc || '');
+            const stopPCs = [...new Set(allStopDetails.map(s=>(s.postal||s.postcode||'').trim().toUpperCase()).filter(Boolean))].join(',');
+            const rc = calcRunCost(sid, stopPCs);
             return acc + (rc ? parseFloat(rc.cost) : 0);
           }, 0);
           return totalCost > 0 ? `<div style="padding:10px 20px;background:var(--cream2);border-top:1px solid var(--rule);font-size:12px;display:flex;justify-content:space-between;align-items:center">
