@@ -4235,15 +4235,21 @@ function renderSiteCards() {
             const allPallets = run.shipmentList.reduce((a,s) => a + s.stops.reduce((b,st) => b+(st.pallets||0),0), 0);
             const rFill = Math.round(allPallets/TARGET_PALLETS*100);
             const rCol = allPallets>=TARGET_PALLETS?'var(--green)':allPallets>=30?'var(--amber)':'var(--red)';
-            // Cost: use actual cost from any stop in this run, or calc from first route's postcodes
+            // Cost: use actual cost from stops, or calculate from all stop postcodes in this run
             const allStopDetails = run.shipmentList.flatMap(s => s.stops);
             const importedCost = allStopDetails.find(s => s.actualCost)?.actualCost;
+            // Build postcode string from every stop in this run — much more accurate than route.pc
+            const stopPostcodes = [...new Set(
+              allStopDetails.map(s => (s.postal||s.postcode||'').trim().toUpperCase()).filter(Boolean)
+            )].join(',');
             const firstRouteKey = run.runKey;
             const firstRoute = (e.routes||[]).find(r => {
               const rs = r.runShips||[r.area];
               return [...rs].sort().join('|') === firstRouteKey || r.area === firstRouteKey;
             });
-            const runCost = importedCost ? { cost: importedCost } : calcRunCost(sid, firstRoute?.postcodes||firstRoute?.pc||'');
+            // Use stop postcodes first, fall back to route.pc
+            const pcString = stopPostcodes || firstRoute?.postcodes || firstRoute?.pc || '';
+            const runCost = importedCost ? { cost: importedCost } : calcRunCost(sid, pcString);
             const costStr = runCost ? `£${Number(runCost.cost).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}` : '—';
             const label = run.multiLoad ? `Run ${ri+1} <span style="font-size:10px;color:var(--ink3)">(${run.runShips.length} loads)</span>` : `Run ${ri+1}`;
             return `<div class="route-row">
@@ -4262,7 +4268,9 @@ function renderSiteCards() {
           const totalCost = (e.routes||[]).reduce((acc,r) => {
             const importedCost = (r.stops_detail||[]).find(s => s.actualCost)?.actualCost;
             if (importedCost) return acc + parseFloat(importedCost);
-            const rc = calcRunCost(sid, r.postcodes||r.pc||'');
+            // Use stop postcodes for accurate mileage calculation
+            const stopPCs = [...new Set((r.stops_detail||[]).map(s=>(s.postal||s.postcode||'').trim().toUpperCase()).filter(Boolean))].join(',');
+            const rc = calcRunCost(sid, stopPCs || r.postcodes || r.pc || '');
             return acc + (rc ? parseFloat(rc.cost) : 0);
           }, 0);
           return totalCost > 0 ? `<div style="padding:10px 20px;background:var(--cream2);border-top:1px solid var(--rule);font-size:12px;display:flex;justify-content:space-between;align-items:center">
