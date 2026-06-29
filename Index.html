@@ -17423,7 +17423,7 @@ async function processXlsxSheet(ws, sourceName, wb) {
 
     // ── Detect Banbury planner format ──
 
-    const daySheetNames = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+    const daySheetNames = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday','mon','tues','tue','wed','thurs','thu','fri','sat','sun'];
 
     const isMultiDayBanbury = wb && wb.SheetNames.some(n => daySheetNames.includes(n.toLowerCase()));
 
@@ -18861,7 +18861,7 @@ function readFileBuffer(file) {
 
 function detectVpkFormat(wb, fname) {
 
-  const daySheetNames = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+  const daySheetNames = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday','mon','tues','tue','wed','thurs','thu','fri','sat','sun'];
 
   const ws = wb.Sheets[wb.SheetNames[0]];
 
@@ -19307,7 +19307,7 @@ function vpkSplitCSV(line) {
 
 function vpkShowMultiDayPreview(wb, site, format) {
 
-  const dayNames = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+  const dayNames = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday','mon','tues','tue','wed','thurs','thu','fri','sat','sun'];
 
   const allDayData = [];
 
