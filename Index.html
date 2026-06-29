@@ -19715,7 +19715,8 @@ function parseCampeys(ws) {
 
     const postcode = cs(r,4).toUpperCase();
 
-    const pallets  = Number(cv(r,11))||0;
+    const rawPallets = cv(r,11);
+    const pallets = (rawPallets instanceof Date || (typeof rawPallets === 'object' && rawPallets !== null)) ? 0 : Number(rawPallets)||0;
 
     const delivTime = fmtTime(cv(r,10));
 
