@@ -4737,7 +4737,7 @@ async function renderHistory() {
   const tbody = document.getElementById('hist-body');
   let rows = [];
   if (sb) {
-    const { data } = await sb.from('daily_plans').select('*, routes(*)').order('plan_date',{ascending:false}).limit(60);
+    const { data } = await sb.from('daily_plans').select('*').order('plan_date',{ascending:false}).limit(60);
     rows = data||[];
   } else {
     rows = todayData.map(e=>({site_id:e.site,plan_date:e.date,capacity:e.capacity,notes:e.notes,uploaded_by:e.uploaded_by,routes:e.routes.map(r=>({stops:r.stops,pallets:r.pallets,weight_t:r.weight}))}));
@@ -6404,7 +6404,7 @@ async function loadSharingDateData(date) {
   }
   // Fetch from Supabase
   if (sb && isConfigured) {
-    const { data: plans, error } = await sb.from('daily_plans').select('*, routes(*)').eq('plan_date', date).order('site_id');
+    const { data: plans, error } = await sb.from('daily_plans').select('*').eq('plan_date', date).order('site_id');
     if (!error && plans?.length) {
       window._sharingData = plans.map(p => ({
         site: p.site_id, date: p.plan_date, capacity: p.capacity,
