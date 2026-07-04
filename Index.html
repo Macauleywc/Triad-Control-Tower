@@ -6390,6 +6390,39 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
 
     </div>
 
+      <!-- Data Management -->
+      <div class="admin-card" style="margin:24px 0 0">
+        <div class="admin-card-head">
+          <div class="admin-card-title">Data Management</div>
+          <span style="font-family:var(--font-mono);font-size:11px;color:var(--ink3)">Delete plan data by date range</span>
+        </div>
+        <div style="padding:16px 0 4px">
+          <div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap">
+            <div>
+              <label class="field-label" style="display:block;margin-bottom:6px">From date</label>
+              <input type="date" id="del-from" class="f-input" style="width:160px">
+            </div>
+            <div>
+              <label class="field-label" style="display:block;margin-bottom:6px">To date</label>
+              <input type="date" id="del-to" class="f-input" style="width:160px">
+            </div>
+            <div>
+              <label class="field-label" style="display:block;margin-bottom:6px">Site</label>
+              <select id="del-site" class="f-input" style="width:160px">
+                <option value="all">All sites</option>
+                <option value="desborough">Desborough</option>
+                <option value="selby">Selby</option>
+                <option value="banbury">Banbury</option>
+                <option value="wellington">Wellington</option>
+              </select>
+            </div>
+            <button onclick="adminDeleteDateRange()" style="background:#c0392b;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer">Delete data</button>
+          </div>
+          <div id="del-status" style="margin-top:12px;font-size:13px"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- ─── VPK IMPORT TAB ─── -->
 
     <div id="tab-vpkimport" class="content" style="display:none">
@@ -11577,6 +11610,45 @@ function selectSiteRadio(sid) {
 
   if (el) el.classList.add('selected');
 
+}
+
+async function adminDeleteDateRange() {
+  const from = document.getElementById('del-from').value;
+  const to   = document.getElementById('del-to').value;
+  const site = document.getElementById('del-site').value;
+  const status = document.getElementById('del-status');
+  if (!from || !to) { status.textContent = 'Please select both a from and to date.'; status.style.color='#c0392b'; return; }
+  if (from > to) { status.textContent = 'From date must be before to date.'; status.style.color='#c0392b'; return; }
+  const siteLabel = site === 'all' ? 'all sites' : site;
+  const confirmed = confirm(`Delete all data from ${from} to ${to} for ${siteLabel}?\nThis cannot be undone.`);
+  if (!confirmed) return;
+  status.textContent = 'Deleting...'; status.style.color='var(--ink3)';
+  try {
+    // Get plans in date range
+    let q = sb.from('daily_plans').select('id').gte('plan_date', from).lte('plan_date', to);
+    if (site !== 'all') q = q.eq('site_id', site);
+    const { data: plans, error: fetchErr } = await q;
+    if (fetchErr) throw fetchErr;
+    if (!plans || plans.length === 0) { status.textContent = 'No data found for that date range.'; status.style.color='var(--ink3)'; return; }
+    // Delete routes first (FK constraint)
+    const ids = plans.map(p => p.id);
+    for (const id of ids) {
+      const { error: rErr } = await sb.from('routes').delete().eq('plan_id', id);
+      if (rErr) throw rErr;
+    }
+    // Delete plans
+    let dq = sb.from('daily_plans').delete().gte('plan_date', from).lte('plan_date', to);
+    if (site !== 'all') dq = dq.eq('site_id', site);
+    const { error: delErr } = await dq;
+    if (delErr) throw delErr;
+    // Reload data
+    await loadFromSupabase();
+    status.textContent = `Deleted ${plans.length} plan(s) from ${from} to ${to}.`;
+    status.style.color = 'green';
+  } catch(e) {
+    status.textContent = 'Error: ' + (e.message || JSON.stringify(e));
+    status.style.color = '#c0392b';
+  }
 }
 
 async function renderAdmin() {
