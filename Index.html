@@ -6509,7 +6509,38 @@ async function proposeJobTransfer(opp) {
   }
   _jobTransfers.unshift({ ...record, id: Date.now(), created_at: new Date().toISOString() });
   updateTransfersBadge();
-  showToast(`✓ Transfer proposed to ${selCarrier.name} — they'll see it in their Transfers tab`, 3500);
+
+  // ── Post to Live chat — network channel so everyone sees it ──
+  const fromMeta = SITES_META[opp.saved]  || {};
+  const toMeta   = SITES_META[selCarrier.site] || {};
+  const chatMsg = {
+    id:      'transfer_' + Date.now(),
+    channel: 'network',
+    site:    opp.saved,
+    sender:  fromMeta.name || opp.saved,
+    text:    `↔ Transfer proposed — ${fromMeta.name} is asking ${toMeta.name} to take their ${opp.district} delivery` +
+             ` (${opp.palletsSaved}p · £${opp.vpkSaving?.toFixed(2)||'—'} VPK discount · ${opp.milesSaved} mi saved).` +
+             ` Go to the Transfers tab to accept or decline.`,
+    urgent:  true,
+    ts:      Date.now(),
+    isTransferNotice: true,
+  };
+  // Add to local chat
+  if (!chatMessages['network']) chatMessages['network'] = [];
+  chatMessages['network'].push(chatMsg);
+  // Broadcast to all connected users
+  broadcastMsg(chatMsg);
+  // Update chat unread badge if not on chat tab
+  if (document.getElementById('tab-chat')?.style.display === 'none') {
+    chatUnread['network'] = (chatUnread['network']||0) + 1;
+    updateChatBadge?.();
+  }
+  // Re-render chat if open
+  if (document.getElementById('tab-chat')?.style.display !== 'none') {
+    renderMessages?.();
+  }
+
+  showToast(`↔ Transfer proposed to ${selCarrier.name} — posted to Live chat`, 3500);
 }
 
 // ── Update transfer status ──
@@ -6522,6 +6553,36 @@ async function updateTransferStatus(id, status, idx) {
   if (_jobTransfers[idx]) _jobTransfers[idx].status = status;
   const labels = { accepted: 'Transfer accepted ✓', declined: 'Transfer declined', completed: 'Marked as completed ✓' };
   showToast(labels[status] || 'Updated', 2500);
+
+  // Post status update to Live chat
+  const t = _jobTransfers.find(tr => String(tr.id) === String(id));
+  if (t) {
+    const fMeta = SITES_META[t.from_site]||{};
+    const tMeta = SITES_META[t.to_site]||{};
+    const statusTexts = {
+      accepted:  `✓ Transfer accepted — ${tMeta.name||t.to_site} will take ${fMeta.name||t.from_site}'s ${t.district||t.route_area} delivery (${t.pallets||0}p).`,
+      declined:  `✕ Transfer declined — ${tMeta.name||t.to_site} cannot take ${fMeta.name||t.from_site}'s ${t.district||t.route_area} delivery.`,
+      completed: `✅ Transfer completed — ${t.district||t.route_area} delivery handed over successfully.`,
+    };
+    if (statusTexts[status]) {
+      const statusMsg = {
+        id: 'transfer_status_' + Date.now(),
+        channel: 'network', site: currentSiteId,
+        sender: SITES_META[currentSiteId]?.name || currentSiteId,
+        text: statusTexts[status], urgent: status === 'accepted',
+        ts: Date.now(), isTransferNotice: true,
+      };
+      if (!chatMessages['network']) chatMessages['network'] = [];
+      chatMessages['network'].push(statusMsg);
+      broadcastMsg(statusMsg);
+      if (document.getElementById('tab-chat')?.style.display === 'none') {
+        chatUnread['network'] = (chatUnread['network']||0) + 1;
+        updateChatBadge?.();
+      }
+      if (document.getElementById('tab-chat')?.style.display !== 'none') renderMessages?.();
+    }
+  }
+
   renderTransfersTab();
   updateTransfersBadge();
 }
