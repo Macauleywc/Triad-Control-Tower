@@ -8359,36 +8359,13 @@ function myChannels() {
   );
 }
 // ── Seed demo messages ──
+// Demo conversation removed ahead of go-live — real users must not see
+// fabricated chat history that looks like it actually happened.
 function seedDemoMessages() {
-  const now = Date.now();
-  const m = (ch, sid, text, minsAgo, opts={}) => ({
-    id: 'dm_' + Math.random().toString(36).slice(2),
-    channel: ch, site: sid,
-    sender: SITES_META[sid]?.name || sid,
-    text, urgent: opts.urgent||false,
-    replyTo: opts.replyTo||null,
-    ts: now - minsAgo*60000,
+  CHAT_CHANNELS.forEach(c => {
+    if (!chatMessages[c.id]) chatMessages[c.id] = [];
+    chatUnread[c.id] = 0;
   });
-  chatMessages['network'] = [
-    m('network','banbury','Morning all — we\'re running heavy today, 88 stops. Might need to hand off some CV47 drops.',42),
-    m('network','desborough','Morning. We can take CV47 — it\'s close to our NN6 run. How many stops?',40),
-    m('network','banbury','Around 8-10 stops, mixed pallets. Would save us about 60 miles.',39),
-    m('network','selby','@Banbury good shout. We\'re only at 48% today so could also help if needed.',38),
-    m('network','desborough','Let\'s sort the CV47 transfer — I\'ll update our route data now.',37,{urgent:true}),
-    m('network','wellington','Morning. We\'re light at 40% — available for any overflow on the south side.',35),
-    m('network','banbury','@Desborough brilliant — transfer confirmed on our end.',34),
-  ];
-  chatMessages['des-ban'] = [
-    m('des-ban','desborough','Just to confirm — we\'re picking up the OX17 drops too, not just CV47?',25),
-    m('des-ban','banbury','Correct. OX17 is 6 stops, 8 pallets. Details in the route data.',24),
-    m('des-ban','desborough','Got it. Driver departs 07:30 so will be with you by 09:00 for handover.',23,{urgent:true}),
-  ];
-  chatMessages['des-sel'] = [
-    m('des-sel','selby','FYI — we have a vehicle free from 14:00 if you need any afternoon support.',15),
-    m('des-sel','desborough','Noted, thank you. Will let you know after the morning run.',14),
-  ];
-  // Mark all as read initially except network which has 2 "unread"
-  Object.keys(chatMessages).forEach(ch => chatUnread[ch] = 0);
 }
 // ── Init ──
 function initChat() {
