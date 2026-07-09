@@ -6944,6 +6944,7 @@ function computeEnhancedOpps(data) {
         if (carrier === saved) return;
         const dCarrier = DEPOT_COORDS[carrier]; if (!dCarrier) return;
         const distCarrier = kmToMiles(haversineKm(coords.lat,coords.lon,dCarrier.lat,dCarrier.lon));
+        if (distCarrier > RING_FENCE_MILES) return; // carrier must actually be near the delivery
         if (distSaved - distCarrier < 10) return;
         const palletsCarrier = siteData[carrier].pallets;
         carriers.push({
