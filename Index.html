@@ -6543,6 +6543,21 @@ async function proposeJobTransfer(opp) {
   showToast(`↔ Transfer proposed to ${selCarrier.name} — posted to Live chat`, 3500);
 }
 
+// ── Safe index-based lookups for card buttons (avoids embedding raw JSON,
+//    with things like customer names/postcodes, directly into onclick attrs) ──
+function proposeJobTransferByIdx(idx) {
+  const allOpps = [...(window._currentFullLoadOpps||[]), ...(window._currentRelayOpps||[]), ...(window._currentLightLoadOpps||[])];
+  const opp = allOpps[idx];
+  if (!opp) { showToast('⚠ Could not find that opportunity — try refreshing', 3000); return; }
+  proposeJobTransfer(opp);
+}
+function ignoreOppByIdx(idx) {
+  const allOpps = [...(window._currentFullLoadOpps||[]), ...(window._currentRelayOpps||[]), ...(window._currentLightLoadOpps||[])];
+  const opp = allOpps[idx];
+  if (!opp) return;
+  ignoreOpp(opp);
+}
+
 // ── Update transfer status ──
 async function updateTransferStatus(id, status, idx) {
   const update = { status, accepted_by: currentUser?.email || currentUser?.id || 'unknown' };
@@ -7205,7 +7220,7 @@ function renderAllOppsEnhanced() {
           ${selCarrier ? `<span style="color:${selCarrier.color||'var(--navy)'};font-weight:600">${selCarrier.name}</span> carries it (already ${selCarrier.distCarrier} mi away — no extra truck needed)` : ''}
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button onclick="proposeJobTransfer(${JSON.stringify(opp).replace(/"/g,'&quot;')})"
+          <button onclick="proposeJobTransferByIdx(${i})"
             style="padding:8px 18px;background:var(--orange,#E8520A);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-body)">
             ↔ Propose transfer
           </button>
@@ -7217,7 +7232,7 @@ function renderAllOppsEnhanced() {
             style="padding:8px 14px;border:1px solid var(--rule);background:none;border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--font-body);color:var(--ink2)">
             View stops
           </button>
-          <button onclick="ignoreOpp(${JSON.stringify(opp).replace(/"/g,'&quot;')})" 
+          <button onclick="ignoreOppByIdx(${i})" 
             style="padding:8px 14px;border:1px solid var(--rule);background:none;border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--font-body);color:var(--ink3)">
             Ignore
           </button>
