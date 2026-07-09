@@ -8405,6 +8405,18 @@ function broadcastMsg(msg) {
   }
 }
 // ── Channel list ──
+// Show the logged-in site first in a DM channel's label, regardless of how
+// the channel was defined in CHAT_CHANNELS (those labels aren't written from
+// any particular site's point of view).
+function channelDisplayLabel(ch) {
+  if (!ch.private || !ch.sites || ch.sites.length !== 2 || !ch.sites.includes(currentSiteId)) {
+    return ch.label;
+  }
+  const other = ch.sites.find(s => s !== currentSiteId);
+  const mine  = SITES_META[currentSiteId]?.name || currentSiteId;
+  const theirs= SITES_META[other]?.name || other;
+  return `${mine} ↔ ${theirs}`;
+}
 function buildChannelList() {
   const el = document.getElementById('channel-list');
   const channels = myChannels();
@@ -8420,7 +8432,7 @@ function buildChannelList() {
         const isActive = ch.id === chatChannel;
         return `<button class="channel-btn${isActive?' active':''}" onclick="switchChannel('${ch.id}')" id="chbtn-${ch.id}">
           <div class="ch-dot" style="background:${ch.color}"></div>
-          <span class="ch-label">${ch.label}</span>
+          <span class="ch-label">${channelDisplayLabel(ch)}</span>
           ${unread ? `<span class="ch-unread">${unread}</span>` : ''}
         </button>`;
       }).join('');
@@ -8457,7 +8469,7 @@ function switchChannel(chId) {
   const name = document.getElementById('chat-header-name');
   const sub  = document.getElementById('chat-header-sub');
   if (dot)  dot.style.background = ch?.color || 'var(--navy)';
-  if (name) name.textContent = ch?.label || chId;
+  if (name) name.textContent = (ch ? channelDisplayLabel(ch) : chId);
   if (sub)  sub.textContent  = ch?.private ? 'Private — visible only to these two sites' : 'Visible to all four sites';
   if (!chatMessages[chId]) chatMessages[chId] = [];
   renderMessages();
