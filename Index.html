@@ -6968,7 +6968,40 @@ function computeEnhancedOpps(data) {
       const totalCostSaved = TRANSFER_BASE_COST + mileageCost;
       const co2Saved = Math.round(roundTripMiles * CO2_KG_PER_MILE);
       const vpkSaving = Math.round(totalCostSaved * 0.10 * 100)/100;
-      const problemKey = `${saved}|${district}`;
+      // Key by ROUTE (site + run), not by district — a single run can pass through
+      // several postcode districts that each independently match a carrier, and
+      // that must still produce only one card, not one per matching district.
+      const runLabel = siteData[saved].runLabel || district;
+      const problemKey = `${saved}|${runLabel}`;
+
+      if (oppMap[problemKey]) {
+        // Same route already has a card — merge this district's carriers in
+        // rather than creating a duplicate card for the same run.
+        const existing = oppMap[problemKey];
+        carriers.forEach(c => {
+          const idx = existing.carriers.findIndex(ec => ec.site === c.site);
+          if (idx === -1) existing.carriers.push(c);
+          else if (c.distCarrier < existing.carriers[idx].distCarrier) existing.carriers[idx] = c;
+        });
+        existing.carriers.sort((a,b) => a.distCarrier - b.distCarrier);
+        existing.selectedCarrier = existing.carriers[0]?.site || existing.selectedCarrier;
+        existing.carrier = existing.carriers[0]?.site;
+        existing.carrierName = existing.carriers[0]?.name;
+        existing.type = existing.carriers.some(c => c.isFullLoad) ? 'full_load' : 'relay';
+        // Keep the numbers from whichever matched district represents the
+        // biggest saving (i.e. the stop furthest from the saved depot).
+        if (distSaved > existing.distSaved) {
+          existing.district = district;
+          existing.distSaved = Math.round(distSaved);
+          existing.roundTripMiles = roundTripMiles;
+          existing.mileageCost = Math.round(mileageCost*100)/100;
+          existing.totalCostSaved = Math.round(totalCostSaved*100)/100;
+          existing.vpkSaving = vpkSaving;
+          existing.milesSaved = roundTripMiles;
+          existing.co2Saved = co2Saved;
+        }
+        return;
+      }
 
       const opp = {
         type, saved,
@@ -6987,7 +7020,7 @@ function computeEnhancedOpps(data) {
         milesSaved: roundTripMiles,
         co2Saved,
         savedStops: getAllRouteStops(saved),
-        runLabel: siteData[saved].runLabel || district,
+        runLabel,
         date: viewDate || todayStr(),
         // carrier is separate — selected by user
         carrier: carriers[0]?.site,
