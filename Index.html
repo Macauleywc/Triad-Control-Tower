@@ -10365,6 +10365,7 @@ function parseCampeys(ws) {
   }
   const stops = [];
   const loadCosts = {}; // loadRef -> actual cost from file
+  const asgRefs = new Set(); // collection refs belonging to an ASG (subcontracted) load
   let currentRef = '';
   let loadingTime = '';
   for(let r=11; r<=maxRow; r++){
@@ -10380,6 +10381,11 @@ function parseCampeys(ws) {
     }
     const colRef = cs(r,9);
     if(colRef.startsWith('CV')) currentRef = colRef;
+    // Column A is only meaningful as a haulier marker on a load's first row —
+    // on continuation drop-rows for the same load it's reused for other codes
+    // (TL, 2nd run, US, etc.), so tag the whole load ref rather than trusting
+    // column A on every row.
+    if(c0 === 'asg' && currentRef) asgRefs.add(currentRef);
     const customer = cs(r,2);
     const postcode = cs(r,4).toUpperCase();
     const pallets  = Number(cv(r,11))||0;
@@ -10400,7 +10406,9 @@ function parseCampeys(ws) {
   }
   // Attach actual costs to each stop's load
   stops.forEach(s => { s.actualCost = loadCosts[s.loadRef] || null; });
-  return stops;
+  // Drop any stop belonging to a load tagged ASG (subcontracted) anywhere in
+  // its block — own-fleet Campeys loads only.
+  return stops.filter(s => !asgRefs.has(s.loadRef));
 }
 // ── Wellington (Wrings) parser ──
 function parseWellington(ws) {
