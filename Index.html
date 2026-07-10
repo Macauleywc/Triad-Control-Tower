@@ -2375,6 +2375,7 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
         </div>
       </div>
     </div>
+    <div id="site-switcher-wrap"></div>
     <nav class="sb-nav">
       <div class="sb-nav-label">Views</div>
       <button class="sb-link active" data-tab="overview" onclick="showTab('overview')">
@@ -3366,6 +3367,7 @@ const PC_PROXIMITY = {
 const isConfigured = SUPABASE_URL !== 'YOUR_SUPABASE_URL';
 const sb = isConfigured ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON) : null;
 let currentUser = null, currentSiteId = null, isSuperUser = false, todayData = [], allData = [];
+let userSites = []; // sites this account can view — >1 entry means a multi-site account with a site switcher
 const ignoredOpps = new Set(); // keys: 'from|to|area'
 let uploadTargetSite = null, rowCount = 0;
 let lastExportContent = '', lastExportExt = 'txt';
@@ -3387,6 +3389,7 @@ async function doLogin() {
       isSuperUser   = true;
       currentSiteId = 'desborough';
     }
+    userSites = [currentSiteId];
     enterApp();
     return;
   }
@@ -3402,21 +3405,69 @@ async function doLogin() {
   if (error) { err.style.display = 'block'; err.textContent = error.message || 'Invalid email or password. Please try again.'; return; }
   currentUser = data.user;
   const appMeta  = data.user?.app_metadata || {};
-  // Determine site first — default to desborough if no app_metadata set
+  // site_id can be a single string ("selby") or an array (["banbury","wellington"])
+  // for accounts that need to view more than one depot.
   const rawSite  = appMeta.site_id || 'desborough';
+  userSites      = Array.isArray(rawSite) ? rawSite : [rawSite];
   // Superuser if: explicit role, admin site_id, OR resolved to desborough (covers accounts with no app_metadata)
-  isSuperUser    = appMeta.role === 'superadmin' || rawSite === 'admin' || rawSite === 'desborough';
-  currentSiteId  = rawSite === 'admin' ? 'desborough' : rawSite;
+  isSuperUser    = appMeta.role === 'superadmin' || userSites.includes('admin') || userSites.includes('desborough');
+  if (userSites.includes('admin')) userSites = userSites.map(s => s === 'admin' ? 'desborough' : s);
+  // Multi-site accounts: restore last-viewed site if it's still one they have access to
+  let startSite = userSites[0];
+  try {
+    const last = localStorage.getItem('triad_last_site_' + (currentUser?.email||''));
+    if (last && userSites.includes(last)) startSite = last;
+  } catch(e){}
+  currentSiteId  = startSite;
   enterApp();
 }
 async function doLogout() {
   if (sb) await sb.auth.signOut();
-  currentUser = null; currentSiteId = null; isSuperUser = false; todayData = [];
+  currentUser = null; currentSiteId = null; isSuperUser = false; todayData = []; userSites = [];
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-email').value = '';
   document.getElementById('login-pass').value = '';
   document.getElementById('login-err').style.display = 'none';
+}
+// Sidebar control for accounts assigned to more than one depot (e.g. Wrings
+// staff covering both Banbury and Wellington). Hidden entirely for normal
+// single-site accounts and for superusers, who already see everything.
+function buildSiteSwitcherUI() {
+  const el = document.getElementById('site-switcher-wrap');
+  if (!el) return;
+  if (isSuperUser || userSites.length <= 1) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <div style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.06)">
+      <div style="font-size:10px;color:rgba(255,255,255,0.3);font-family:var(--font-mono);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px">Viewing site</div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        ${userSites.map(sid => {
+          const meta = SITES_META[sid] || { name: sid, color:'#888' };
+          const active = sid === currentSiteId;
+          return `<button onclick="switchSite('${sid}')" style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;border:none;cursor:pointer;text-align:left;font-size:12px;font-family:var(--font-body);font-weight:${active?'600':'400'};background:${active?'rgba(255,255,255,0.1)':'transparent'};color:${active?'#fff':'rgba(255,255,255,0.55)'}">
+            <span style="width:7px;height:7px;border-radius:50%;background:${meta.color};flex-shrink:0"></span>${meta.name}
+          </button>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+function switchSite(sid) {
+  if (!userSites.includes(sid) || sid === currentSiteId) return;
+  currentSiteId = sid;
+  uploadTargetSite = sid;
+  if (typeof vpkTargetSite !== 'undefined') vpkTargetSite = sid;
+  try { localStorage.setItem('triad_last_site_' + (currentUser?.email||''), sid); } catch(e){}
+  buildSiteSwitcherUI();
+  buildSiteSelector();
+  if (typeof buildSiteRadios === 'function') buildSiteRadios();
+  // The active chat channel may not belong to the new site (e.g. a DM with a
+  // site you no longer have in view) — fall back to the network channel.
+  if (typeof chatChannel !== 'undefined' && chatChannel !== 'network') {
+    chatChannel = 'network';
+    if (typeof buildChannelList === 'function') buildChannelList();
+    if (typeof switchChannel === 'function') switchChannel('network');
+  }
+  renderAll();
 }
 ['login-email','login-pass'].forEach(id =>
   document.getElementById(id).addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); })
@@ -3433,6 +3484,7 @@ function enterApp() {
   viewDate = todayStr();
   updateDateNav();
   buildSiteSelector();
+  buildSiteSwitcherUI();
   addRow();
   buildSiteRadios();
   // KPIs visible to all; User Admin only for superuser
