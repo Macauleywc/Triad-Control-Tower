@@ -3462,7 +3462,8 @@ function switchSite(sid) {
   if (typeof buildSiteRadios === 'function') buildSiteRadios();
   // The active chat channel may not belong to the new site (e.g. a DM with a
   // site you no longer have in view) — fall back to the network channel.
-  if (typeof chatChannel !== 'undefined' && chatChannel !== 'network') {
+  // Only relevant once chat has actually been opened this session.
+  if (chatInitDone && typeof chatChannel !== 'undefined' && chatChannel !== 'network') {
     chatChannel = 'network';
     if (typeof buildChannelList === 'function') buildChannelList();
     if (typeof switchChannel === 'function') switchChannel('network');
@@ -3500,7 +3501,7 @@ function enterApp() {
     headerSiteEl.textContent = isSuperUser ? 'Super Admin' : (SITES_META[currentSiteId]?.name || currentSiteId);
     headerSiteEl.style.display = '';
   }
-  if (isConfigured && sb) { loadFromSupabase(); setupRealtime(); }
+  if (isConfigured && sb) { loadFromSupabase(); setupRealtime(); initChatData(); }
   else loadFallback();
 }
 /* ══════════════════════════════════════════
@@ -8385,7 +8386,7 @@ function _initLeafletMap(opps) {
    falls back to local demo state otherwise.
 ══════════════════════════════════════════ */
 // ── State ──
-let chatChannel     = 'network';   // current active channel id
+let chatChannel     = null;        // current active channel id — null until Live Chat has actually been opened, so incoming messages before then are correctly counted as unread rather than silently matching a default channel
 let chatMessages    = {};          // { channelId: [msg, ...] }
 let chatUnread      = {};          // { channelId: count }
 let chatReplyTo     = null;        // { id, sender, text }
@@ -8420,12 +8421,19 @@ function seedDemoMessages() {
   });
 }
 // ── Init ──
+// Split in two: the data/subscription layer needs to start the moment
+// someone logs in — otherwise a message sent while they're on, say,
+// Overview never gets caught at all, and nothing ever flags it. The UI
+// layer (building the channel list, opening a channel) stays lazy and
+// only runs once they actually click into Live Chat.
+function initChatData() {
+  if (chatInitDone) return;
+  seedDemoMessages();
+  chatInitDone = true;
+  if (sb && isConfigured) subscribeToChat();
+}
 function initChat() {
-  if (!chatInitDone) {
-    seedDemoMessages();
-    chatInitDone = true;
-    if (sb && isConfigured) subscribeToChat();
-  }
+  initChatData();
   buildChannelList();
   switchChannel('network');
   updatePresence();
