@@ -6361,7 +6361,7 @@ function loadsDrillDown(sid) {
         const reqIdx = window._loadsDrilldownRequests.length;
         window._loadsDrilldownRequests.push({
           sid, area: runArea, stops: runStops, pallets: runPallets,
-          weight: runWeightT, siteName: meta.name, reqId,
+          weight: runWeightT, siteName: meta.name, reqId, stopsDetail: allStops,
         });
         reqBtn = `<button class="req-btn${alreadyReq?' requested':''}" id="${reqId}" onclick="event.stopPropagation();requestToTakeByIdx(${reqIdx})">${alreadyReq?'✓':'+ Request'}</button>` +
           `<button class="req-btn" style="margin-left:6px;background:var(--navy);color:#fff;border-color:var(--navy)" onclick="event.stopPropagation();openManualTransferLog(${reqIdx})">✓ Log as taken</button>`;
@@ -6665,6 +6665,35 @@ async function updateTransferStatus(id, status, idx) {
 
   renderTransfersTab();
   updateTransfersBadge();
+
+  // Whenever a proposal is actually completed — whether it came from the
+  // automatic 30-mile opportunity engine or a manual pull request — log it
+  // into the same transfers table the Savings tracker KPI reads from. This
+  // is the step that was previously missing: accepting/completing a job
+  // transfer never used to reach the KPI at all.
+  if (status === 'completed' && t) {
+    const kpiRecord = {
+      transfer_date: t.transfer_date || viewDate || todayStr(),
+      type: t.is_pull_request ? 'manual_request' : 'job_transfer',
+      from_site: t.from_site, to_site: t.to_site,
+      route_area: t.route_area, district: t.district,
+      pallets_transferred: t.pallets || 0,
+      one_way_miles: null, base_cost: null, mileage_cost: null,
+      total_cost_saved: t.cost_saving || 0,
+      miles_saved: t.miles_saved || 0,
+      co2_kg_saved: Math.round((t.miles_saved||0) * CO2_KG_PER_MILE) || 0,
+      confirmed_by: currentUser?.email || currentUser?.id || 'unknown',
+      notes: t.notes || '',
+      plan_date: t.plan_date || t.transfer_date || viewDate || todayStr(),
+    };
+    if (sb && isConfigured) {
+      const { error: kpiErr } = await sb.from('transfers').insert(kpiRecord);
+      if (kpiErr) console.warn('Could not log completed transfer to KPI table:', kpiErr.message);
+    }
+    _confirmedTransfers.unshift({ ...kpiRecord, id: Date.now(), created_at: new Date().toISOString() });
+    const badge = document.getElementById('savings-badge');
+    if (badge) { badge.textContent = _confirmedTransfers.length; badge.style.display = ''; }
+  }
 }
 
 // ── Delete a job transfer ──
@@ -6736,7 +6765,12 @@ async function renderTransfersTab() {
     const stops = t.stops_detail || [];
 
     const actionBtns = () => {
-      if (t.status === 'proposed' && (isIncoming || isSuperUser)) return `
+      // For a normal proposal, the receiving site (to_site) must accept/decline.
+      // For a pull request (someone asking to take a load off another site),
+      // it's reversed — the site being asked to give it up (from_site) approves.
+      const mustApprove = t.is_pull_request ? isOutgoing : isIncoming;
+      const isRequester  = t.is_pull_request ? isIncoming : isOutgoing;
+      if (t.status === 'proposed' && (mustApprove || isSuperUser)) return `
         <button onclick="updateTransferStatus('${t.id}','accepted',${idx})"
           style="padding:8px 18px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-body)">
           ✓ Accept transfer
@@ -6745,12 +6779,12 @@ async function renderTransfersTab() {
           style="padding:8px 14px;border:1px solid var(--rule);background:none;border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--font-body);color:var(--red)">
           ✕ Decline
         </button>`;
-      if (t.status === 'accepted' && (isIncoming || isSuperUser)) return `
+      if (t.status === 'accepted' && (mustApprove || isSuperUser)) return `
         <button onclick="updateTransferStatus('${t.id}','completed',${idx})"
           style="padding:8px 18px;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-body)">
           ✓ Mark completed
         </button>`;
-      if ((isOutgoing || isSuperUser) && t.status === 'proposed') return `
+      if ((isRequester || isSuperUser) && t.status === 'proposed') return `
         <button onclick="deleteJobTransfer('${t.id}',${idx})"
           style="padding:8px 14px;border:1px solid var(--rule);background:none;border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--font-body);color:var(--ink3)">
           Withdraw
@@ -6768,7 +6802,9 @@ async function renderTransfersTab() {
             → <span style="color:${toMeta.color||'var(--navy)'}">${toMeta.name||t.to_site}</span>
           </span>
           <span style="font-size:12px;color:var(--ink3)">${t.district||t.route_area||''} · ${t.pallets||0}p · ${t.transfer_date}</span>
+          ${t.is_pull_request ? `<span style="padding:2px 8px;border-radius:20px;background:#ede7f6;color:#5e35b1;font-size:10px;font-weight:700">PULL REQUEST</span>` : ''}
         </div>
+        ${t.notes ? `<div style="font-size:12px;color:var(--ink3);margin-bottom:12px;font-style:italic">${t.notes}</div>` : ''}
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
           <div style="background:var(--cream);border-radius:8px;padding:10px;text-align:center">
             <div style="font-size:16px;font-weight:700;color:var(--green)">£${(t.cost_saving||0).toFixed(2)}</div>
@@ -8952,7 +8988,7 @@ async function saveManualTransferLog() {
   if (badge) { badge.textContent = _confirmedTransfers.length; badge.style.display = ''; }
 }
 function requestToTake(data) {
-  const { sid, area, stops, pallets, weight, pcs, siteName, reqId } = data;
+  const { sid, area, stops, pallets, weight, siteName, reqId, stopsDetail } = data;
   const myName = SITES_META[currentSiteId]?.name || currentSiteId;
   // Mark as requested locally
   requestedRoutes.add(reqId);
@@ -8981,6 +9017,30 @@ function requestToTake(data) {
     chatUnread[targetChannel] = (chatUnread[targetChannel] || 0) + 1;
     updateUnreadBadges();
   }
+  // Also create a structured proposal in job_transfers — this is what actually
+  // gives the other site an Accept/Decline button in their Transfers tab,
+  // rather than the request only existing as a chat message either side could
+  // lose track of.
+  (async () => {
+    const record = {
+      transfer_date: viewDate || todayStr(),
+      status: 'proposed',
+      from_site: sid, to_site: currentSiteId, // physical direction: load moves FROM Wellington TO Selby
+      is_pull_request: true, // Selby (to_site) is the one asking — Wellington (from_site) must approve giving it up
+      district: null, route_area: area,
+      pallets: pallets || 0,
+      miles_saved: 0, cost_saving: 0,
+      stops_detail: stopsDetail || [],
+      proposed_by: currentUser?.email || currentUser?.id || 'unknown',
+      plan_date: viewDate || todayStr(),
+      notes: `${myName} requested this load via All loads (outside automatic opportunity matching) — awaiting ${siteName}'s approval to release it.`,
+    };
+    if (sb && isConfigured) {
+      const { error } = await sb.from('job_transfers').insert(record);
+      if (error) console.warn('Could not create job_transfers proposal:', error.message);
+      else if (typeof loadJobTransfers === 'function') loadJobTransfers();
+    }
+  })();
   // Update the button to "Requested" state
   const btn = document.getElementById(reqId);
   if (btn) {
@@ -8990,7 +9050,7 @@ function requestToTake(data) {
     btn.onclick = null;
   }
   // Show toast
-  showReqToast(`Request sent to ${siteName} — message posted in ${targetChannel === 'network' ? 'group chat' : 'your direct channel'}`);
+  showReqToast(`Request sent to ${siteName} — posted in chat and awaiting accept/decline in their Transfers tab`);
 }
 function showReqToast(msg) {
   const toast = document.getElementById('req-toast');
