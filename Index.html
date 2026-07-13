@@ -6548,12 +6548,38 @@ function updateTransfersBadge() {
 }
 
 // ── Propose a transfer (from Load sharing) ──
-async function proposeJobTransfer(opp) {
+async function proposeJobTransfer(opp, btnEl) {
   const selCarrier = opp.carriers?.find(c => c.site === opp.selectedCarrier) || opp.carriers?.[0];
   if (!selCarrier) { showToast('Select a carrier first', 2000); return; }
 
+  // Lock the button immediately — without this, a rapid double/triple-click
+  // during the async save below creates several identical duplicate
+  // proposals (this happened in practice: three near-identical rows a few
+  // seconds apart for the same route).
+  if (btnEl) {
+    if (btnEl.disabled) return; // already in flight
+    btnEl.disabled = true;
+    btnEl.dataset.origText = btnEl.textContent;
+    btnEl.textContent = 'Proposing…';
+    btnEl.style.opacity = '0.6';
+    btnEl.style.cursor = 'default';
+  }
+
+  const transferDate = opp.date || viewDate || todayStr();
+  // Data-level safety net too, in case two different tabs/devices submit at
+  // once — skip if an identical proposal is already pending.
+  const dupe = _jobTransfers.find(t =>
+    t.status === 'proposed' && t.from_site === opp.saved && t.to_site === selCarrier.site &&
+    (t.route_area||'') === (opp.runLabel||opp.district||'') && t.transfer_date === transferDate
+  );
+  if (dupe) {
+    showToast('This transfer has already been proposed', 2500);
+    if (btnEl) { btnEl.textContent = '✓ Already proposed'; }
+    return;
+  }
+
   const record = {
-    transfer_date: opp.date || viewDate || todayStr(),
+    transfer_date: transferDate,
     status: 'proposed',
     from_site: opp.saved,
     to_site: selCarrier.site,
@@ -6564,16 +6590,21 @@ async function proposeJobTransfer(opp) {
     cost_saving: opp.totalCostSaved,
     stops_detail: opp.savedStops || [],
     proposed_by: currentUser?.email || currentUser?.id || 'unknown',
-    plan_date: opp.date || viewDate || todayStr(),
+    plan_date: transferDate,
     notes: ''
   };
 
   if (sb && isConfigured) {
     const { error } = await sb.from('job_transfers').insert(record);
-    if (error) { showToast('⚠ Could not propose: ' + error.message, 3000); return; }
+    if (error) {
+      showToast('⚠ Could not propose: ' + error.message, 3000);
+      if (btnEl) { btnEl.disabled = false; btnEl.textContent = btnEl.dataset.origText||'↔ Propose transfer'; btnEl.style.opacity=''; btnEl.style.cursor=''; }
+      return;
+    }
   }
   _jobTransfers.unshift({ ...record, id: Date.now(), created_at: new Date().toISOString() });
   updateTransfersBadge();
+  if (btnEl) { btnEl.textContent = '✓ Proposed'; }
 
   // ── Post to Live chat — network channel so everyone sees it ──
   const fromMeta = SITES_META[opp.saved]  || {};
@@ -6610,11 +6641,11 @@ async function proposeJobTransfer(opp) {
 
 // ── Safe index-based lookups for card buttons (avoids embedding raw JSON,
 //    with things like customer names/postcodes, directly into onclick attrs) ──
-function proposeJobTransferByIdx(idx) {
+function proposeJobTransferByIdx(idx, btnEl) {
   const allOpps = [...(window._currentFullLoadOpps||[]), ...(window._currentRelayOpps||[]), ...(window._currentLightLoadOpps||[])];
   const opp = allOpps[idx];
   if (!opp) { showToast('⚠ Could not find that opportunity — try refreshing', 3000); return; }
-  proposeJobTransfer(opp);
+  proposeJobTransfer(opp, btnEl);
 }
 function ignoreOppByIdx(idx) {
   const allOpps = [...(window._currentFullLoadOpps||[]), ...(window._currentRelayOpps||[]), ...(window._currentLightLoadOpps||[])];
@@ -7321,7 +7352,7 @@ function renderAllOppsEnhanced() {
           ${selCarrier ? `<span style="color:${selCarrier.color||'var(--navy)'};font-weight:600">${selCarrier.name}</span> carries it (already ${selCarrier.distCarrier} mi away — no extra truck needed)` : ''}
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button onclick="proposeJobTransferByIdx(${i})"
+          <button onclick="proposeJobTransferByIdx(${i}, this)"
             style="padding:8px 18px;background:var(--orange,#E8520A);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-body)">
             ↔ Propose transfer
           </button>
@@ -8912,6 +8943,9 @@ const requestedRoutes = new Set();
 function requestToTakeByIdx(idx) {
   const data = (window._loadsDrilldownRequests || [])[idx];
   if (!data) { showToast('Could not find that load — try refreshing', 3000); return; }
+  const btn = document.getElementById(data.reqId);
+  if (btn && btn.disabled) return; // already in flight — same rapid-click issue as Propose transfer
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.style.cursor = 'default'; }
   requestToTake(data);
 }
 // Log a manually-arranged transfer (e.g. outside the 30-mile auto-match
