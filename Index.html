@@ -3501,7 +3501,7 @@ function enterApp() {
     headerSiteEl.textContent = isSuperUser ? 'Super Admin' : (SITES_META[currentSiteId]?.name || currentSiteId);
     headerSiteEl.style.display = '';
   }
-  if (isConfigured && sb) { loadFromSupabase(); setupRealtime(); initChatData(); }
+  if (isConfigured && sb) { loadFromSupabase(); setupRealtime(); initChatData(); loadAddressBook(); }
   else loadFallback();
 }
 /* ══════════════════════════════════════════
@@ -10200,9 +10200,14 @@ function vpkHandleSingleFile(file) {
       } else if(isCampeys && isMultiDay) {
         vpkShowMultiDayPreview(wb, 'selby', 'campeys');
       } else if(isCampeys) {
+        vpkMissingPostcodeCustomers = [];
         const stops = parseCampeys(ws);
         if(!stops.length) { vpkShowMsg('No delivery rows found in Campeys sheet.', 'err'); return; }
         vpkLoadBanburyStops(stops, 'selby');
+        if(vpkMissingPostcodeCustomers.length){
+          const uniq = [...new Set(vpkMissingPostcodeCustomers)];
+          vpkShowMsg(`⚠ ${uniq.length} customer${uniq.length!==1?'s':''} skipped — no postcode on file: ${uniq.join(', ')}. Add their postcode to the sheet and re-upload to include them.`, 'warn');
+        }
       } else if(isBanbury && isMultiDay) {
         vpkShowMultiDayPreview(wb, vpkTargetSite || currentSiteId, 'banbury');
       } else if(isBanbury) {
@@ -10463,13 +10468,18 @@ function parseCampeys(ws) {
     // column A on every row.
     if(EXCLUDED_HAULIER_TOKENS.includes(c0) && currentRef) excludedRefs.add(currentRef);
     const customer = cs(r,2);
-    const postcode = cs(r,4).toUpperCase();
+    let postcode = cs(r,4).toUpperCase();
     const pallets  = Number(cv(r,11))||0;
     const delivTime = fmtTime(cv(r,10));
     const lt = fmtTime(cv(r,1));
     if(lt) loadingTime = lt;
-    if(!customer || !postcode) continue;
+    if(!customer) continue;
     if(customer.toLowerCase()==='customer') continue;
+    if(!postcode){
+      const known = lookupAddress(customer);
+      if(known) postcode = known;
+      else { vpkMissingPostcodeCustomers.push(customer); continue; }
+    }
     stops.push({
       loadRef: currentRef||'SELBY',
       name: customer,
@@ -10597,6 +10607,7 @@ function vpkLoadBanburyStops(stops, siteOverride) {
 }
 function vpkParseWorksheet(ws, fname) {
   if (!ws || !ws['!ref']) { vpkShowMsg('Empty worksheet.', 'err'); return; }
+  vpkMissingPostcodeCustomers = [];
   const ref = XLSX.utils.decode_range(ws['!ref']);
   const R=ref.e.r, C=ref.e.c, out=[];
   function cv(r,c){const cell=ws[XLSX.utils.encode_cell({r,c})];if(!cell)return null;if(cell.t==='d')return cell.v;return cell.v!==undefined?cell.v:null}
@@ -10667,7 +10678,14 @@ function vpkParseWorksheet(ws, fname) {
       const runHaulier=haulierRow?String(haulierRow.a).trim():'PREMIER';
       let curShip=run.ships[0]||'';
       run.rows.forEach(rr=>{
-        if(!rr.b||!rr.k)return;
+        if(!rr.b)return; // need at least a customer name to do anything with this row
+        if(/^#[A-Z0-9/]+[!?]?$/.test(rr.b.trim()))return; // Excel formula errors (#VALUE!, #REF!, etc.), not real customers
+        let postcode = (rr.k||'').trim();
+        if(!postcode){
+          const known = lookupAddress(rr.b);
+          if(known){ postcode = known; }
+          else { vpkMissingPostcodeCustomers.push(rr.b.trim()); return; }
+        }
         const sn=(rr.c||'').replace(/\s/g,'');
         if(sn&&/^\d{6,}$/.test(sn))curShip=sn;
         let pal=0;
@@ -10678,7 +10696,7 @@ function vpkParseWorksheet(ws, fname) {
         out.push({
           ship:curShip, runNum:ri+1, runLabel, multiLoad,
           runShips:[...run.ships], checkIn:run.checkIn,
-          collDate:date, customer:rr.b.trim(), postal:rr.k.trim(),
+          collDate:date, customer:rr.b.trim(), postal:postcode,
           planDate:date, delivTime:vpkExtractFirst(rr.e),
           pallets:pal, netWeight:pal*200,
           haulier: runHaulier,
@@ -10687,7 +10705,18 @@ function vpkParseWorksheet(ws, fname) {
       });
     });
   });
-  if(!out.length){vpkShowMsg('No delivery rows found. Check postal codes are filled in.','err');return;}
+  if(!out.length){
+    if(vpkMissingPostcodeCustomers.length){
+      vpkShowMsg('No delivery rows found — none of these customers have a postcode on file yet: ' + [...new Set(vpkMissingPostcodeCustomers)].join(', '), 'err');
+    } else {
+      vpkShowMsg('No delivery rows found. Check postal codes are filled in.','err');
+    }
+    return;
+  }
+  if(vpkMissingPostcodeCustomers.length){
+    const uniq = [...new Set(vpkMissingPostcodeCustomers)];
+    vpkShowMsg(`⚠ ${uniq.length} customer${uniq.length!==1?'s':''} skipped — no postcode on file: ${uniq.join(', ')}. Add their postcode to the sheet and re-upload to include them.`, 'warn');
+  }
   vpkParsedRows=out;
   vpkRenderPreview(out, sdate, fname);
 }
@@ -10710,6 +10739,9 @@ function vpkRenderPreview(rows, date, fname) {
 async function vpkLoadIntoTriad() {
   if(!vpkParsedRows.length) return;
   const site = vpkTargetSite || currentSiteId;
+  // Feed confirmed customer/postcode pairs back into the address book —
+  // fire-and-forget, doesn't block the import.
+  learnAddresses(vpkParsedRows.map(r => ({ name: r.customer, postcode: r.postal, site })));
   const meta = SITES_META[site]||{};
   // Use date from parsed rows, normalised to YYYY-MM-DD
   function toYMD(s) {
@@ -10839,10 +10871,54 @@ function vpkDownloadQargo() {
   XLSX.utils.book_append_sheet(wb,ws,'Qargo Import');
   XLSX.writeFile(wb,'qargo_import_'+(vpkParsedRows[0]?.collDate||'export').replace(/\//g,'-')+'.xlsx');
 }
+// ── Customer address book — auto-fills missing postcodes from history ──
+// Built from every stop ever imported across all four sites (customer name ->
+// postcode). Loaded once into memory on login; grows automatically every time
+// an import includes a customer whose postcode we didn't have yet.
+let _addressBook = null; // Map<normalizedName, postcode>
+let vpkMissingPostcodeCustomers = []; // customers this import couldn't resolve at all
+function normalizeCustomerName(name) {
+  return String(name||'').toLowerCase().replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
+}
+async function loadAddressBook() {
+  if (!sb || !isConfigured) { _addressBook = new Map(); return; }
+  try {
+    const { data, error } = await sb.from('customer_addresses').select('name_key,postcode');
+    if (error) throw error;
+    _addressBook = new Map((data||[]).map(r => [r.name_key, r.postcode]));
+  } catch(e) {
+    console.warn('Could not load address book', e);
+    _addressBook = new Map();
+  }
+}
+function lookupAddress(customerName) {
+  if (!_addressBook) return null;
+  return _addressBook.get(normalizeCustomerName(customerName)) || null;
+}
+// Call after a successful import with the stops that HAD a real postcode in
+// the file, so the address book keeps learning from confirmed data.
+async function learnAddresses(entries) {
+  if (!_addressBook) _addressBook = new Map();
+  if (!entries || !entries.length) return;
+  const rows = []; const seen = new Set();
+  for (const e of entries) {
+    const key = normalizeCustomerName(e.name);
+    const pc  = String(e.postcode||'').trim().toUpperCase();
+    if (!key || !pc || seen.has(key)) continue;
+    seen.add(key);
+    rows.push({ name_key:key, display_name:String(e.name).trim(), postcode:pc, site_id:e.site||null, last_seen: todayStr(), updated_at: new Date().toISOString() });
+    _addressBook.set(key, pc);
+  }
+  if (!rows.length || !sb || !isConfigured) return;
+  try { await sb.from('customer_addresses').upsert(rows, { onConflict:'name_key' }); }
+  catch(e) { console.warn('Could not update address book', e); }
+}
 function vpkShowMsg(txt, type) {
   const el=document.getElementById('vpk-msg');
   if(!el)return;
   el.textContent=txt; el.className='upload-msg '+(type==='ok'?'msg-ok':'msg-err'); el.style.display='block';
+  if(type==='warn'){ el.style.background='#FFF7E6'; el.style.color='#8A5A00'; el.style.borderColor='#F5C15A'; }
+  else { el.style.background=''; el.style.color=''; el.style.borderColor=''; }
   if(type==='ok')setTimeout(()=>el.style.display='none',5000);
 }
 // ── VPK time helpers ──
