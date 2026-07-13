@@ -6319,6 +6319,7 @@ function loadsDrillDown(sid) {
   const pillCol = pct>=90?'var(--red)':pct>=75?'var(--amber)':'var(--green)';
   const pillBg  = pct>=90?'var(--red-l)':pct>=75?'var(--amber-l)':'var(--green-l)';
   const isMe = sid === currentSiteId;
+  window._loadsDrilldownRequests = []; // reset per render — index-based lookup for the Request buttons below
   // Group stops by shipment/load
   const TARGET_PALLETS = 40;
   let shipments;
@@ -6353,7 +6354,18 @@ function loadsDrillDown(sid) {
       const reqId      = 'req_'+sid+'_run_'+idx;
       const alreadyReq = requestedRoutes.has(reqId);
       const mlLabel    = run.multiLoad ? ' ('+run.runShips.length+' loads)' : '';
-      const reqBtn     = !isMe ? '<button class="req-btn'+(alreadyReq?' requested':'')+'" onclick="void(0)">'+( alreadyReq?'✓':'+ Request')+'</button>' : '';
+      const runWeightT = allStops.reduce((a,st)=>a+(st.netWeight||0),0)/1000;
+      const runArea    = run.area || run.runLabel || ('Run '+(idx+1));
+      let reqBtn = '';
+      if (!isMe) {
+        const reqIdx = window._loadsDrilldownRequests.length;
+        window._loadsDrilldownRequests.push({
+          sid, area: runArea, stops: runStops, pallets: runPallets,
+          weight: runWeightT, siteName: meta.name, reqId,
+        });
+        reqBtn = `<button class="req-btn${alreadyReq?' requested':''}" id="${reqId}" onclick="event.stopPropagation();requestToTakeByIdx(${reqIdx})">${alreadyReq?'✓':'+ Request'}</button>` +
+          `<button class="req-btn" style="margin-left:6px;background:var(--navy);color:#fff;border-color:var(--navy)" onclick="event.stopPropagation();openManualTransferLog(${reqIdx})">✓ Log as taken</button>`;
+      }
       return `<div class="loads-shipment${idx===0?' open':''}" id="ship_${sid}_${idx}">
         <div class="loads-shipment-header" onclick="toggleShipment('ship_${sid}_${idx}')">
           <span class="loads-shipment-num">Run ${idx+1}${mlLabel}</span>
@@ -8857,6 +8869,88 @@ window.addEventListener('load', wireTooltips);
    REQUEST TO TAKE
 ══════════════════════════════════════════ */
 const requestedRoutes = new Set();
+// Manual "request this load regardless of distance" — deliberately has no
+// 30-mile cap, unlike the automatic load-sharing opportunity engine. Some
+// transfers make commercial sense (existing customer relationship, driver
+// availability, etc.) even when they're not the nearest-depot match.
+function requestToTakeByIdx(idx) {
+  const data = (window._loadsDrilldownRequests || [])[idx];
+  if (!data) { showToast('Could not find that load — try refreshing', 3000); return; }
+  requestToTake(data);
+}
+// Log a manually-arranged transfer (e.g. outside the 30-mile auto-match
+// radius, agreed for commercial/customer reasons) into the SAME transfers
+// table the automatic Load Sharing engine uses — so it shows up in the one
+// KPI figure ("confirmed transfers") rather than only existing as a chat
+// message that's easy to lose track of.
+function openManualTransferLog(idx) {
+  const data = (window._loadsDrilldownRequests || [])[idx];
+  if (!data) { showToast('Could not find that load — try refreshing', 3000); return; }
+  window._manualTransferData = data;
+  const toName = SITES_META[currentSiteId]?.name || currentSiteId;
+  const modal = document.createElement('div');
+  modal.id = 'manual-transfer-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center';
+  modal.innerHTML = `<div style="background:#fff;border-radius:16px;width:440px;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:20px 22px 16px;border-bottom:1px solid var(--rule)">
+      <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--ink)">Log this transfer</div>
+      <button onclick="document.getElementById('manual-transfer-modal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--ink3);line-height:1">&times;</button>
+    </div>
+    <div style="padding:16px 22px;background:var(--cream);border-bottom:1px solid var(--rule);font-size:13px;font-weight:600;color:var(--ink)">
+      ${data.area} · <span style="color:${SITES_META[data.sid]?.color||'var(--navy)'}">${data.siteName}</span> → <span style="color:${SITES_META[currentSiteId]?.color||'var(--navy)'}">${toName}</span>
+    </div>
+    <div style="padding:18px 22px">
+      <div style="background:#fff8e1;border:1px solid #ffca28;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#7a5c00">
+        Manually-arranged transfer — no automatic mileage/cost saving applies here (this wasn't matched by the 30-mile opportunity engine). It's still logged for your KPI reporting.
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Date</div>
+          <input type="date" id="mt-date" value="${viewDate||todayStr()}" style="width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;font-size:13px;font-family:var(--font-body);box-sizing:border-box">
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Pallets</div>
+          <input type="number" id="mt-pallets" value="${data.pallets}" min="1" style="width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;font-size:13px;font-family:var(--font-body);box-sizing:border-box">
+        </div>
+      </div>
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Notes <span style="font-weight:400;text-transform:none">— why this was taken</span></div>
+        <textarea id="mt-notes" placeholder="e.g. Existing customer relationship — Campeys already run this account elsewhere"
+          style="width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;font-size:13px;font-family:var(--font-body);box-sizing:border-box;height:64px;resize:vertical"></textarea>
+      </div>
+      <button onclick="saveManualTransferLog()" style="width:100%;padding:12px;background:var(--navy);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-body)">✓ Log transfer</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+}
+async function saveManualTransferLog() {
+  const data = window._manualTransferData;
+  if (!data) return;
+  const date    = document.getElementById('mt-date').value;
+  const pallets = parseInt(document.getElementById('mt-pallets').value)||0;
+  const notes   = document.getElementById('mt-notes').value.trim();
+  const record = {
+    transfer_date: date, type: 'manual_request',
+    from_site: data.sid, to_site: currentSiteId,
+    route_area: data.area, district: null,
+    pallets_transferred: pallets,
+    one_way_miles: null, base_cost: null, mileage_cost: null,
+    total_cost_saved: 0, miles_saved: 0, co2_kg_saved: 0,
+    confirmed_by: currentUser?.email || currentUser?.id || 'unknown',
+    notes, plan_date: date,
+  };
+  let saved = false;
+  if (sb && isConfigured) {
+    const { error } = await sb.from('transfers').insert(record);
+    if (!error) saved = true;
+    else { console.error('Manual transfer save error:', error); showToast('⚠ Could not save: '+error.message, 4000); return; }
+  }
+  _confirmedTransfers.unshift({ ...record, id: Date.now(), created_at: new Date().toISOString() });
+  document.getElementById('manual-transfer-modal')?.remove();
+  showToast(`✓ Logged — ${pallets} pallets, ${data.siteName} → ${SITES_META[currentSiteId]?.name||currentSiteId}`+(saved?' (saved)':' (local only)'), 3500);
+  const badge = document.getElementById('savings-badge');
+  if (badge) { badge.textContent = _confirmedTransfers.length; badge.style.display = ''; }
+}
 function requestToTake(data) {
   const { sid, area, stops, pallets, weight, pcs, siteName, reqId } = data;
   const myName = SITES_META[currentSiteId]?.name || currentSiteId;
