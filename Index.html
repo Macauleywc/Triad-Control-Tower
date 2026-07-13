@@ -10475,6 +10475,7 @@ function parseCampeys(ws) {
     if(lt) loadingTime = lt;
     if(!customer) continue;
     if(customer.toLowerCase()==='customer') continue;
+    if(looksLikeJunkCustomerName(customer)) continue;
     if(!postcode){
       const known = lookupAddress(customer);
       if(known) postcode = known;
@@ -10639,6 +10640,11 @@ function vpkParseWorksheet(ws, fname) {
       }
     }
   if(!hdrs.length){vpkShowMsg('Could not find data table. Is this the VPK Delivery Schedule?','err');return;}
+  let globalRunCounter = 0; // must NOT reset per header section — a file can have several
+                              // repeated header blocks (multiple schedule pages in one sheet),
+                              // and each section's runs would otherwise all restart at "Run 1",
+                              // colliding with runs of the same number in other sections and
+                              // silently merging unrelated loads together.
   hdrs.forEach((hdr,hi)=>{
     const{r:hr,m,date}=hdr;
     const endR=hi+1<hdrs.length?hdrs[hi+1].r-1:R;
@@ -10671,8 +10677,10 @@ function vpkParseWorksheet(ws, fname) {
     }
     if(curRun.rows.length)runs.push(curRun);
     runs.forEach((run,ri)=>{
+      globalRunCounter++;
+      const rn = globalRunCounter;
       const multiLoad=run.ships.length>1;
-      const runLabel=multiLoad?`Run ${ri+1} (${run.ships.length} loads: ${run.ships.join(', ')})`:`Run ${ri+1}`;
+      const runLabel=multiLoad?`Run ${rn} (${run.ships.length} loads: ${run.ships.join(', ')})`:`Run ${rn}`;
       // Extract haulier name (PREMIER, Radius 6 PLT, etc.)
       const haulierRow=run.rows.find(rr=>{const v=String(rr.a||'').trim();return v.length>2&&!/^\d{1,2}[:\.]?\d*(am|pm)?$/i.test(v);});
       const runHaulier=haulierRow?String(haulierRow.a).trim():'PREMIER';
@@ -10680,6 +10688,7 @@ function vpkParseWorksheet(ws, fname) {
       run.rows.forEach(rr=>{
         if(!rr.b)return; // need at least a customer name to do anything with this row
         if(/^#[A-Z0-9/]+[!?]?$/.test(rr.b.trim()))return; // Excel formula errors (#VALUE!, #REF!, etc.), not real customers
+        if(looksLikeJunkCustomerName(rr.b))return; // e.g. a stray pallet count or booking number in the wrong column
         let postcode = (rr.k||'').trim();
         if(!postcode){
           const known = lookupAddress(rr.b);
@@ -10694,7 +10703,7 @@ function vpkParseWorksheet(ws, fname) {
           if(ps!=='n/a'&&ps!=='na'&&ps!=='')if(!isNaN(Number(rr.iraw)))pal=Math.round(Number(rr.iraw));
         }
         out.push({
-          ship:curShip, runNum:ri+1, runLabel, multiLoad,
+          ship:curShip, runNum:rn, runLabel, multiLoad,
           runShips:[...run.ships], checkIn:run.checkIn,
           collDate:date, customer:rr.b.trim(), postal:postcode,
           planDate:date, delivTime:vpkExtractFirst(rr.e),
@@ -10880,6 +10889,15 @@ let vpkMissingPostcodeCustomers = []; // customers this import couldn't resolve 
 function normalizeCustomerName(name) {
   return String(name||'').toLowerCase().replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
 }
+// A "customer name" that's purely numeric (e.g. a stray pallet count or booking
+// number that ended up in the wrong column) is never a real customer — reject
+// it outright rather than let it become a phantom stop.
+function looksLikeJunkCustomerName(name) {
+  const n = String(name||'').trim();
+  if (!n) return true;
+  if (/^[\d.,\s]+$/.test(n)) return true; // purely numeric
+  return false;
+}
 async function loadAddressBook() {
   if (!sb || !isConfigured) { _addressBook = new Map(); return; }
   try {
@@ -10904,7 +10922,7 @@ async function learnAddresses(entries) {
   for (const e of entries) {
     const key = normalizeCustomerName(e.name);
     const pc  = String(e.postcode||'').trim().toUpperCase();
-    if (!key || !pc || seen.has(key)) continue;
+    if (!key || !pc || seen.has(key) || looksLikeJunkCustomerName(e.name)) continue;
     seen.add(key);
     rows.push({ name_key:key, display_name:String(e.name).trim(), postcode:pc, site_id:e.site||null, last_seen: todayStr(), updated_at: new Date().toISOString() });
     _addressBook.set(key, pc);
