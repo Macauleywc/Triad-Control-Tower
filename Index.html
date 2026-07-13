@@ -9295,8 +9295,7 @@ async function processXlsxSheet(ws, sourceName, wb) {
   if(badge) { badge.className = 'sheets-status syncing'; badge.textContent = 'Reading…'; }
   try {
     // ── Detect Banbury planner format ──
-    const daySheetNames = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
-    const isMultiDayBanbury = wb && wb.SheetNames.some(n => daySheetNames.includes(n.toLowerCase()));
+    const isMultiDayBanbury = wb && wb.SheetNames.some(isDaySheetName);
     const firstRows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false}).slice(0,12);
     const isSingleBanbury = !isMultiDayBanbury && firstRows.some(r => r && String(r[0]||'').match(/^route/i));
     let stops = [];
@@ -9305,8 +9304,8 @@ async function processXlsxSheet(ws, sourceName, wb) {
       const parts = viewDate.split('-').map(Number);
       const vd = new Date(parts[0], parts[1]-1, parts[2]);
       const targetDay = dayNames[vd.getDay()].toLowerCase();
-      const matchSheet = wb.SheetNames.find(n => n.toLowerCase() === targetDay)
-        || wb.SheetNames.find(n => daySheetNames.includes(n.toLowerCase()));
+      const matchSheet = wb.SheetNames.find(n => normalizeDaySheetName(n) === targetDay)
+        || wb.SheetNames.find(isDaySheetName);
       if(!matchSheet) throw new Error('No matching day sheet found for ' + targetDay);
       stops = parseBanburySheet(wb.Sheets[matchSheet], matchSheet);
     } else if(isSingleBanbury) {
@@ -10012,9 +10011,26 @@ function readFileBuffer(file) {
     r.readAsArrayBuffer(file);
   });
 }
+// Real-world day-tab names vary a lot (MON/Mon/Monday, THURS/Thu/Thursday, TUES/Tue...) —
+// match on common abbreviations rather than requiring the exact full day name, so a
+// legitimately-formatted file doesn't get rejected just because the tabs are abbreviated.
+const DAY_ABBR_MAP = {
+  mon:'monday', monday:'monday',
+  tue:'tuesday', tues:'tuesday', tuesday:'tuesday',
+  wed:'wednesday', weds:'wednesday', wednesday:'wednesday',
+  thu:'thursday', thur:'thursday', thurs:'thursday', thursday:'thursday',
+  fri:'friday', friday:'friday',
+  sat:'saturday', saturday:'saturday',
+  sun:'sunday', sunday:'sunday',
+};
+function normalizeDaySheetName(name) {
+  return DAY_ABBR_MAP[String(name||'').toLowerCase().trim()] || null;
+}
+function isDaySheetName(name) {
+  return !!normalizeDaySheetName(name);
+}
 // Detect format and extract key info from a workbook
 function detectVpkFormat(wb, fname) {
-  const daySheetNames = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
   const ws = wb.Sheets[wb.SheetNames[0]];
   // Detect VPK multi-sheet by content: multiple sheets each containing 'Delivery Schedule'
   const isVpkMultiSheet = wb.SheetNames.length > 1 && wb.SheetNames.filter(n => {
@@ -10022,7 +10038,7 @@ function detectVpkFormat(wb, fname) {
     const r0 = (XLSX.utils.sheet_to_json(s, {header:1,defval:null,raw:false})[0]||[]);
     return r0.some(c => String(c||'').includes('Delivery Schedule'));
   }).length > 1;
-  const isMultiDay = wb.SheetNames.some(n => daySheetNames.includes(n.toLowerCase())) || isVpkMultiSheet;
+  const isMultiDay = wb.SheetNames.some(isDaySheetName) || isVpkMultiSheet;
   const firstRows    = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false}).slice(0,12);
   // Wellington: check first 12 rows AND all cells in first sheet for 'Wrings-' pattern
   const isWellington = firstRows.some(r => r && String(r[0]||'').toLowerCase().startsWith('wrings'))
@@ -10041,7 +10057,7 @@ function detectVpkFormat(wb, fname) {
     const raw = stops[0]?.sheetDate || '';
     const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
     fileDate = m ? `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}` : raw;
-    if (isCampeys && isMultiDay) fileDate = '(week ' + wb.SheetNames.filter(n=>daySheetNames.includes(n.toLowerCase())).join('/') + ')';
+    if (isCampeys && isMultiDay) fileDate = '(week ' + wb.SheetNames.filter(isDaySheetName).join('/') + ')';
   } else {
     // VPK: date at row 3 col 6
     const allRows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false});
@@ -10237,11 +10253,10 @@ function vpkSplitCSV(line) {
 // ── Campeys of Selby parser ──
 /* ── Multi-day workbook import ── */
 function vpkShowMultiDayPreview(wb, site, format) {
-  const dayNames = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
   const allDayData = [];
   for (const sheetName of wb.SheetNames) {
     const sheetWs = wb.Sheets[sheetName];
-    if (!dayNames.includes(sheetName.toLowerCase())) {
+    if (!isDaySheetName(sheetName)) {
       // For VPK, also accept generic sheet names if they contain a Delivery Schedule header
       if (format !== 'vpk') continue;
       const r0 = (XLSX.utils.sheet_to_json(sheetWs||{}, {header:1,defval:null,raw:false})[0]||[]);
