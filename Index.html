@@ -10797,6 +10797,7 @@ function vpkLoadBanburyStops(stops, siteOverride) {
 function vpkParseWorksheet(ws, fname) {
   if (!ws || !ws['!ref']) { vpkShowMsg('Empty worksheet.', 'err'); return; }
   vpkMissingPostcodeCustomers = [];
+  vpkExcludedHaulierRuns = [];
   const ref = XLSX.utils.decode_range(ws['!ref']);
   const R=ref.e.r, C=ref.e.c, out=[];
   function cv(r,c){const cell=ws[XLSX.utils.encode_cell({r,c})];if(!cell)return null;if(cell.t==='d')return cell.v;return cell.v!==undefined?cell.v:null}
@@ -10869,9 +10870,16 @@ function vpkParseWorksheet(ws, fname) {
       const rn = globalRunCounter;
       const multiLoad=run.ships.length>1;
       const runLabel=multiLoad?`Run ${rn} (${run.ships.length} loads: ${run.ships.join(', ')})`:`Run ${rn}`;
-      // Extract haulier name (PREMIER, Radius 6 PLT, etc.)
+      // Extract haulier name (PREMIER, Radius VAN, etc.)
       const haulierRow=run.rows.find(rr=>{const v=String(rr.a||'').trim();return v.length>2&&!/^\d{1,2}[:\.]?\d*(am|pm)?$/i.test(v);});
       const runHaulier=haulierRow?String(haulierRow.a).trim():'PREMIER';
+      if(runHaulier.toLowerCase()!=='premier'){
+        // Not own fleet (e.g. a subcontracted courier/van) — same principle as
+        // excluding ASG/Alert/Rigid loads on the Selby import: only Premier's
+        // own fleet gets imported here.
+        vpkExcludedHaulierRuns.push({ run: rn, haulier: runHaulier });
+        return;
+      }
       let curShip=run.ships[0]||'';
       run.rows.forEach(rr=>{
         if(!rr.b)return; // need at least a customer name to do anything with this row
@@ -10905,14 +10913,23 @@ function vpkParseWorksheet(ws, fname) {
   if(!out.length){
     if(vpkMissingPostcodeCustomers.length){
       vpkShowMsg('No delivery rows found — none of these customers have a postcode on file yet: ' + [...new Set(vpkMissingPostcodeCustomers)].join(', '), 'err');
+    } else if(vpkExcludedHaulierRuns.length){
+      vpkShowMsg('No delivery rows found — every run was a non-Premier haulier: ' + vpkExcludedHaulierRuns.map(r=>`Run ${r.run} (${r.haulier})`).join(', '), 'err');
     } else {
       vpkShowMsg('No delivery rows found. Check postal codes are filled in.','err');
     }
     return;
   }
+  const warnParts = [];
   if(vpkMissingPostcodeCustomers.length){
     const uniq = [...new Set(vpkMissingPostcodeCustomers)];
-    vpkShowMsg(`⚠ ${uniq.length} customer${uniq.length!==1?'s':''} skipped — no postcode on file: ${uniq.join(', ')}. Add their postcode to the sheet and re-upload to include them.`, 'warn');
+    warnParts.push(`${uniq.length} customer${uniq.length!==1?'s':''} skipped — no postcode on file: ${uniq.join(', ')}`);
+  }
+  if(vpkExcludedHaulierRuns.length){
+    warnParts.push(`${vpkExcludedHaulierRuns.length} run${vpkExcludedHaulierRuns.length!==1?'s':''} excluded — not Premier's own fleet: ${vpkExcludedHaulierRuns.map(r=>`Run ${r.run} (${r.haulier})`).join(', ')}`);
+  }
+  if(warnParts.length){
+    vpkShowMsg('⚠ ' + warnParts.join(' · ') + '.', 'warn');
   }
   vpkParsedRows=out;
   vpkRenderPreview(out, sdate, fname);
@@ -11074,6 +11091,7 @@ function vpkDownloadQargo() {
 // an import includes a customer whose postcode we didn't have yet.
 let _addressBook = null; // Map<normalizedName, postcode>
 let vpkMissingPostcodeCustomers = []; // customers this import couldn't resolve at all
+let vpkExcludedHaulierRuns = []; // runs skipped because the haulier wasn't Premier's own fleet
 function normalizeCustomerName(name) {
   return String(name||'').toLowerCase().replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
 }
