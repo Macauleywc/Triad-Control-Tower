@@ -4291,11 +4291,20 @@ function renderSiteCards() {
     // Loads = unique mileage groups (Run 1, Run 2 etc for VPK; one per route for others)
     const runs = e.total_loads || groupByShipment(e).length || (e.routes||[]).length;
     // Est. total cost and cost per pallet
+    // A multi-load run (several shipment numbers under one physical route) is
+    // saved as several separate route rows, but they all carry the SAME
+    // actualCost for that one run — dedupe by run label so it's only counted
+    // once, not once per split row (was inflating cost/pallet significantly).
+    const seenCostRuns = new Set();
     const totalEstCost = ['desborough','banbury','wellington','selby'].includes(sid)
       ? (e.routes||[]).reduce((acc,r) => {
-          // Use actual imported cost if available, otherwise estimate
+          const runKey = r.runLabel || r.area || r.run_label || r.postcodes || r.pc || Math.random();
           const actualCost = (r.stops_detail||[]).find(s => s.actualCost)?.actualCost;
-          if (actualCost) return acc + parseFloat(actualCost);
+          if (actualCost) {
+            if (seenCostRuns.has(runKey)) return acc; // already counted this run's cost
+            seenCostRuns.add(runKey);
+            return acc + parseFloat(actualCost);
+          }
           const rc = calcRunCost(sid, r.postcodes||r.pc||'');
           return acc + (rc ? parseFloat(rc.cost) : 0);
         }, 0) : 0;
