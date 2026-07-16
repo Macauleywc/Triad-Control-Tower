@@ -6720,7 +6720,7 @@ async function updateTransferStatus(id, status, idx) {
     if (t.is_pull_request && !milesSaved && !costSaved) {
       const pcs = (t.stops_detail||[]).map(s => s.postal||s.postcode).filter(Boolean).join(',');
       const est = calcRunCost(t.from_site, pcs);
-      if (est) { milesSaved = est.miles; costSaved = parseFloat(est.cost); }
+      if (est) { milesSaved = est.miles; costSaved = Math.round(parseFloat(est.cost) * 0.10 * 100)/100; } // 10% VPK saving
     }
     const kpiRecord = {
       transfer_date: t.transfer_date || viewDate || todayStr(),
@@ -7657,7 +7657,8 @@ async function saveConfirmedTransfer() {
   const type    = document.getElementById('ct-type')?.value || 'full_load';
   const notes   = document.getElementById('ct-notes').value.trim();
   const mileage = Math.round(rtMiles * TRANSFER_PENCE_PER_MILE * 100)/100;
-  const cost    = Math.round((TRANSFER_BASE_COST + mileage)*100)/100;
+  const cost    = Math.round((TRANSFER_BASE_COST + mileage)*100)/100; // full avoided cost
+  const vpkSaved = Math.round(cost * 0.10 * 100)/100; // what VPK actually receives — 10% of the avoided cost
   const co2     = Math.round(rtMiles * CO2_KG_PER_MILE);
 
   const record = {
@@ -7669,7 +7670,7 @@ async function saveConfirmedTransfer() {
     one_way_miles: Math.round(rtMiles/2),
     base_cost: TRANSFER_BASE_COST,
     mileage_cost: mileage,
-    total_cost_saved: cost,
+    total_cost_saved: vpkSaved,
     miles_saved: Math.round(rtMiles),
     co2_kg_saved: co2,
     confirmed_by: currentUser?.email || currentUser?.id || 'unknown',
@@ -7688,7 +7689,7 @@ async function saveConfirmedTransfer() {
   _confirmedTransfers.unshift({ ...record, id: Date.now(), created_at: new Date().toISOString() });
 
   document.getElementById('confirm-transfer-modal')?.remove();
-  showToast(`✓ Transfer confirmed — £${cost.toFixed(2)} saved logged`+(saved?' to Supabase':''), 3500);
+  showToast(`✓ Transfer confirmed — £${vpkSaved.toFixed(2)} saved logged`+(saved?' to Supabase':''), 3500);
 
   // Update savings badge
   const badge = document.getElementById('savings-badge');
@@ -7737,7 +7738,9 @@ async function renderSavingsTab() {
   if (!el) return;
 
   const asOfDate = viewDate || todayStr();
-  const transfers = _confirmedTransfers.filter(t => (t.transfer_date||'') <= asOfDate);
+  const transfers = _confirmedTransfers.filter(t => (t.transfer_date||'') === asOfDate);
+  const allTimeCost = _confirmedTransfers.reduce((a,t)=>a+parseFloat(t.total_cost_saved||0),0);
+  const allTimeCount = _confirmedTransfers.length;
   const totalCost = transfers.reduce((a,t)=>a+parseFloat(t.total_cost_saved||0),0);
   const totalMiles= transfers.reduce((a,t)=>a+parseFloat(t.miles_saved||0),0);
   const totalCO2  = transfers.reduce((a,t)=>a+parseFloat(t.co2_kg_saved||0),0);
@@ -7745,9 +7748,10 @@ async function renderSavingsTab() {
   const fullLoads = transfers.filter(t=>t.type==='full_load').length;
   const relays    = transfers.filter(t=>t.type==='relay').length;
 
-  // Month breakdown
+  // Month breakdown — always all-time, a single day can't meaningfully
+  // populate a multi-month trend chart
   const monthMap = {};
-  transfers.forEach(t => {
+  _confirmedTransfers.forEach(t => {
     const m = (t.transfer_date||'').slice(0,7);
     if (!m) return;
     if (!monthMap[m]) monthMap[m] = { cost:0, miles:0, count:0 };
@@ -7768,8 +7772,8 @@ async function renderSavingsTab() {
   el.innerHTML = `
     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
       <div>
-        <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:var(--ink);margin-bottom:4px">Network Savings Tracker <span style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;background:var(--cream);padding:3px 8px;border-radius:20px;vertical-align:middle">Running total as of ${new Date(asOfDate+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span></div>
-        <div style="font-size:13px;color:var(--ink3)">Confirmed load transfers across the Triad network — each one logged with cost and miles saved. Use the date nav above to see the running total as of any date; jump to "Today" for the latest figure.</div>
+        <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:var(--ink);margin-bottom:4px">Network Savings Tracker <span style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;background:var(--cream);padding:3px 8px;border-radius:20px;vertical-align:middle">${new Date(asOfDate+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'short',year:'numeric'})}</span></div>
+        <div style="font-size:13px;color:var(--ink3)">Confirmed load transfers logged on this specific date. All-time total: <strong style="color:var(--ink)">£${Math.round(allTimeCost).toLocaleString()}</strong> across <strong style="color:var(--ink)">${allTimeCount}</strong> transfer${allTimeCount!==1?'s':''} — see the <a href="#" onclick="event.preventDefault();showVpkView()" style="color:var(--navy)">VPK Report</a> for the full running total.</div>
       </div>
       <div style="display:flex;gap:10px">
         <button onclick="showVpkView()" style="padding:9px 18px;background:var(--navy);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-body)">
@@ -8988,7 +8992,7 @@ function openManualTransferLog(idx) {
   const pcs = (data.stopsDetail||[]).map(s => s.postal||s.postcode).filter(Boolean).join(',');
   const est = calcRunCost(data.sid, pcs);
   const estMiles = est ? est.miles : 0;
-  const estCost  = est ? est.cost  : '0.00';
+  const estCost  = est ? (parseFloat(est.cost) * 0.10).toFixed(2) : '0.00'; // 10% VPK saving, not full avoided cost
   const modal = document.createElement('div');
   modal.id = 'manual-transfer-modal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center';
@@ -9002,7 +9006,7 @@ function openManualTransferLog(idx) {
     </div>
     <div style="padding:18px 22px">
       <div style="background:#fff8e1;border:1px solid #ffca28;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#7a5c00">
-        Manually-arranged transfer — miles/cost below are an estimate of what it would have cost ${data.siteName} to run this route separately (i.e. the cost avoided by folding it into your run instead). Adjust if you know the real figures.
+        Manually-arranged transfer — miles/cost below are estimated from what it would have cost ${data.siteName} to run this route separately. Cost saved shown is VPK's 10% saving on that avoided cost (not the full amount) — adjust if you know the real figures.
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
         <div>
