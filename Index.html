@@ -3756,6 +3756,7 @@ async function loadDateData() {
   if (document.getElementById('tab-loads')?.style.display   !== 'none') renderLoads();
   if (document.getElementById('tab-mapview')?.style.display !== 'none') renderMap();
   if (document.getElementById('tab-kpi')?.style.display     !== 'none') renderKPIs();
+  if (document.getElementById('tab-savings')?.style.display !== 'none') renderSavingsTab();
 }
 const sumStops   = e => (e.routes||[]).reduce((a,r) => a + Number(r.stops||0),   0);
 const sumPallets = e => (e.routes||[]).reduce((a,r) => a + Number(r.pallets||0), 0);
@@ -4920,12 +4921,6 @@ function showTab(tab) {
   });
   document.querySelectorAll('.sb-link').forEach(b => b.classList.toggle('active', b.dataset.tab===tab));
   document.getElementById('page-title').textContent = PAGE_TITLES[tab]||tab;
-  // The Savings tracker shows a lifetime cumulative total (for VPK reporting),
-  // not a per-day figure — the date nav doesn't filter it at all, so showing
-  // it here was misleading (looked like browsing dates should change the
-  // numbers, but nothing was wired up to do that).
-  const dateNav = document.getElementById('date-nav');
-  if (dateNav) dateNav.style.visibility = (tab === 'savings') ? 'hidden' : 'visible';
   if (tab==='kpi')     { if(kpiPeriod==='today'&&kpiPeriodData.length===0){kpiPeriodData=[...todayData];} renderKPIs(); }
   if (tab==='admin')   renderAdmin();
   if (tab==='loads')   renderLoads();
@@ -7737,7 +7732,8 @@ async function renderSavingsTab() {
   const el = document.getElementById('savings-content');
   if (!el) return;
 
-  const transfers = _confirmedTransfers;
+  const asOfDate = viewDate || todayStr();
+  const transfers = _confirmedTransfers.filter(t => (t.transfer_date||'') <= asOfDate);
   const totalCost = transfers.reduce((a,t)=>a+parseFloat(t.total_cost_saved||0),0);
   const totalMiles= transfers.reduce((a,t)=>a+parseFloat(t.miles_saved||0),0);
   const totalCO2  = transfers.reduce((a,t)=>a+parseFloat(t.co2_kg_saved||0),0);
@@ -7768,8 +7764,8 @@ async function renderSavingsTab() {
   el.innerHTML = `
     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
       <div>
-        <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:var(--ink);margin-bottom:4px">Network Savings Tracker <span style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;background:var(--cream);padding:3px 8px;border-radius:20px;vertical-align:middle">All-time</span></div>
-        <div style="font-size:13px;color:var(--ink3)">Confirmed load transfers across the Triad network — each one logged with cost and miles saved. This total isn't date-filtered; it's the lifetime running total for reporting to VPK.</div>
+        <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:var(--ink);margin-bottom:4px">Network Savings Tracker <span style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;background:var(--cream);padding:3px 8px;border-radius:20px;vertical-align:middle">Running total as of ${new Date(asOfDate+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span></div>
+        <div style="font-size:13px;color:var(--ink3)">Confirmed load transfers across the Triad network — each one logged with cost and miles saved. Use the date nav above to see the running total as of any date; jump to "Today" for the latest figure.</div>
       </div>
       <div style="display:flex;gap:10px">
         <button onclick="showVpkView()" style="padding:9px 18px;background:var(--navy);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-body)">
