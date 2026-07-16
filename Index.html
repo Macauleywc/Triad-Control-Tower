@@ -7714,7 +7714,11 @@ async function deleteTransfer(id, idx) {
 
 // ── Load transfers from Supabase ──
 async function loadTransferHistory() {
-  if (_savingsLoaded) return;
+  // NOTE: previously guarded by `if (_savingsLoaded) return;`, which meant
+  // this only ever fetched once per browser session — any change made
+  // directly in the database (or by another user) never showed up here
+  // until a full hard-refresh, regardless of which date you navigated to.
+  // Always fetch fresh; 500 rows is not a meaningful cost.
   if (sb && isConfigured) {
     const { data, error } = await sb.from('transfers').select('*').order('transfer_date', { ascending:false }).limit(500);
     if (!error && data) {
