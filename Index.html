@@ -6712,6 +6712,15 @@ async function updateTransferStatus(id, status, idx) {
   // is the step that was previously missing: accepting/completing a job
   // transfer never used to reach the KPI at all.
   if (status === 'completed' && t) {
+    // Pull requests are proposed with miles_saved/cost_saving = 0 (no distance
+    // calc happens at propose time) — estimate it now the same way manual
+    // "Log as taken" does, so it isn't just zero in the KPI.
+    let milesSaved = t.miles_saved || 0, costSaved = t.cost_saving || 0;
+    if (t.is_pull_request && !milesSaved && !costSaved) {
+      const pcs = (t.stops_detail||[]).map(s => s.postal||s.postcode).filter(Boolean).join(',');
+      const est = calcRunCost(t.from_site, pcs);
+      if (est) { milesSaved = est.miles; costSaved = parseFloat(est.cost); }
+    }
     const kpiRecord = {
       transfer_date: t.transfer_date || viewDate || todayStr(),
       type: t.is_pull_request ? 'manual_request' : 'job_transfer',
@@ -6719,9 +6728,9 @@ async function updateTransferStatus(id, status, idx) {
       route_area: t.route_area, district: t.district,
       pallets_transferred: t.pallets || 0,
       one_way_miles: null, base_cost: null, mileage_cost: null,
-      total_cost_saved: t.cost_saving || 0,
-      miles_saved: t.miles_saved || 0,
-      co2_kg_saved: Math.round((t.miles_saved||0) * CO2_KG_PER_MILE) || 0,
+      total_cost_saved: costSaved,
+      miles_saved: milesSaved,
+      co2_kg_saved: Math.round(milesSaved * CO2_KG_PER_MILE) || 0,
       confirmed_by: currentUser?.email || currentUser?.id || 'unknown',
       notes: t.notes || '',
       plan_date: t.plan_date || t.transfer_date || viewDate || todayStr(),
@@ -8967,6 +8976,13 @@ function openManualTransferLog(idx) {
   if (!data) { showToast('Could not find that load — try refreshing', 3000); return; }
   window._manualTransferData = data;
   const toName = SITES_META[currentSiteId]?.name || currentSiteId;
+  // Estimate what it would have cost data.sid (the site giving up the load) to
+  // run this route on its own — that avoided cost IS the saving, same logic
+  // the automatic opportunity engine uses, just triggered manually here.
+  const pcs = (data.stopsDetail||[]).map(s => s.postal||s.postcode).filter(Boolean).join(',');
+  const est = calcRunCost(data.sid, pcs);
+  const estMiles = est ? est.miles : 0;
+  const estCost  = est ? est.cost  : '0.00';
   const modal = document.createElement('div');
   modal.id = 'manual-transfer-modal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center';
@@ -8980,7 +8996,7 @@ function openManualTransferLog(idx) {
     </div>
     <div style="padding:18px 22px">
       <div style="background:#fff8e1;border:1px solid #ffca28;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#7a5c00">
-        Manually-arranged transfer — no automatic mileage/cost saving applies here (this wasn't matched by the 30-mile opportunity engine). It's still logged for your KPI reporting.
+        Manually-arranged transfer — miles/cost below are an estimate of what it would have cost ${data.siteName} to run this route separately (i.e. the cost avoided by folding it into your run instead). Adjust if you know the real figures.
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
         <div>
@@ -8990,6 +9006,14 @@ function openManualTransferLog(idx) {
         <div>
           <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Pallets</div>
           <input type="number" id="mt-pallets" value="${data.pallets}" min="1" style="width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;font-size:13px;font-family:var(--font-body);box-sizing:border-box">
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Miles saved <span style="font-weight:400;text-transform:none">(est.)</span></div>
+          <input type="number" id="mt-miles" value="${estMiles}" min="0" style="width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;font-size:13px;font-family:var(--font-body);box-sizing:border-box">
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Cost saved £ <span style="font-weight:400;text-transform:none">(est.)</span></div>
+          <input type="number" id="mt-cost" value="${estCost}" min="0" step="0.01" style="width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;font-size:13px;font-family:var(--font-body);box-sizing:border-box">
         </div>
       </div>
       <div style="margin-bottom:16px">
@@ -9007,6 +9031,8 @@ async function saveManualTransferLog() {
   if (!data) return;
   const date    = document.getElementById('mt-date').value;
   const pallets = parseInt(document.getElementById('mt-pallets').value)||0;
+  const miles   = parseFloat(document.getElementById('mt-miles').value)||0;
+  const cost    = parseFloat(document.getElementById('mt-cost').value)||0;
   const notes   = document.getElementById('mt-notes').value.trim();
   const record = {
     transfer_date: date, type: 'manual_request',
@@ -9014,7 +9040,7 @@ async function saveManualTransferLog() {
     route_area: data.area, district: null,
     pallets_transferred: pallets,
     one_way_miles: null, base_cost: null, mileage_cost: null,
-    total_cost_saved: 0, miles_saved: 0, co2_kg_saved: 0,
+    total_cost_saved: cost, miles_saved: miles, co2_kg_saved: Math.round(miles * CO2_KG_PER_MILE),
     confirmed_by: currentUser?.email || currentUser?.id || 'unknown',
     notes, plan_date: date,
   };
