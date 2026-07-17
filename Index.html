@@ -4275,6 +4275,17 @@ function getPostcodeCoords(pc) {
   const district = String(pc).toUpperCase().trim().match(/^([A-Z]{1,2}[0-9]{1,2})/)?.[1];
   return district ? PC_AREA_COORDS[district] || null : null;
 }
+// Selby's imported "Cost" figure (from Campeys' own file) is a PER-PALLET
+// rate — matches their commercial model (billed per pallet, ~£7-30/pallet
+// depending on route). Every other site's imported cost is the run's TOTAL
+// cost (their own fleet, priced as base + mileage per run, not per pallet).
+// Mixing these up understates Selby's total cost by roughly the pallet count.
+function actualRunCostTotal(sid, rawActualCost, pallets) {
+  if (rawActualCost == null) return null;
+  const v = parseFloat(rawActualCost);
+  if (isNaN(v)) return null;
+  return sid === 'selby' ? v * (pallets||0) : v;
+}
 function calcRunCost(site, postcodes) {
   const depot = DEPOT_COORDS[site];
   if(!depot) return null;
@@ -4361,11 +4372,12 @@ function renderSiteCards() {
     const totalEstCost = ['desborough','banbury','wellington','selby'].includes(sid)
       ? (e.routes||[]).reduce((acc,r) => {
           const runKey = r.runLabel || r.area || r.run_label || r.postcodes || r.pc || Math.random();
-          const actualCost = (r.stops_detail||[]).find(s => s.actualCost)?.actualCost;
+          const rawActualCost = (r.stops_detail||[]).find(s => s.actualCost)?.actualCost;
+          const actualCost = actualRunCostTotal(sid, rawActualCost, r.pallets);
           if (actualCost) {
             if (seenCostRuns.has(runKey)) return acc; // already counted this run's cost
             seenCostRuns.add(runKey);
-            return acc + parseFloat(actualCost);
+            return acc + actualCost;
           }
           const rc = calcRunCost(sid, r.postcodes||r.pc||'');
           return acc + (rc ? parseFloat(rc.cost) : 0);
@@ -4440,7 +4452,7 @@ function renderSiteCards() {
             const rCol = allPallets>=TARGET_PALLETS?'var(--green)':allPallets>=30?'var(--amber)':'var(--red)';
             // Cost: use actual cost from stops, or calculate from all stop postcodes in this run
             const allStopDetails = run.shipmentList.flatMap(s => s.stops);
-            const importedCost = allStopDetails.find(s => s.actualCost)?.actualCost;
+            const importedCost = actualRunCostTotal(sid, allStopDetails.find(s => s.actualCost)?.actualCost, allPallets);
             // Build postcode string from every stop in this run — much more accurate than route.pc
             const stopPostcodes = [...new Set(
               allStopDetails.map(s => (s.postal||s.postcode||'').trim().toUpperCase()).filter(Boolean)
@@ -4471,8 +4483,9 @@ function renderSiteCards() {
           // Use groupByShipment so multi-load runs aren't double-counted
           const totalCost = groupByShipment(e).reduce((acc, run) => {
             const allStopDetails = run.shipmentList.flatMap(s => s.stops);
-            const importedCost = allStopDetails.find(s => s.actualCost)?.actualCost;
-            if (importedCost) return acc + parseFloat(importedCost);
+            const runPallets = allStopDetails.reduce((a,s)=>a+(s.pallets||0),0);
+            const importedCost = actualRunCostTotal(sid, allStopDetails.find(s => s.actualCost)?.actualCost, runPallets);
+            if (importedCost) return acc + importedCost;
             const stopPCs = [...new Set(allStopDetails.map(s=>(s.postal||s.postcode||'').trim().toUpperCase()).filter(Boolean))].join(',');
             const rc = calcRunCost(sid, stopPCs);
             return acc + (rc ? parseFloat(rc.cost) : 0);
@@ -5355,8 +5368,8 @@ async function exportKpiPdf(data, opts) {
   const avgUtil    = totCap>0 ? Math.round(totPallets/totCap*100) : 0;
   const totCost    = data.reduce((a,e)=>{
     return a+(e.routes||[]).reduce((b,r)=>{
-      const ic=(r.stops_detail||[]).find(s=>s.actualCost)?.actualCost;
-      if(ic)return b+parseFloat(ic);
+      const ic=actualRunCostTotal(e.site, (r.stops_detail||[]).find(s=>s.actualCost)?.actualCost, r.pallets);
+      if(ic)return b+ic;
       const rc=calcRunCost(e.site,r.postcodes||r.pc||'');
       return b+(rc?parseFloat(rc.cost):0);
     },0);
@@ -5407,8 +5420,8 @@ async function exportKpiPdf(data, opts) {
       const util = cap>0 ? Math.round(pallets/cap*100) : 0;
       const cost = entries.reduce((a,e)=>{
         return a+(e.routes||[]).reduce((b,r)=>{
-          const ic=(r.stops_detail||[]).find(s=>s.actualCost)?.actualCost;
-          if(ic)return b+parseFloat(ic);
+          const ic=actualRunCostTotal(sid, (r.stops_detail||[]).find(s=>s.actualCost)?.actualCost, r.pallets);
+          if(ic)return b+ic;
           const rc=calcRunCost(sid,r.postcodes||r.pc||'');
           return b+(rc?parseFloat(rc.cost):0);
         },0);
@@ -5516,8 +5529,8 @@ async function exportKpiPdf(data, opts) {
         const pallets=entries.reduce((a,e)=>a+sumPallets(e),0);
         const cap=runs*40; const util=cap>0?Math.round(pallets/cap*100):0;
         const cost=entries.reduce((a,e)=>a+(e.routes||[]).reduce((b,r)=>{
-          const ic=(r.stops_detail||[]).find(s=>s.actualCost)?.actualCost;
-          if(ic)return b+parseFloat(ic);
+          const ic=actualRunCostTotal(e.site, (r.stops_detail||[]).find(s=>s.actualCost)?.actualCost, r.pallets);
+          if(ic)return b+ic;
           const rc=calcRunCost(e.site,r.postcodes||r.pc||'');
           return b+(rc?parseFloat(rc.cost):0);
         },0),0);
@@ -5618,8 +5631,8 @@ function renderKPIs() {
   // Est network cost
   const estCost  = dataSet.reduce((a,e)=>{
     return a+(e.routes||[]).reduce((b,r)=>{
-      const ic=(r.stops_detail||[]).find(s=>s.actualCost)?.actualCost;
-      if(ic) return b+parseFloat(ic);
+      const ic=actualRunCostTotal(e.site, (r.stops_detail||[]).find(s=>s.actualCost)?.actualCost, r.pallets);
+      if(ic) return b+ic;
       const rc=calcRunCost(e.site,r.postcodes||r.pc||'');
       return b+(rc?parseFloat(rc.cost):0);
     },0);
