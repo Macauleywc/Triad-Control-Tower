@@ -2445,6 +2445,14 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
         </svg>
         <span>Import</span>
       </button>
+      <button class="sb-link" data-tab="planning" onclick="showTab('planning')">
+        <svg class="sb-link-icon" viewBox="0 0 18 18" fill="none">
+          <rect x="2" y="3" width="14" height="12" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M2 7h14M6 3v4" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M4.5 10h3M4.5 12.5h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <span>Planning</span>
+      </button>
       <div class="sb-nav-label" id="admin-nav-section" style="display:none">Admin</div>
       <button class="sb-link" data-tab="kpi" onclick="showTab('kpi')" id="sb-kpi">
         <svg class="sb-link-icon" viewBox="0 0 18 18" fill="none">
@@ -3321,6 +3329,49 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
             </div>
           </div>
         </div>
+      </div>
+    </div>
+    <!-- ─── PLANNING TAB ─── -->
+    <div id="tab-planning" class="content" style="display:none">
+      <div class="upload-layout">
+        <div class="upload-card" style="margin-bottom:20px">
+          <div class="upload-card-head">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:32px;height:32px;background:#5e35b1;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><rect x="2" y="3" width="14" height="12" rx="1.5" stroke="white" stroke-width="1.5"/><path d="M2 7h14M6 3v4" stroke="white" stroke-width="1.5"/></svg>
+              </div>
+              <div>
+                <div class="upload-card-title">Raw order planner</div>
+                <div class="upload-card-sub">Drop in a flat, unplanned order export — sums multiple lines per customer into one delivery stop, then clusters stops into draft loads by proximity and capacity. Review and adjust before committing.</div>
+              </div>
+            </div>
+          </div>
+          <div class="upload-card-body">
+            <div style="margin-bottom:16px">
+              <div class="field-label" style="margin-bottom:8px">Plan for site</div>
+              <div class="site-selector" id="planning-site-selector"></div>
+            </div>
+
+            <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-bottom:18px">
+              <div>
+                <div class="field-label" style="margin-bottom:6px">Target pallets per load</div>
+                <input type="number" id="plan-target-pallets" value="40" min="1" max="80" style="width:120px;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;font-size:13px;font-family:var(--font-body)">
+              </div>
+              <div>
+                <div class="field-label" style="margin-bottom:6px">Max distance between stops on one load (mi)</div>
+                <input type="number" id="plan-max-cluster-miles" value="25" min="1" max="100" style="width:120px;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;font-size:13px;font-family:var(--font-body)">
+              </div>
+            </div>
+
+            <label for="planning-file-input" style="display:block;border:2px dashed var(--rule);border-radius:12px;padding:32px;text-align:center;cursor:pointer;background:var(--cream)" id="planning-dropzone">
+              <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px">Drop your raw orders file here, or click to browse</div>
+              <div style="font-size:12px;color:var(--ink3)">.xlsx or .csv — one row per order line, needs a postcode and pallet quantity column</div>
+            </label>
+            <input type="file" id="planning-file-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="handlePlanningFile(event)">
+            <div id="planning-msg" class="upload-msg" style="display:none;margin-top:12px"></div>
+          </div>
+        </div>
+        <div id="planning-results"></div>
       </div>
     </div>
   </main>
@@ -4913,9 +4964,9 @@ async function renderHistory() {
    TABS
 ══════════════════════════════════════════ */
 const PAGE_TITLES = { overview:'Overview', upload:'Upload data', sharing:'Load sharing', transfers:'Transfers',
-    savings:'Savings tracker', history:'History', export:'Export & share', kpi:'KPIs & performance', admin:'User admin', loads:'All loads', mapview:'Network map', chat:'Live chat', vpkimport:'Import' };
+    savings:'Savings tracker', history:'History', export:'Export & share', kpi:'KPIs & performance', admin:'User admin', loads:'All loads', mapview:'Network map', chat:'Live chat', vpkimport:'Import', planning:'Planning' };
 function showTab(tab) {
-  ['overview','upload','sharing','transfers','savings','history','export','kpi','admin','loads','mapview','chat','vpkimport'].forEach(t => {
+  ['overview','upload','sharing','transfers','savings','history','export','kpi','admin','loads','mapview','chat','vpkimport','planning'].forEach(t => {
     const el = document.getElementById('tab-'+t);
     if (el) el.style.display = t===tab ? (t==='chat'||t==='mapview'?'flex':'') : 'none';
   });
@@ -4930,6 +4981,7 @@ function showTab(tab) {
   if (tab==='sharing') renderAllOppsEnhanced();
   if (tab==='savings')  renderSavingsTab();
     if (tab==='transfers') renderTransfersTab();
+  if (tab==='planning') initPlanningTab();
 }
 /* ══════════════════════════════════════════
    EXPORT
@@ -11120,6 +11172,306 @@ async function vpkLoadIntoTriad() {
     showReqToast(`${meta.name} updated — ${vpkParsedRows.length} stops loaded`);
     showTab('overview');
   }
+}
+/* ══════════════════════════════════════════
+   PLANNING — raw/unplanned order auto-clustering
+   Input: a flat SAP-style order export (one row per order line, several
+   lines per customer). Aggregates into delivery stops, then clusters those
+   stops into draft loads by proximity + capacity. Nothing saves until the
+   user explicitly commits — this only ever proposes a plan, matching how
+   every other automated feature in this app works.
+══════════════════════════════════════════ */
+let planningTargetSite = null;
+let planningLoads = [];    // [{id, stops:[{customer,postcode,city,pallets,ref,lat,lon}]}]
+let planningUnplaced = []; // stops we couldn't geocode
+
+function initPlanningTab() {
+  planningTargetSite = currentSiteId;
+  planningLoads = []; planningUnplaced = [];
+  buildPlanningSiteSelector();
+  const results = document.getElementById('planning-results');
+  if (results) results.innerHTML = '';
+  const msg = document.getElementById('planning-msg');
+  if (msg) msg.style.display = 'none';
+}
+function buildPlanningSiteSelector() {
+  const el = document.getElementById('planning-site-selector');
+  if (!el) return;
+  if (!isSuperUser) {
+    el.innerHTML = `<button class="site-sel-btn active" style="cursor:default">${SITES_META[currentSiteId]?.name||currentSiteId} <span style="opacity:0.6;font-size:11px">— your site</span></button>`;
+    planningTargetSite = currentSiteId;
+    return;
+  }
+  el.innerHTML = Object.keys(SITES_META).map(sid => {
+    const isSel = sid === planningTargetSite;
+    return `<button class="site-sel-btn${isSel?' active':''}" onclick="setPlanningSite(this,'${sid}')">${SITES_META[sid].name}${sid===currentSiteId?' (you)':''}</button>`;
+  }).join('');
+}
+function setPlanningSite(btn, sid) {
+  planningTargetSite = sid;
+  document.querySelectorAll('#planning-site-selector .site-sel-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+function planningShowMsg(txt, type) {
+  const el = document.getElementById('planning-msg');
+  if (!el) return;
+  el.textContent = txt;
+  el.className = 'upload-msg ' + (type==='ok' ? 'msg-ok' : 'msg-err');
+  el.style.display = 'block';
+  if (type==='warn') { el.style.background='#FFF7E6'; el.style.color='#8A5A00'; el.style.borderColor='#F5C15A'; }
+  else { el.style.background=''; el.style.color=''; el.style.borderColor=''; }
+}
+function handlePlanningFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      if (!window.XLSX) { planningShowMsg('XLSX library not loaded.', 'err'); return; }
+      const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const stops = parseRawOrders(ws);
+      if (!stops.length) { planningShowMsg('No order lines found — check this file has a Ship-To Party / customer column, a postal code column, and a pallet quantity column.', 'err'); return; }
+      const targetPallets = parseInt(document.getElementById('plan-target-pallets').value) || 40;
+      const maxMiles = parseFloat(document.getElementById('plan-max-cluster-miles').value) || 25;
+      const { loads, unplaced } = clusterStopsIntoLoads(stops, targetPallets, maxMiles, planningTargetSite);
+      planningLoads = loads;
+      planningUnplaced = unplaced;
+      renderPlanningResults();
+      if (unplaced.length) {
+        planningShowMsg(`⚠ ${unplaced.length} stop${unplaced.length!==1?'s':''} couldn't be placed — no postcode match: ${unplaced.map(s=>s.customer).join(', ')}`, 'warn');
+      } else {
+        planningShowMsg(`✓ ${stops.length} customers aggregated into ${loads.length} draft loads. Review below before committing.`, 'ok');
+      }
+    } catch(err) {
+      console.error('Planning file error:', err);
+      planningShowMsg('Could not read this file: ' + err.message, 'err');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  event.target.value = ''; // allow re-uploading the same file
+}
+// Aggregate a flat, unplanned order export into one row per delivery stop.
+// Multiple order lines per customer (different products/SD documents) are
+// summed into a single pallet total — the file this was built against had
+// exactly this shape (SAP export, ~5-8 lines per customer, subtotal rows in
+// between with a blank postcode, which is how we skip them below).
+function parseRawOrders(ws) {
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false});
+  if (!rows.length) return [];
+  let headerRow = -1, m = {};
+  for (let r = 0; r < Math.min(rows.length, 6); r++) {
+    const row = rows[r] || [];
+    const map = {};
+    row.forEach((cell, c) => {
+      const h = String(cell||'').toLowerCase().trim();
+      if (h.includes('ship-to party') && !h.includes('name')) map.shipTo = c;
+      if (h === 'name') map.name = c;
+      if (h.includes('ship-to party name')) map.shipToName = c;
+      if (h === 'city') map.city = c;
+      if (h.includes('postal code') || h==='postcode' || h==='post code') map.postcode = c;
+      if (h.includes('quantity per pallet') || (h.includes('balans') && h.includes('pallet'))) map.pallets = c;
+    });
+    if (map.postcode !== undefined && (map.shipTo !== undefined || map.name !== undefined || map.shipToName !== undefined)) {
+      headerRow = r; m = map; break;
+    }
+  }
+  if (headerRow === -1) return [];
+
+  const groups = {};
+  for (let r = headerRow + 1; r < rows.length; r++) {
+    const row = rows[r] || [];
+    const postcode = m.postcode!==undefined ? String(row[m.postcode]||'').trim().toUpperCase() : '';
+    if (!postcode) continue; // subtotal / grand-total rows have a blank postcode — this is how we skip them
+    const shipToCode = m.shipTo!==undefined ? String(row[m.shipTo]||'').trim() : '';
+    const custName = (m.shipToName!==undefined ? String(row[m.shipToName]||'').trim() : '') ||
+                      (m.name!==undefined ? String(row[m.name]||'').trim() : '');
+    if (!custName || looksLikeJunkCustomerName(custName)) continue;
+    const city = m.city!==undefined ? String(row[m.city]||'').trim() : '';
+    let pal = 0;
+    if (m.pallets!==undefined) {
+      const v = Number(row[m.pallets]);
+      if (!isNaN(v)) pal = v;
+    }
+    const key = shipToCode || (custName + '|' + postcode);
+    if (!groups[key]) groups[key] = { customer: custName, postcode, city, pallets: 0, ref: shipToCode };
+    groups[key].pallets += pal;
+  }
+  return Object.values(groups).filter(g => g.pallets > 0);
+}
+function postcodeToCoord(pc) {
+  const clean = String(pc||'').toUpperCase().replace(/\s+/g,'');
+  if (!clean) return null;
+  const outward = clean.length > 3 ? clean.slice(0, clean.length-3) : clean;
+  const areaOnly = outward.replace(/\d+[A-Z]?$/, '');
+  for (const k of [outward, areaOnly]) {
+    if (typeof PC_COORDS !== 'undefined' && PC_COORDS[k]) return { lat: PC_COORDS[k][0], lon: PC_COORDS[k][1] };
+    if (typeof PC_AREA_COORDS !== 'undefined' && PC_AREA_COORDS[k]) return PC_AREA_COORDS[k];
+  }
+  return null;
+}
+// Greedy nearest-neighbour clustering, not a true VRP solver — seeds each
+// load with the stop furthest from the depot (hardest to combine), then
+// repeatedly folds in whichever remaining stop is closest to the load,
+// stopping at the pallet target or when nothing left is within range.
+// Good enough for a draft a human reviews; not claiming route-optimality.
+function clusterStopsIntoLoads(stops, targetPallets, maxMiles, siteId) {
+  const depot = DEPOT_COORDS[siteId];
+  const geocoded = [], unplaced = [];
+  stops.forEach(s => {
+    const coord = postcodeToCoord(s.postcode);
+    if (!coord) { unplaced.push(s); return; }
+    geocoded.push({ ...s, lat: coord.lat, lon: coord.lon });
+  });
+  geocoded.forEach(s => {
+    s.distFromDepot = depot ? kmToMiles(haversineKm(depot.lat, depot.lon, s.lat, s.lon)) : 0;
+  });
+  geocoded.sort((a,b) => b.distFromDepot - a.distFromDepot);
+
+  const loads = [];
+  const remaining = [...geocoded];
+  while (remaining.length) {
+    const seed = remaining.shift();
+    const load = { id: 'draft-' + (loads.length+1), stops: [seed] };
+    let totalPallets = seed.pallets;
+    let changed = true;
+    while (changed && totalPallets < targetPallets && remaining.length) {
+      changed = false;
+      let bestIdx = -1, bestDist = Infinity;
+      for (let i = 0; i < remaining.length; i++) {
+        const cand = remaining[i];
+        if (totalPallets + cand.pallets > targetPallets * 1.15) continue; // small overflow tolerance
+        const d = Math.min(...load.stops.map(s => kmToMiles(haversineKm(s.lat,s.lon,cand.lat,cand.lon))));
+        if (d <= maxMiles && d < bestDist) { bestDist = d; bestIdx = i; }
+      }
+      if (bestIdx >= 0) {
+        const [chosen] = remaining.splice(bestIdx, 1);
+        load.stops.push(chosen);
+        totalPallets += chosen.pallets;
+        changed = true;
+      }
+    }
+    loads.push(load);
+  }
+  return { loads, unplaced };
+}
+function renderPlanningResults() {
+  const el = document.getElementById('planning-results');
+  if (!el) return;
+  if (!planningLoads.length) { el.innerHTML = ''; return; }
+  const siteMeta = SITES_META[planningTargetSite] || {};
+  const target = parseInt(document.getElementById('plan-target-pallets').value) || 40;
+  el.innerHTML = `
+    <div class="upload-card">
+      <div class="upload-card-head">
+        <div style="display:flex;justify-content:space-between;align-items:center;width:100%;flex-wrap:wrap;gap:12px">
+          <div>
+            <div class="upload-card-title">Draft plan — ${planningLoads.length} load${planningLoads.length!==1?'s':''}</div>
+            <div class="upload-card-sub">Move a stop between loads with the dropdown if it doesn't look right. Nothing is saved until you commit.</div>
+          </div>
+          <button onclick="commitPlanningLoads()" style="padding:10px 20px;background:var(--navy);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-body);white-space:nowrap">
+            ✓ Commit to ${siteMeta.name||planningTargetSite}
+          </button>
+        </div>
+      </div>
+      <div class="upload-card-body" style="padding-top:0">
+        ${planningLoads.map((load, li) => {
+          const pallets = load.stops.reduce((a,s)=>a+s.pallets,0);
+          const fillPct = Math.round(pallets / target * 100);
+          return `<div style="border:1px solid var(--rule);border-radius:12px;margin-top:16px;overflow:hidden">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--cream);border-bottom:1px solid var(--rule)">
+              <div style="font-weight:700;font-size:13px">Draft Load ${li+1}</div>
+              <div style="font-size:12px;color:var(--ink3)">${load.stops.length} stop${load.stops.length!==1?'s':''} · <strong style="color:var(--ink)">${pallets}p</strong> · ${fillPct}% fill</div>
+            </div>
+            <table style="width:100%;border-collapse:collapse">
+              <thead><tr style="font-size:10px;text-transform:uppercase;color:var(--ink3);text-align:left">
+                <th style="padding:8px 16px">Customer</th><th>Postcode</th><th>Pallets</th><th style="width:150px;padding-right:16px">Move to</th>
+              </tr></thead>
+              <tbody>
+                ${load.stops.map((s, si) => `<tr style="border-top:1px solid var(--rule)">
+                  <td style="padding:8px 16px;font-size:13px">${s.customer}</td>
+                  <td style="font-family:var(--font-mono);font-size:12px">${s.postcode}</td>
+                  <td style="font-size:13px;font-weight:600">${s.pallets}p</td>
+                  <td style="padding-right:16px">
+                    <select onchange="movePlanStop(${li},${si},this.value)" style="font-size:12px;padding:4px 6px;border:1px solid var(--rule);border-radius:6px;width:100%">
+                      <option value="">— move to —</option>
+                      ${planningLoads.map((_,tli) => tli===li ? '' : `<option value="${tli}">Load ${tli+1}</option>`).join('')}
+                      <option value="new">+ New load</option>
+                    </select>
+                  </td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>`;
+        }).join('')}
+        ${planningUnplaced.length ? `<div style="margin-top:16px;padding:12px 16px;background:#fff8e1;border:1px solid #ffca28;border-radius:8px;font-size:12px;color:#7a5c00">
+          <strong>${planningUnplaced.length} stop${planningUnplaced.length!==1?'s':''} not placed</strong> — no postcode match on file: ${planningUnplaced.map(s=>`${s.customer} (${s.postcode})`).join(', ')}. These won't be included if you commit.
+        </div>` : ''}
+      </div>
+    </div>`;
+}
+function movePlanStop(loadIdx, stopIdx, target) {
+  const load = planningLoads[loadIdx];
+  const [stop] = load.stops.splice(stopIdx, 1);
+  if (target === 'new') {
+    planningLoads.push({ id: 'draft-'+(planningLoads.length+1), stops: [stop] });
+  } else if (target !== '') {
+    planningLoads[parseInt(target)].stops.push(stop);
+  } else {
+    load.stops.splice(stopIdx, 0, stop); // blank selected — put it back
+  }
+  planningLoads = planningLoads.filter(l => l.stops.length > 0);
+  renderPlanningResults();
+}
+async function commitPlanningLoads() {
+  if (!planningLoads.length) return;
+  const site = planningTargetSite || currentSiteId;
+  const meta = SITES_META[site] || {};
+  const saveDate = viewDate || todayStr();
+  const routes = planningLoads.map((load, li) => {
+    const stops_detail = load.stops.map(s => ({
+      customer: s.customer, postal: s.postcode, city: s.city, pallets: s.pallets,
+    }));
+    const pallets = load.stops.reduce((a,s)=>a+s.pallets,0);
+    const postcodes = [...new Set(load.stops.map(s => (s.postcode||'').match(/^([A-Z]{1,2}[0-9]{1,2})/)?.[1] || s.postcode.slice(0,4)))].join(',');
+    return {
+      site_id: site, area: `Draft ${li+1}`, postcodes,
+      stops: load.stops.length, pallets, weight_t: 0,
+      stops_detail, runNum: li+1, runLabel: `Draft ${li+1}`,
+      runShips: [], multiLoad: false, haulier: 'PREMIER',
+    };
+  });
+  // Feed the address book too — same as every other import
+  learnAddresses(routes.flatMap(r => r.stops_detail.map(s => ({ name: s.customer, postcode: s.postal, site }))));
+  if (sb && isConfigured) {
+    try {
+      const { data: plan, error: pe } = await sb.from('daily_plans')
+        .upsert({ site_id: site, plan_date: saveDate, capacity: 80, notes: 'Auto-planned from raw orders',
+                  uploaded_by: (currentUser?.email||'Planning tool'),
+                  total_loads: routes.length, total_trailers: routes.length },
+                { onConflict: 'site_id,plan_date' }).select().single();
+      if (pe) throw pe;
+      await sb.from('routes').delete().eq('plan_id', plan.id);
+      const { error: re } = await sb.from('routes').insert(routes.map(r => ({
+        plan_id: plan.id, site_id: r.site_id, area: r.area, postcodes: r.postcodes,
+        stops: r.stops, pallets: r.pallets, weight_t: r.weight_t, stops_detail: r.stops_detail,
+        run_num: r.runNum, run_label: r.runLabel, run_ships: r.runShips, multi_load: r.multiLoad,
+      })));
+      if (re) throw re;
+    } catch(err) {
+      console.error('Planning commit error:', err);
+      showReqToast(`⚠ Supabase error: ${err.message} — data saved locally only`);
+    }
+  }
+  todayData = todayData.filter(e => e.site !== site);
+  todayData.push({ site, date: saveDate, capacity: 80, notes: 'Auto-planned from raw orders', uploaded_by: 'Planning tool', routes, total_loads: routes.length, total_trailers: routes.length });
+  allData = allData.filter(e => !(e.site===site && e.date===saveDate));
+  allData.push(todayData[todayData.length-1]);
+  viewDate = saveDate;
+  updateDateNav();
+  renderAll();
+  showReqToast(`✓ ${meta.name} — ${routes.length} draft load${routes.length!==1?'s':''} committed`);
+  showTab('overview');
 }
 function vpkDownloadQargo() {
   if(!vpkParsedRows.length||!window.XLSX)return;
