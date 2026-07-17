@@ -3374,6 +3374,13 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
             <div id="planning-msg" class="upload-msg" style="display:none;margin-top:12px"></div>
           </div>
         </div>
+        <div id="planning-map-card" class="upload-card" style="margin-bottom:20px;display:none">
+          <div class="upload-card-head">
+            <div class="upload-card-title">Draft plan — map view</div>
+            <div class="upload-card-sub">Each colour is one draft load. Drag a marker's popup open for details; use the dropdowns below to actually reassign a stop.</div>
+          </div>
+          <div id="planning-map" style="height:420px;width:100%"></div>
+        </div>
         <div id="planning-results"></div>
       </div>
     </div>
@@ -11372,6 +11379,9 @@ function clusterStopsIntoLoads(stops, targetPallets, maxMiles, siteId) {
   return { loads, unplaced };
 }
 function renderPlanningResults() {
+  const mapCard = document.getElementById('planning-map-card');
+  if (mapCard) mapCard.style.display = planningLoads.length ? '' : 'none';
+  if (planningLoads.length) setTimeout(renderPlanningMap, 60); // defer so the card has layout before Leaflet sizes itself
   const el = document.getElementById('planning-results');
   if (!el) return;
   if (!planningLoads.length) { el.innerHTML = ''; return; }
@@ -11425,6 +11435,74 @@ function renderPlanningResults() {
         </div>` : ''}
       </div>
     </div>`;
+}
+let _planningMap = null;
+const PLANNING_LOAD_COLORS = ['#E8520A','#1e3a6e','#1a7a4a','#c0392b','#9333ea','#0ea5e9','#d97706','#0D7A8A','#5e35b1','#c27800'];
+function renderPlanningMap() {
+  const mapDiv = document.getElementById('planning-map');
+  if (!mapDiv || typeof L === 'undefined') return;
+  if (_planningMap) { _planningMap.remove(); _planningMap = null; }
+  const depot = DEPOT_COORDS[planningTargetSite];
+  const center = depot ? [depot.lat, depot.lon] : [52.4, -1.5];
+  _planningMap = L.map('planning-map', { center, zoom: 8, zoomControl: true, attributionControl: true });
+  const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO', subdomains: 'abcd', maxZoom: 19,
+  }).addTo(_planningMap);
+  tileLayer.on('tileerror', () => {
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap', subdomains: 'abc', maxZoom: 19,
+    }).addTo(_planningMap);
+  });
+
+  const bounds = [];
+  if (depot) {
+    const depotIcon = L.divIcon({
+      className: '', iconSize: [26,26], iconAnchor: [13,13],
+      html: `<div style="width:26px;height:26px;border-radius:50%;background:var(--navy,#0F2B46);border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center">
+        <svg width="12" height="12" viewBox="0 0 18 18" fill="none"><path d="M2 3h14a1 1 0 011 1v8a1 1 0 01-1 1H6l-4 3V4a1 1 0 011-1z" fill="white"/></svg></div>`,
+    });
+    L.marker([depot.lat, depot.lon], { icon: depotIcon }).addTo(_planningMap)
+      .bindPopup(`<strong>${SITES_META[planningTargetSite]?.name || planningTargetSite}</strong><br>Depot`);
+    bounds.push([depot.lat, depot.lon]);
+  }
+
+  planningLoads.forEach((load, li) => {
+    const color = PLANNING_LOAD_COLORS[li % PLANNING_LOAD_COLORS.length];
+    const linePoints = depot ? [[depot.lat, depot.lon]] : [];
+    load.stops.forEach((s, si) => {
+      if (s.lat == null || s.lon == null) return;
+      const icon = L.divIcon({
+        className: '', iconSize: [24,24], iconAnchor: [12,12],
+        html: `<div style="width:24px;height:24px;border-radius:50%;background:${color};border:2.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;font-family:var(--font-body)">${si+1}</div>`,
+      });
+      L.marker([s.lat, s.lon], { icon }).addTo(_planningMap)
+        .bindPopup(`<strong>Draft Load ${li+1}</strong><br>${s.customer}<br>${s.postcode} · ${s.pallets}p`);
+      linePoints.push([s.lat, s.lon]);
+      bounds.push([s.lat, s.lon]);
+    });
+    if (linePoints.length > 1) {
+      L.polyline(linePoints, { color, weight: 2.5, opacity: 0.6, dashArray: '5,5' }).addTo(_planningMap);
+    }
+  });
+  planningUnplaced.forEach(s => {
+    // no coordinates for these by definition — nothing to plot, they're
+    // already called out separately in the warning banner and table
+  });
+  if (bounds.length) _planningMap.fitBounds(bounds, { padding: [40,40] });
+
+  // Legend
+  const legend = L.control({ position: 'bottomleft' });
+  legend.onAdd = () => {
+    const div = L.DomUtil.create('div');
+    div.style.cssText = 'background:#fff;padding:8px 12px;border-radius:8px;box-shadow:0 1px 6px rgba(0,0,0,.2);font-family:var(--font-body);font-size:11px;max-width:220px';
+    div.innerHTML = planningLoads.map((load, li) => {
+      const color = PLANNING_LOAD_COLORS[li % PLANNING_LOAD_COLORS.length];
+      const p = load.stops.reduce((a,s)=>a+s.pallets,0);
+      return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="width:9px;height:9px;border-radius:50%;background:${color};flex-shrink:0"></span>Load ${li+1} — ${p}p</div>`;
+    }).join('');
+    return div;
+  };
+  legend.addTo(_planningMap);
 }
 function movePlanStop(loadIdx, stopIdx, target) {
   const load = planningLoads[loadIdx];
