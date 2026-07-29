@@ -11412,6 +11412,9 @@ function renderPlanningResults() {
           <button onclick="commitPlanningLoads()" style="padding:10px 20px;background:var(--navy);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-body);white-space:nowrap">
             ✓ Commit to ${siteMeta.name||planningTargetSite}
           </button>
+          <button onclick="suggestVehiclePairings()" style="padding:10px 20px;background:#fff;color:var(--navy);border:1.5px solid var(--navy);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-body);white-space:nowrap">
+            ✨ Suggest vehicle pairings
+          </button>
         </div>
       </div>
       <div class="upload-card-body" style="padding-top:0">
@@ -11565,6 +11568,47 @@ function planningVehicleSummary() {
   const ids = Object.keys(groups);
   const label = {}; ids.forEach((g, i) => label[g] = String.fromCharCode(65 + i));
   return { groups, ids, label };
+}
+// Auto-suggest which draft loads could share a vehicle as sequential same-day
+// runs. This never touches pallet counts or which stops are in which load —
+// it only proposes vehicle pairings, and only for genuinely local drops.
+// Long-haul single-drop loads (e.g. a 90-mile run to London) are left alone:
+// there's no realistic way to do a second run in the same shift after that.
+const SHORT_RUN_ONE_WAY_MILES = 30;       // one-way distance from depot to still count as a "local" run
+const VEHICLE_DAILY_ROUND_TRIP_BUDGET = 120; // total round-trip miles a vehicle can reasonably cover across stacked runs in a shift
+function suggestVehiclePairings() {
+  // Reset every load to its own vehicle first, so re-running this always gives a clean result
+  planningLoads.forEach(l => { l.vehicleGroup = l.id; });
+
+  const withMiles = planningLoads.map(l => {
+    const milesOut = Math.max(0, ...l.stops.map(s => s.distFromDepot || 0));
+    return { load: l, milesOut, roundTrip: milesOut * 2 };
+  });
+  const eligible = withMiles.filter(w => w.milesOut > 0 && w.milesOut <= SHORT_RUN_ONE_WAY_MILES)
+                             .sort((a, b) => a.milesOut - b.milesOut);
+
+  let chain = [], chainMiles = 0;
+  const flushChain = () => {
+    if (chain.length > 1) {
+      const baseId = chain[0].load.id;
+      chain.forEach(c => { c.load.vehicleGroup = baseId; });
+    }
+    chain = []; chainMiles = 0;
+  };
+  eligible.forEach(w => {
+    if (chain.length && chainMiles + w.roundTrip > VEHICLE_DAILY_ROUND_TRIP_BUDGET) flushChain();
+    chain.push(w);
+    chainMiles += w.roundTrip;
+  });
+  flushChain();
+
+  const vs = planningVehicleSummary();
+  const saved = planningLoads.length - vs.ids.length;
+  renderPlanningResults();
+  planningShowMsg(saved > 0
+    ? `✨ Linked short local runs onto shared vehicles — ${planningLoads.length} loads now need ${vs.ids.length} vehicle${vs.ids.length!==1?'s':''}. Check the Vehicle dropdowns below and adjust anything that doesn't work in practice.`
+    : `No obvious 2nd-run pairings within ${SHORT_RUN_ONE_WAY_MILES} miles of the depot — remaining loads look like they each genuinely need their own vehicle.`,
+    saved > 0 ? 'ok' : 'warn');
 }
 async function commitPlanningLoads() {
   if (!planningLoads.length) return;
