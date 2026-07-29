@@ -11368,7 +11368,8 @@ function clusterStopsIntoLoads(stops, targetPallets, maxMiles, siteId) {
   const remaining = [...geocoded];
   while (remaining.length) {
     const seed = remaining.shift();
-    const load = { id: 'draft-' + (loads.length+1), stops: [seed] };
+    const loadId = 'draft-' + (loads.length+1);
+    const load = { id: loadId, vehicleGroup: loadId, stops: [seed] };
     let totalPallets = seed.pallets;
     let changed = true;
     while (changed && totalPallets < targetPallets && remaining.length) {
@@ -11376,7 +11377,7 @@ function clusterStopsIntoLoads(stops, targetPallets, maxMiles, siteId) {
       let bestIdx = -1, bestDist = Infinity;
       for (let i = 0; i < remaining.length; i++) {
         const cand = remaining[i];
-        if (totalPallets + cand.pallets > targetPallets * 1.15) continue; // small overflow tolerance
+        if (totalPallets + cand.pallets > targetPallets) continue; // don't overload the trailer
         const d = Math.min(...load.stops.map(s => kmToMiles(haversineKm(s.lat,s.lon,cand.lat,cand.lon))));
         if (d <= maxMiles && d < bestDist) { bestDist = d; bestIdx = i; }
       }
@@ -11405,8 +11406,8 @@ function renderPlanningResults() {
       <div class="upload-card-head">
         <div style="display:flex;justify-content:space-between;align-items:center;width:100%;flex-wrap:wrap;gap:12px">
           <div>
-            <div class="upload-card-title">Draft plan — ${planningLoads.length} load${planningLoads.length!==1?'s':''}</div>
-            <div class="upload-card-sub">Move a stop between loads with the dropdown if it doesn't look right. Nothing is saved until you commit.</div>
+            <div class="upload-card-title">Draft plan — ${planningLoads.length} load${planningLoads.length!==1?'s':''}${(() => { const v = planningVehicleSummary(); return v.ids.length !== planningLoads.length ? ` · <span style="color:var(--navy)">${v.ids.length} vehicle${v.ids.length!==1?'s':''} needed</span>` : ''; })()}</div>
+            <div class="upload-card-sub">Move a stop between loads with the dropdown if it doesn't look right. Use "Vehicle" to run two loads back-to-back on the same truck. Nothing is saved until you commit.</div>
           </div>
           <button onclick="commitPlanningLoads()" style="padding:10px 20px;background:var(--navy);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-body);white-space:nowrap">
             ✓ Commit to ${siteMeta.name||planningTargetSite}
@@ -11414,12 +11415,26 @@ function renderPlanningResults() {
         </div>
       </div>
       <div class="upload-card-body" style="padding-top:0">
-        ${planningLoads.map((load, li) => {
+        ${(() => { const vs = planningVehicleSummary(); return planningLoads.map((load, li) => {
           const pallets = load.stops.reduce((a,s)=>a+s.pallets,0);
           const fillPct = Math.round(pallets / target * 100);
+          const runsOnVehicle = vs.groups[load.vehicleGroup];
+          const runNum = runsOnVehicle.indexOf(li) + 1;
+          const vLabel = vs.label[load.vehicleGroup];
+          const vehicleBadge = runsOnVehicle.length > 1
+            ? `<span style="background:var(--navy);color:#fff;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;margin-left:8px">Vehicle ${vLabel} · Run ${runNum}</span>`
+            : '';
+          const otherVehicles = vs.ids.filter(g => g !== load.vehicleGroup);
+          const vehicleSelect = `<select onchange="assignVehicle('${load.id}', this.value)" style="font-size:11px;padding:3px 6px;border:1px solid var(--rule);border-radius:6px;margin-left:8px" title="Assign this load to a vehicle">
+            <option value="__own__"${runNum===1 && runsOnVehicle.length===1?' selected':''}>Own vehicle</option>
+            ${otherVehicles.map(g => {
+              const memberLoads = vs.groups[g].map(i => 'Load '+(i+1)).join(' + ');
+              return `<option value="${g}">2nd run: join Vehicle ${vs.label[g]} (${memberLoads})</option>`;
+            }).join('')}
+          </select>`;
           return `<div style="border:1px solid var(--rule);border-radius:12px;margin-top:16px;overflow:hidden">
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--cream);border-bottom:1px solid var(--rule)">
-              <div style="font-weight:700;font-size:13px">Draft Load ${li+1}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--cream);border-bottom:1px solid var(--rule);flex-wrap:wrap;gap:6px">
+              <div style="font-weight:700;font-size:13px;display:flex;align-items:center">Draft Load ${li+1}${vehicleBadge}${vehicleSelect}</div>
               <div style="font-size:12px;color:var(--ink3)">${load.stops.length} stop${load.stops.length!==1?'s':''} · <strong style="color:var(--ink)">${pallets}p</strong> · ${fillPct}% fill</div>
             </div>
             <table style="width:100%;border-collapse:collapse">
@@ -11442,7 +11457,7 @@ function renderPlanningResults() {
               </tbody>
             </table>
           </div>`;
-        }).join('')}
+        }).join(''); })()}
         ${planningUnplaced.length ? `<div style="margin-top:16px;padding:12px 16px;background:#fff8e1;border:1px solid #ffca28;border-radius:8px;font-size:12px;color:#7a5c00">
           <strong>${planningUnplaced.length} stop${planningUnplaced.length!==1?'s':''} not placed</strong> — no postcode match on file: ${planningUnplaced.map(s=>`${s.customer} (${s.postcode})`).join(', ')}. These won't be included if you commit.
         </div>` : ''}
@@ -11521,7 +11536,8 @@ function movePlanStop(loadIdx, stopIdx, target) {
   const load = planningLoads[loadIdx];
   const [stop] = load.stops.splice(stopIdx, 1);
   if (target === 'new') {
-    planningLoads.push({ id: 'draft-'+(planningLoads.length+1), stops: [stop] });
+    const newId = 'draft-'+(planningLoads.length+1);
+    planningLoads.push({ id: newId, vehicleGroup: newId, stops: [stop] });
   } else if (target !== '') {
     planningLoads[parseInt(target)].stops.push(stop);
   } else {
@@ -11530,22 +11546,48 @@ function movePlanStop(loadIdx, stopIdx, target) {
   planningLoads = planningLoads.filter(l => l.stops.length > 0);
   renderPlanningResults();
 }
+// Assign a load to run as a second (or third...) trip on the same vehicle as
+// another load, or split it back off onto its own vehicle. Loads keep their
+// own identity as separate trailer runs — this only changes which physical
+// vehicle/driver does them, so the plan can show "5 loads · 3 vehicles"
+// instead of assuming every load needs a dedicated truck.
+function assignVehicle(loadId, value) {
+  const load = planningLoads.find(l => l.id === loadId);
+  if (!load) return;
+  load.vehicleGroup = (value === '__own__') ? load.id : value;
+  renderPlanningResults();
+}
+function planningVehicleSummary() {
+  const groups = {};
+  planningLoads.forEach((l, i) => {
+    (groups[l.vehicleGroup] = groups[l.vehicleGroup] || []).push(i);
+  });
+  const ids = Object.keys(groups);
+  const label = {}; ids.forEach((g, i) => label[g] = String.fromCharCode(65 + i));
+  return { groups, ids, label };
+}
 async function commitPlanningLoads() {
   if (!planningLoads.length) return;
   const site = planningTargetSite || currentSiteId;
   const meta = SITES_META[site] || {};
   const saveDate = viewDate || todayStr();
+  const vs = planningVehicleSummary();
   const routes = planningLoads.map((load, li) => {
     const stops_detail = load.stops.map(s => ({
       customer: s.customer, postal: s.postcode, city: s.city, pallets: s.pallets,
     }));
     const pallets = load.stops.reduce((a,s)=>a+s.pallets,0);
     const postcodes = [...new Set(load.stops.map(s => (s.postcode||'').match(/^([A-Z]{1,2}[0-9]{1,2})/)?.[1] || s.postcode.slice(0,4)))].join(',');
+    const runsOnVehicle = vs.groups[load.vehicleGroup];
+    const vehicleRun = runsOnVehicle.indexOf(li) + 1;
+    const vehicleLabel = 'Vehicle ' + vs.label[load.vehicleGroup];
     return {
       site_id: site, area: `Draft ${li+1}`, postcodes,
       stops: load.stops.length, pallets, weight_t: 0,
-      stops_detail, runNum: li+1, runLabel: `Draft ${li+1}`,
-      runShips: [], multiLoad: false, haulier: 'PREMIER',
+      stops_detail, runNum: li+1,
+      runLabel: runsOnVehicle.length > 1 ? `Draft ${li+1} (${vehicleLabel}, run ${vehicleRun})` : `Draft ${li+1}`,
+      runShips: [], multiLoad: runsOnVehicle.length > 1, haulier: 'PREMIER',
+      vehicleLabel, vehicleRun,
     };
   });
   // Feed the address book too — same as every other import
@@ -11555,7 +11597,7 @@ async function commitPlanningLoads() {
       const { data: plan, error: pe } = await sb.from('daily_plans')
         .upsert({ site_id: site, plan_date: saveDate, capacity: 80, notes: 'Auto-planned from raw orders',
                   uploaded_by: (currentUser?.email||'Planning tool'),
-                  total_loads: routes.length, total_trailers: routes.length },
+                  total_loads: routes.length, total_trailers: vs.ids.length },
                 { onConflict: 'site_id,plan_date' }).select().single();
       if (pe) throw pe;
       await sb.from('routes').delete().eq('plan_id', plan.id);
@@ -11563,6 +11605,7 @@ async function commitPlanningLoads() {
         plan_id: plan.id, site_id: r.site_id, area: r.area, postcodes: r.postcodes,
         stops: r.stops, pallets: r.pallets, weight_t: r.weight_t, stops_detail: r.stops_detail,
         run_num: r.runNum, run_label: r.runLabel, run_ships: r.runShips, multi_load: r.multiLoad,
+        vehicle_label: r.vehicleLabel, vehicle_run: r.vehicleRun,
       })));
       if (re) throw re;
     } catch(err) {
@@ -11571,13 +11614,14 @@ async function commitPlanningLoads() {
     }
   }
   todayData = todayData.filter(e => e.site !== site);
-  todayData.push({ site, date: saveDate, capacity: 80, notes: 'Auto-planned from raw orders', uploaded_by: 'Planning tool', routes, total_loads: routes.length, total_trailers: routes.length });
+  todayData.push({ site, date: saveDate, capacity: 80, notes: 'Auto-planned from raw orders', uploaded_by: 'Planning tool', routes, total_loads: routes.length, total_trailers: vs.ids.length });
   allData = allData.filter(e => !(e.site===site && e.date===saveDate));
   allData.push(todayData[todayData.length-1]);
   viewDate = saveDate;
   updateDateNav();
   renderAll();
-  showReqToast(`✓ ${meta.name} — ${routes.length} draft load${routes.length!==1?'s':''} committed`);
+  const vehicleNote = vs.ids.length !== routes.length ? ` on ${vs.ids.length} vehicle${vs.ids.length!==1?'s':''}` : '';
+  showReqToast(`✓ ${meta.name} — ${routes.length} draft load${routes.length!==1?'s':''} committed${vehicleNote}`);
   showTab('overview');
 }
 function vpkDownloadQargo() {
