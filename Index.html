@@ -57,7 +57,9 @@ body {
 button, input, select, textarea { font-family: var(--font-body); }
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--cream3); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: var(--ink3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--ink2); }
+* { scrollbar-color: var(--ink3) transparent; }
 /* ══════════════════════════════════════════
    LOGIN
 ══════════════════════════════════════════ */
@@ -11271,7 +11273,8 @@ function processPlanningFile(file) {
       if (!stops.length) { planningShowMsg('No order lines found — check this file has a Ship-To Party / customer column, a postal code column, and a pallet quantity column.', 'err'); return; }
       const targetPallets = parseInt(document.getElementById('plan-target-pallets').value) || 40;
       const maxMiles = parseFloat(document.getElementById('plan-max-cluster-miles').value) || 25;
-      const { loads, unplaced } = clusterStopsIntoLoads(stops, targetPallets, maxMiles, planningTargetSite);
+      const { loads: rawLoads, unplaced } = clusterStopsIntoLoads(stops, targetPallets, maxMiles, planningTargetSite);
+      const loads = mergeNearbyLoads(rawLoads, targetPallets, maxMiles); // fewest loads first, before vehicle-pairing on top
       planningLoads = loads;
       planningUnplaced = unplaced;
       const vs = computeVehiclePairings(); // auto-pair short local runs onto shared vehicles on every import
@@ -11279,8 +11282,9 @@ function processPlanningFile(file) {
       if (unplaced.length) {
         planningShowMsg(`⚠ ${unplaced.length} stop${unplaced.length!==1?'s':''} couldn't be placed — no postcode match: ${unplaced.map(s=>s.customer).join(', ')}`, 'warn');
       } else {
+        const mergedNote = rawLoads.length !== loads.length ? ` (consolidated from ${rawLoads.length})` : '';
         const vehicleNote = vs.ids.length !== loads.length ? ` — ${vs.ids.length} vehicle${vs.ids.length!==1?'s':''} needed once short local runs are paired up` : '';
-        planningShowMsg(`✓ ${stops.length} customers aggregated into ${loads.length} draft loads${vehicleNote}. Review below before committing.`, 'ok');
+        planningShowMsg(`✓ ${stops.length} customers aggregated into ${loads.length} draft loads${mergedNote}${vehicleNote}. Review below before committing.`, 'ok');
       }
     } catch(err) {
       console.error('Planning file error:', err);
@@ -11393,6 +11397,42 @@ function clusterStopsIntoLoads(stops, targetPallets, maxMiles, siteId) {
     loads.push(load);
   }
   return { loads, unplaced };
+}
+// clusterStopsIntoLoads builds each load once and moves on — it never goes
+// back to check whether two loads it already finished could actually fit
+// together as one fuller trailer. This closes that gap: repeatedly finds the
+// closest pair of loads that (a) fit under the pallet target combined and
+// (b) have at least one stop within maxMiles of each other, and merges them,
+// until no more merges are possible. Directly reduces the number of trailers
+// needed — distinct from vehicle-pairing, which stacks separate loads onto
+// one vehicle as sequential runs when they *don't* fit on one trailer.
+function mergeNearbyLoads(loads, targetPallets, maxMiles) {
+  const merged = loads.map(l => ({ id: l.id, vehicleGroup: l.vehicleGroup, stops: [...l.stops] }));
+  let didMerge = true;
+  while (didMerge) {
+    didMerge = false;
+    let bestPair = null, bestDist = Infinity;
+    for (let i = 0; i < merged.length; i++) {
+      for (let j = i + 1; j < merged.length; j++) {
+        const palA = merged[i].stops.reduce((a,s) => a+s.pallets, 0);
+        const palB = merged[j].stops.reduce((a,s) => a+s.pallets, 0);
+        if (palA + palB > targetPallets) continue;
+        let d = Infinity;
+        merged[i].stops.forEach(sa => merged[j].stops.forEach(sb => {
+          const dd = kmToMiles(haversineKm(sa.lat, sa.lon, sb.lat, sb.lon));
+          if (dd < d) d = dd;
+        }));
+        if (d <= maxMiles && d < bestDist) { bestDist = d; bestPair = [i, j]; }
+      }
+    }
+    if (bestPair) {
+      const [i, j] = bestPair;
+      merged[i].stops = merged[i].stops.concat(merged[j].stops);
+      merged.splice(j, 1);
+      didMerge = true;
+    }
+  }
+  return merged;
 }
 function renderPlanningResults() {
   const mapCard = document.getElementById('planning-map-card');
