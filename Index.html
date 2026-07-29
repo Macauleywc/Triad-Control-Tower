@@ -11274,11 +11274,13 @@ function processPlanningFile(file) {
       const { loads, unplaced } = clusterStopsIntoLoads(stops, targetPallets, maxMiles, planningTargetSite);
       planningLoads = loads;
       planningUnplaced = unplaced;
+      const vs = computeVehiclePairings(); // auto-pair short local runs onto shared vehicles on every import
       renderPlanningResults();
       if (unplaced.length) {
         planningShowMsg(`⚠ ${unplaced.length} stop${unplaced.length!==1?'s':''} couldn't be placed — no postcode match: ${unplaced.map(s=>s.customer).join(', ')}`, 'warn');
       } else {
-        planningShowMsg(`✓ ${stops.length} customers aggregated into ${loads.length} draft loads. Review below before committing.`, 'ok');
+        const vehicleNote = vs.ids.length !== loads.length ? ` — ${vs.ids.length} vehicle${vs.ids.length!==1?'s':''} needed once short local runs are paired up` : '';
+        planningShowMsg(`✓ ${stops.length} customers aggregated into ${loads.length} draft loads${vehicleNote}. Review below before committing.`, 'ok');
       }
     } catch(err) {
       console.error('Planning file error:', err);
@@ -11577,8 +11579,8 @@ function planningVehicleSummary() {
 const SHORT_RUN_ONE_WAY_MILES = 30;       // one-way distance from depot to still count as a "local" run
 const VEHICLE_DAILY_ROUND_TRIP_BUDGET = 120; // total round-trip miles a vehicle can reasonably cover across stacked runs in a shift
 const MAX_RUNS_PER_VEHICLE = 3;           // driving time isn't the only cost — loading/unloading eats the day too
-function suggestVehiclePairings() {
-  // Reset every load to its own vehicle first, so re-running this always gives a clean result
+function computeVehiclePairings() {
+  // Reset every load to its own vehicle first, so this always gives a clean result
   planningLoads.forEach(l => { l.vehicleGroup = l.id; });
 
   const withMiles = planningLoads.map(l => {
@@ -11609,8 +11611,14 @@ function suggestVehiclePairings() {
       v.members.forEach(m => { m.load.vehicleGroup = baseId; });
     }
   });
-
-  const vs = planningVehicleSummary();
+  return planningVehicleSummary();
+}
+// Button-facing version — recomputes and tells the user what changed.
+// Import auto-runs computeVehiclePairings() directly instead (see
+// processPlanningFile) so this only needs manual re-running after you've
+// moved stops between loads by hand.
+function suggestVehiclePairings() {
+  const vs = computeVehiclePairings();
   const saved = planningLoads.length - vs.ids.length;
   renderPlanningResults();
   planningShowMsg(saved > 0
