@@ -11460,49 +11460,65 @@ function renderPlanningResults() {
         </div>
       </div>
       <div class="upload-card-body" style="padding-top:0">
-        ${(() => { const vs = planningVehicleSummary(); return planningLoads.map((load, li) => {
-          const pallets = load.stops.reduce((a,s)=>a+s.pallets,0);
-          const fillPct = Math.round(pallets / target * 100);
-          const runsOnVehicle = vs.groups[load.vehicleGroup];
-          const runNum = runsOnVehicle.indexOf(li) + 1;
-          const vLabel = vs.label[load.vehicleGroup];
-          const vehicleBadge = runsOnVehicle.length > 1
-            ? `<span style="background:var(--navy);color:#fff;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;margin-left:8px">Vehicle ${vLabel} · Run ${runNum}</span>`
-            : '';
-          const otherVehicles = vs.ids.filter(g => g !== load.vehicleGroup);
-          const vehicleSelect = `<select onchange="assignVehicle('${load.id}', this.value)" style="font-size:11px;padding:3px 6px;border:1px solid var(--rule);border-radius:6px;margin-left:8px" title="Assign this load to a vehicle">
-            <option value="__own__"${runNum===1 && runsOnVehicle.length===1?' selected':''}>Own vehicle</option>
-            ${otherVehicles.map(g => {
-              const memberLoads = vs.groups[g].map(i => 'Load '+(i+1)).join(' + ');
-              return `<option value="${g}">2nd run: join Vehicle ${vs.label[g]} (${memberLoads})</option>`;
-            }).join('')}
-          </select>`;
-          return `<div style="border:1px solid var(--rule);border-radius:12px;margin-top:16px;overflow:hidden">
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--cream);border-bottom:1px solid var(--rule);flex-wrap:wrap;gap:6px">
-              <div style="font-weight:700;font-size:13px;display:flex;align-items:center">Draft Load ${li+1}${vehicleBadge}${vehicleSelect}</div>
-              <div style="font-size:12px;color:var(--ink3)">${load.stops.length} stop${load.stops.length!==1?'s':''} · <strong style="color:var(--ink)">${pallets}p</strong> · ${fillPct}% fill</div>
-            </div>
-            <table style="width:100%;border-collapse:collapse">
-              <thead><tr style="font-size:10px;text-transform:uppercase;color:var(--ink3);text-align:left">
-                <th style="padding:8px 16px">Customer</th><th>Postcode</th><th>Pallets</th><th style="width:150px;padding-right:16px">Move to</th>
-              </tr></thead>
-              <tbody>
-                ${load.stops.map((s, si) => `<tr style="border-top:1px solid var(--rule)">
-                  <td style="padding:8px 16px;font-size:13px">${s.customer}</td>
-                  <td style="font-family:var(--font-mono);font-size:12px">${s.postcode}</td>
-                  <td style="font-size:13px;font-weight:600">${s.pallets}p</td>
-                  <td style="padding-right:16px">
-                    <select onchange="movePlanStop(${li},${si},this.value)" style="font-size:12px;padding:4px 6px;border:1px solid var(--rule);border-radius:6px;width:100%">
-                      <option value="">— move to —</option>
-                      ${planningLoads.map((_,tli) => tli===li ? '' : `<option value="${tli}">Load ${tli+1}</option>`).join('')}
-                      <option value="new">+ New load</option>
-                    </select>
-                  </td>
-                </tr>`).join('')}
-              </tbody>
-            </table>
-          </div>`;
-        }).join(''); })()}
+        ${(() => {
+          const vs = planningVehicleSummary();
+          const renderCard = (load, li) => {
+            const pallets = load.stops.reduce((a,s)=>a+s.pallets,0);
+            const fillPct = Math.round(pallets / target * 100);
+            const runsOnVehicle = vs.groups[load.vehicleGroup];
+            const runNum = runsOnVehicle.indexOf(li) + 1;
+            const otherVehicles = vs.ids.filter(g => g !== load.vehicleGroup);
+            const vehicleSelect = `<select onchange="assignVehicle('${load.id}', this.value)" style="font-size:11px;padding:3px 6px;border:1px solid var(--rule);border-radius:6px;margin-left:8px" title="Assign this load to a vehicle">
+              <option value="__own__"${runNum===1 && runsOnVehicle.length===1?' selected':''}>Own vehicle</option>
+              ${otherVehicles.map(g => {
+                const memberLoads = vs.groups[g].map(i => 'Load '+(i+1)).join(' + ');
+                return `<option value="${g}">2nd run: join Vehicle ${vs.label[g]} (${memberLoads})</option>`;
+              }).join('')}
+            </select>`;
+            return `<div style="border:1px solid var(--rule);border-radius:12px;${runsOnVehicle.length>1?'margin-top:10px':'margin-top:16px'};overflow:hidden">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--cream);border-bottom:1px solid var(--rule);flex-wrap:wrap;gap:6px">
+                <div style="font-weight:700;font-size:13px;display:flex;align-items:center">Draft Load ${li+1}${runsOnVehicle.length>1?` <span style="color:var(--ink3);font-weight:400;margin-left:6px">— Run ${runNum} of ${runsOnVehicle.length}</span>`:''}${vehicleSelect}</div>
+                <div style="font-size:12px;color:var(--ink3)">${load.stops.length} stop${load.stops.length!==1?'s':''} · <strong style="color:var(--ink)">${pallets}p</strong> · ${fillPct}% fill</div>
+              </div>
+              <table style="width:100%;border-collapse:collapse">
+                <thead><tr style="font-size:10px;text-transform:uppercase;color:var(--ink3);text-align:left">
+                  <th style="padding:8px 16px">Customer</th><th>Postcode</th><th>Pallets</th><th style="width:150px;padding-right:16px">Move to</th>
+                </tr></thead>
+                <tbody>
+                  ${load.stops.map((s, si) => `<tr style="border-top:1px solid var(--rule)">
+                    <td style="padding:8px 16px;font-size:13px">${s.customer}</td>
+                    <td style="font-family:var(--font-mono);font-size:12px">${s.postcode}</td>
+                    <td style="font-size:13px;font-weight:600">${s.pallets}p</td>
+                    <td style="padding-right:16px">
+                      <select onchange="movePlanStop(${li},${si},this.value)" style="font-size:12px;padding:4px 6px;border:1px solid var(--rule);border-radius:6px;width:100%">
+                        <option value="">— move to —</option>
+                        ${planningLoads.map((_,tli) => tli===li ? '' : `<option value="${tli}">Load ${tli+1}</option>`).join('')}
+                        <option value="new">+ New load</option>
+                      </select>
+                    </td>
+                  </tr>`).join('')}
+                </tbody>
+              </table>
+            </div>`;
+          };
+          // One vehicle = one run: render its card plain, in original order.
+          // One vehicle = several runs: wrap them together under a labelled
+          // header so the consolidation is visible instead of buried in a
+          // flat Load-1-to-N list.
+          return vs.ids.map(g => {
+            const members = vs.groups[g];
+            if (members.length === 1) return renderCard(planningLoads[members[0]], members[0]);
+            const vLabel = vs.label[g];
+            const totalPallets = members.reduce((a,i) => a + planningLoads[i].stops.reduce((x,s)=>x+s.pallets,0), 0);
+            const cards = members.map(li => renderCard(planningLoads[li], li)).join('');
+            return `<div style="margin-top:16px;border:1.5px solid var(--navy);border-radius:14px;padding:12px;background:rgba(15,43,70,0.03)">
+              <div style="font-weight:700;font-size:12px;color:var(--navy);text-transform:uppercase;letter-spacing:0.03em;padding:0 4px">
+                🚚 Vehicle ${vLabel} — ${members.length} runs back-to-back · ${totalPallets}p total
+              </div>
+              ${cards}
+            </div>`;
+          }).join('');
+        })()}
         ${planningUnplaced.length ? `<div style="margin-top:16px;padding:12px 16px;background:#fff8e1;border:1px solid #ffca28;border-radius:8px;font-size:12px;color:#7a5c00">
           <strong>${planningUnplaced.length} stop${planningUnplaced.length!==1?'s':''} not placed</strong> — no postcode match on file: ${planningUnplaced.map(s=>`${s.customer} (${s.postcode})`).join(', ')}. These won't be included if you commit.
         </div>` : ''}
