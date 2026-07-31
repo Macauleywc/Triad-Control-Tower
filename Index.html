@@ -4468,7 +4468,8 @@ function renderSiteCards() {
             const pcString = stopPostcodes || firstRoute?.postcodes || firstRoute?.pc || '';
             const runCost = importedCost ? { cost: importedCost } : calcRunCost(sid, pcString);
             const costStr = runCost ? `£${Number(runCost.cost).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}` : '—';
-            const label = run.multiLoad ? `Run ${ri+1} <span style="font-size:10px;color:var(--ink3)">(${run.runShips.length} loads)</span>` : `Run ${ri+1}`;
+            const shipChip = (run.runShips||[]).length ? ` <span class="loads-shipment-num" style="font-size:10px;padding:2px 7px;margin-left:4px">${run.runShips.join(', ')}</span>` : '';
+            const label = (run.multiLoad ? `Run ${ri+1} <span style="font-size:10px;color:var(--ink3)">(${run.runShips.length} loads)</span>` : `Run ${ri+1}`) + shipChip;
             return `<div class="route-row">
               <div class="route-area">
                 <div class="route-bar"><div class="route-bar-fill" style="width:${Math.min(rFill,100)}%;background:${meta.color}"></div></div>
