@@ -10581,8 +10581,11 @@ function vpkShowMultiDayPreview(wb, site, format) {
   for (const sheetName of wb.SheetNames) {
     const sheetWs = wb.Sheets[sheetName];
     if (!isDaySheetName(sheetName)) {
-      // For VPK, also accept generic sheet names if they contain a Delivery Schedule header
-      if (format !== 'vpk') continue;
+      // Tab names vary a lot in the wild (Sheet1, Sheet2... instead of
+      // Monday, Tuesday...) — fall back to checking the sheet's own content
+      // for a schedule header before giving up on it. Applies to every
+      // format, not just VPK: a Selby/Campeys or Wrings sheet with a generic
+      // tab name is just as real as one named "Monday".
       const r0 = (XLSX.utils.sheet_to_json(sheetWs||{}, {header:1,defval:null,raw:false})[0]||[]);
       if (!r0.some(c => String(c||'').includes('Delivery Schedule'))) continue;
     }
