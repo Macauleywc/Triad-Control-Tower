@@ -3335,7 +3335,7 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
     </div>
     <!-- ─── PLANNING TAB ─── -->
     <div id="tab-planning" class="content" style="display:none">
-      <div class="upload-layout">
+      <div style="max-width:1100px">
         <div class="upload-card" style="margin-bottom:20px">
           <div class="upload-card-head">
             <div style="display:flex;align-items:center;gap:12px">
@@ -3377,11 +3377,16 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
           </div>
         </div>
         <div id="planning-map-card" class="upload-card" style="margin-bottom:20px;display:none">
-          <div class="upload-card-head">
-            <div class="upload-card-title">Draft plan — map view</div>
-            <div class="upload-card-sub">Each colour is one draft load. Drag a marker's popup open for details; use the dropdowns below to actually reassign a stop.</div>
+          <div class="upload-card-head" style="cursor:pointer" onclick="togglePlanningMap()">
+            <div style="display:flex;justify-content:space-between;align-items:center;width:100%">
+              <div>
+                <div class="upload-card-title">Draft plan — map view</div>
+                <div class="upload-card-sub">Each colour is one draft load. Click a marker for details, or use the dropdowns below to reassign a stop.</div>
+              </div>
+              <span id="planning-map-toggle-icon" style="font-size:12px;color:var(--ink3);white-space:nowrap">▾ Hide</span>
+            </div>
           </div>
-          <div id="planning-map" style="height:420px;width:100%"></div>
+          <div id="planning-map" style="height:560px;width:100%"></div>
         </div>
         <div id="planning-results"></div>
       </div>
@@ -11662,6 +11667,15 @@ function renderPlanningResults() {
 }
 let _planningMap = null;
 const PLANNING_LOAD_COLORS = ['#E8520A','#1e3a6e','#1a7a4a','#c0392b','#9333ea','#0ea5e9','#d97706','#0D7A8A','#5e35b1','#c27800'];
+function togglePlanningMap() {
+  const mapDiv = document.getElementById('planning-map');
+  const icon = document.getElementById('planning-map-toggle-icon');
+  if (!mapDiv || !icon) return;
+  const hidden = mapDiv.style.display === 'none';
+  mapDiv.style.display = hidden ? '' : 'none';
+  icon.textContent = hidden ? '▾ Hide' : '▸ Show';
+  if (hidden) setTimeout(() => { if (_planningMap) _planningMap.invalidateSize(); }, 60);
+}
 function renderPlanningMap() {
   const mapDiv = document.getElementById('planning-map');
   if (!mapDiv || typeof L === 'undefined') return;
