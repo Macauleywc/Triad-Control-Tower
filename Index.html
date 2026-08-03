@@ -2971,14 +2971,6 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
         </div>
         <div id="kpi-breakdown"></div>
       </div>
-      <!-- Carrier breakdown -->
-      <div style="display:flex;align-items:center;gap:8px;margin:24px 0 10px">
-        <span class="kpi-section-title" style="margin:0">Carrier breakdown — own fleet vs subcontracted</span>
-        <div style="flex:1;height:1px;background:var(--rule)"></div>
-      </div>
-      <div class="kpi-site-breakdown">
-        <div id="kpi-carrier-breakdown"></div>
-      </div>
       <!-- Upload compliance -->
       <div class="kpi-section-title" style="margin-top:24px">Upload compliance — today</div>
       <div class="compliance-grid" id="kpi-compliance"></div>
@@ -3799,13 +3791,11 @@ async function loadDateData() {
       todayData = (plans||[]).map(p => {
         const cached = allData.find(c => c.site === p.site_id && c.date === p.plan_date);
         const dbRoutes = (p.routes||[]).map(r => ({
-          id: r.id,
           area: r.area, pc: r.postcodes||'',
           stops: r.stops, pallets: r.pallets, weight: r.weight_t,
           stops_detail: r.stops_detail||[],
           runNum: r.run_num||r.runNum, runLabel: r.run_label||r.runLabel||r.area,
-          multiLoad: r.multi_load||r.multiLoad||false, runShips: r.run_ships||r.runShips||[],
-          haulier: r.haulier || ''
+          multiLoad: r.multi_load||r.multiLoad||false, runShips: r.run_ships||r.runShips||[]
         }));
         const routes = (dbRoutes.length > 0) ? dbRoutes : (cached?.routes || []);
         return {
@@ -3851,13 +3841,11 @@ async function loadFromSupabase() {
 total_loads: p.total_loads,
 total_trailers: p.total_trailers,
 routes: (p.routes||[]).map(r => ({
-      id: r.id,
       area: r.area, pc: r.postcodes||'',
       stops: r.stops, pallets: r.pallets, weight: r.weight_t,
       stops_detail: r.stops_detail||[],
       runNum: r.runNum, runLabel: r.runLabel||r.area,
-      multiLoad: r.multiLoad||false, runShips: r.runShips||[],
-      haulier: r.haulier || ''
+      multiLoad: r.multiLoad||false, runShips: r.runShips||[]
     }))
   }));
   // Merge into allData (master store) — don't overwrite other dates' data
@@ -4174,6 +4162,15 @@ const DEPOT_COORDS = {
   wellington: { lat: 50.9756, lon: -3.2247 },
   selby:      { lat: 53.7820, lon: -1.0700 },
 };
+// Each site's own fleet appears under its own group brand in that site's
+// schedule, not always "Premier" — used to tell own-fleet runs apart from
+// genuine subcontractors (ASG, Alert, Rigid, etc.) during VPK import.
+const SITE_OWN_HAULIERS = {
+  desborough: ['premier'],
+  selby:      ['premier', 'campeys'],
+  banbury:    ['premier', 'wrings'],
+  wellington: ['premier', 'wrings'],
+};
 // Postcode area centroid lookup (UK postcode districts)
 const PC_AREA_COORDS = {
   'NN14': {lat:52.44,lon:-0.82}, 'NN15': {lat:52.37,lon:-0.73}, 'NN16': {lat:52.38,lon:-0.72},
@@ -4480,8 +4477,7 @@ function renderSiteCards() {
             const pcString = stopPostcodes || firstRoute?.postcodes || firstRoute?.pc || '';
             const runCost = importedCost ? { cost: importedCost } : calcRunCost(sid, pcString);
             const costStr = runCost ? `£${Number(runCost.cost).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}` : '—';
-            const shipChip = (run.runShips||[]).length ? ` <span class="loads-shipment-num" style="font-size:10px;padding:2px 7px;margin-left:4px">${run.runShips.join(', ')}</span>` : '';
-            const label = (run.multiLoad ? `Run ${ri+1} <span style="font-size:10px;color:var(--ink3)">(${run.runShips.length} loads)</span>` : `Run ${ri+1}`) + shipChip;
+            const label = run.multiLoad ? `Run ${ri+1} <span style="font-size:10px;color:var(--ink3)">(${run.runShips.length} loads)</span>` : `Run ${ri+1}`;
             return `<div class="route-row">
               <div class="route-area">
                 <div class="route-bar"><div class="route-bar-fill" style="width:${Math.min(rFill,100)}%;background:${meta.color}"></div></div>
@@ -5219,54 +5215,6 @@ function fmtShortDate(d) {
   return new Date(parts[0],parts[1]-1,parts[2]).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'});
 }
 
-function renderCarrierBreakdown(dataSet) {
-  const el = document.getElementById('kpi-carrier-breakdown');
-  if (!el) return;
-  const byCarrier = {};
-  dataSet.forEach(e => {
-    groupByShipment(e).forEach(run => {
-      const carrier = run.haulier || 'Unassigned';
-      if (!byCarrier[carrier]) byCarrier[carrier] = { runs: 0, pallets: 0, stops: 0, cost: 0 };
-      const allStops = run.shipmentList.flatMap(s => s.stops);
-      const runPallets = allStops.reduce((a,s) => a + (s.pallets||0), 0);
-      const importedCost = actualRunCostTotal(e.site, allStops.find(s=>s.actualCost)?.actualCost, runPallets);
-      let cost = importedCost;
-      if (!cost) {
-        const pcs = [...new Set(allStops.map(s=>(s.postal||s.postcode||'').trim().toUpperCase()).filter(Boolean))].join(',');
-        const rc = calcRunCost(e.site, pcs);
-        cost = rc ? parseFloat(rc.cost) : 0;
-      }
-      byCarrier[carrier].runs += 1;
-      byCarrier[carrier].pallets += runPallets;
-      byCarrier[carrier].stops += allStops.length;
-      byCarrier[carrier].cost += (cost || 0);
-    });
-  });
-  const carriers = Object.keys(byCarrier).sort((a,b) => byCarrier[b].pallets - byCarrier[a].pallets);
-  if (!carriers.length) { el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ink3);font-size:13px">No carrier data yet.</div>'; return; }
-  el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px">
-    <thead><tr style="border-bottom:1px solid var(--rule)">
-      <th style="text-align:left;padding:8px 12px;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">Carrier</th>
-      <th style="text-align:right;padding:8px 12px;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">Runs</th>
-      <th style="text-align:right;padding:8px 12px;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">Stops</th>
-      <th style="text-align:right;padding:8px 12px;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">Pallets</th>
-      <th style="text-align:right;padding:8px 12px;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">Est. cost</th>
-      <th style="text-align:right;padding:8px 12px;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">£/pallet</th>
-    </tr></thead>
-    <tbody>${carriers.map(c => {
-      const d = byCarrier[c];
-      const cpp = d.pallets>0 && d.cost>0 ? (d.cost/d.pallets).toFixed(2) : '—';
-      return `<tr style="border-bottom:1px solid var(--rule)">
-        <td style="padding:8px 12px;font-weight:600">${c}</td>
-        <td style="padding:8px 12px;font-family:var(--font-mono);text-align:right">${d.runs}</td>
-        <td style="padding:8px 12px;font-family:var(--font-mono);text-align:right">${d.stops}</td>
-        <td style="padding:8px 12px;font-family:var(--font-mono);text-align:right;font-weight:600">${d.pallets}</td>
-        <td style="padding:8px 12px;font-family:var(--font-mono);text-align:right">£${d.cost.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-        <td style="padding:8px 12px;font-family:var(--font-mono);text-align:right">${cpp==='—'?cpp:'£'+cpp}</td>
-      </tr>`;
-    }).join('')}</tbody>
-  </table>`;
-}
 function renderKpiPeriodBreakdown(data) {
   const el = document.getElementById('kpi-period-breakdown');
   if (!el || kpiPeriod === 'today') { if (el) el.style.display = 'none'; return; }
@@ -5634,7 +5582,6 @@ function renderKPIs() {
   const kpiFilter = window._kpiSiteFilter; const dataSet = kpiFilter ? rawSet.filter(e=>kpiFilter.has(e.site)) : rawSet;
   const el_bt = document.getElementById('kpi-breakdown-title'); if(el_bt) el_bt.textContent = kpiPeriod==='today'?'Site breakdown — today':'Site breakdown — period total';
   renderKpiPeriodBreakdown(dataSet);
-  renderCarrierBreakdown(dataSet);
   const kpiGrid       = document.getElementById('kpi-grid');
   const kpiCompliance = document.getElementById('kpi-compliance');
   const kpiBreakdown  = document.getElementById('kpi-breakdown');
@@ -6515,13 +6462,9 @@ function loadsDrillDown(sid) {
         reqBtn = `<button class="req-btn${alreadyReq?' requested':''}" id="${reqId}" onclick="event.stopPropagation();requestToTakeByIdx(${reqIdx})">${alreadyReq?'✓':'+ Request'}</button>` +
           `<button class="req-btn" style="margin-left:6px;background:var(--navy);color:#fff;border-color:var(--navy)" onclick="event.stopPropagation();openManualTransferLog(${reqIdx})">✓ Log as taken</button>`;
       }
-      const haulierLabel = run.haulier || 'Unassigned';
-      const haulierEsc = (run.haulier||'').replace(/'/g,"\\'");
-      const haulierChip = `<span class="loads-shipment-num" style="cursor:pointer;background:rgba(15,43,70,.06)" onclick="event.stopPropagation();editHaulier(${JSON.stringify(run.routeIds||[])},'${haulierEsc}')" title="Click to edit who ran this load">🚚 ${haulierLabel}</span>`;
       return `<div class="loads-shipment${idx===0?' open':''}" id="ship_${sid}_${idx}">
         <div class="loads-shipment-header" onclick="toggleShipment('ship_${sid}_${idx}')">
           <span class="loads-shipment-num">Run ${idx+1}${mlLabel}</span>
-          ${haulierChip}
           ${run.multiLoad ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(232,81,10,.12);color:var(--orange);font-family:var(--font-mono)">${run.runShips.length} LOADS</span>` : ''}
           <div class="loads-shipment-info">
             <div class="loads-shipment-title">${runStops} stop${runStops!==1?'s':''} · ${runPallets} pallets</div>
@@ -6583,26 +6526,6 @@ function countLoads(e) {
   });
   return ships.size || (e.routes||[]).length;
 }
-async function editHaulier(routeIds, current) {
-  const val = prompt('Who ran this load? (e.g. Wrings, Premier, Campeys, or a subcontracted carrier name)', current || '');
-  if (val === null) return; // cancelled
-  const trimmed = val.trim();
-  if (!routeIds || !routeIds.length) { showReqToast('Could not identify the underlying load(s) to update.'); return; }
-  if (sb && isConfigured) {
-    try {
-      const { error } = await sb.from('routes').update({ haulier: trimmed }).in('id', routeIds);
-      if (error) throw error;
-    } catch (err) {
-      showReqToast('⚠ Could not save carrier: ' + err.message);
-      return;
-    }
-  }
-  // Patch local state so the UI updates immediately without a full reload
-  todayData.forEach(e => (e.routes||[]).forEach(r => { if (routeIds.includes(r.id)) r.haulier = trimmed; }));
-  allData.forEach(e => (e.routes||[]).forEach(r => { if (routeIds.includes(r.id)) r.haulier = trimmed; }));
-  renderLoads();
-  showReqToast('✓ Carrier updated');
-}
 function groupByShipment(e) {
   // Group by RUN first, then by shipment within each run
   const runMap = {};
@@ -6631,15 +6554,11 @@ function groupByShipment(e) {
       runMap[runKey] = {
         runKey, runNum, runLabel, multiLoad, runShips,
         checkIn: route.stops_detail?.[0]?.checkIn || '',
-        haulier: route.haulier || '',
-        routeIds: [],
         shipments: {}
       };
       runOrder.push(runKey);
     }
     const run = runMap[runKey];
-    if (route.id) run.routeIds.push(route.id);
-    if (!run.haulier && route.haulier) run.haulier = route.haulier;
     if (route.stops_detail && route.stops_detail.length) {
       route.stops_detail.forEach(stop => {
         const ship = stop.loadRef || stop.ship || area;
@@ -9806,8 +9725,6 @@ function parseBanburySheet(ws, sheetName) {
   let currentLoadNum = '';
   let currentRouteCost = null;
   let headerFound = false;
-  let haulierColIdx = -1;
-  let currentHaulier = '';
   let sheetDate = ''; // Date extracted from the file
   // Extract date from file — handle multiple formats
   const MONTHS = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
@@ -9856,13 +9773,7 @@ function parseBanburySheet(ws, sheetName) {
     const row = allRows[i];
     if(!row) continue;
     const c0 = String(row[0]||'').trim();
-    if(c0.toLowerCase() === 'vehicle') {
-      headerFound = true;
-      for(let hc=0; hc<row.length; hc++){
-        if(String(row[hc]||'').toLowerCase().trim()==='haulier'){ haulierColIdx = hc; break; }
-      }
-      continue;
-    }
+    if(c0.toLowerCase() === 'vehicle') { headerFound = true; continue; }
     if(!headerFound) continue;
     if(!c0 && !row[1] && !row[2] && !row[3] && !row[5]) continue;
     if(c0.toLowerCase().startsWith('route')) {
@@ -9877,8 +9788,7 @@ function parseBanburySheet(ws, sheetName) {
       const sapCost  = Number(String(row[9]||'').replace(/[£,]/g,''))||0;
       if(sapCost) currentRouteCost = sapCost;
       else currentRouteCost = null;
-      currentHaulier = haulierColIdx>-1 ? String(row[haulierColIdx]||'').trim() : '';
-      if(name||postcode) stops.push({loadRef:currentRoute, name, postcode, pallets, time, loadNum:currentLoadNum, dest, sheetDate, actualCost: currentRouteCost, haulier: currentHaulier});
+      if(name||postcode) stops.push({loadRef:currentRoute, name, postcode, pallets, time, loadNum:currentLoadNum, dest, sheetDate, actualCost: currentRouteCost});
       continue;
     }
     if(currentRoute && row[1] && String(row[1]).trim()) {
@@ -9888,7 +9798,7 @@ function parseBanburySheet(ws, sheetName) {
       const time     = fmtTime(row[4]);
       const dest     = String(row[3]||'').trim();
       if(name.length > 80 || (!postcode && name.toLowerCase().includes('palelt'))) continue;
-      if(name||postcode) stops.push({loadRef:currentRoute, name, postcode, pallets, time, loadNum:currentLoadNum, dest, sheetDate, actualCost: currentRouteCost, haulier: currentHaulier});
+      if(name||postcode) stops.push({loadRef:currentRoute, name, postcode, pallets, time, loadNum:currentLoadNum, dest, sheetDate, actualCost: currentRouteCost});
     }
   }
   // Attach the extracted date to every stop
@@ -10943,7 +10853,6 @@ function parseWellington(ws) {
   let currentRoute = null;
   let currentLoadNum = '';
   let currentRouteCost = null;
-  let currentHaulier = '';
   for(let r=9; r<=maxRow; r++){
     const c0 = cs(r,0);
     const c1 = cs(r,1);
@@ -10963,9 +10872,8 @@ function parseWellington(ws) {
       // VPK Cost in col 8 of the route header row
       const vpkCost  = Number(String(c8).replace(/[£,]/g,''))||0;
       currentRouteCost = vpkCost || null;
-      currentHaulier = 'Wrings';
       if(!customer) continue;
-      stops.push({ loadRef:c0, name:customer, postcode, pallets, time:eta, checkIn:'', loadNum:currentLoadNum, sheetDate, actualCost:currentRouteCost, haulier:currentHaulier });
+      stops.push({ loadRef:c0, name:customer, postcode, pallets, time:eta, checkIn:'', loadNum:currentLoadNum, sheetDate, actualCost:currentRouteCost });
       continue;
     }
     // Delivery stop row (2nd, 3rd stops on same vehicle — col 0 is a time or note)
@@ -10975,7 +10883,7 @@ function parseWellington(ws) {
       const customer = c1 || c0;
       if(!postcode || !pallets) continue;
       if(!customer || customer.length > 80) continue;
-      stops.push({ loadRef:currentRoute, name:customer, postcode, pallets, time:fmtTime(cv(r,4)), checkIn:'', loadNum:currentLoadNum, sheetDate, actualCost:currentRouteCost, haulier:currentHaulier });
+      stops.push({ loadRef:currentRoute, name:customer, postcode, pallets, time:fmtTime(cv(r,4)), checkIn:'', loadNum:currentLoadNum, sheetDate, actualCost:currentRouteCost });
     }
   }
   return stops;
@@ -11021,6 +10929,7 @@ function vpkParseWorksheet(ws, fname) {
   if (!ws || !ws['!ref']) { vpkShowMsg('Empty worksheet.', 'err'); return; }
   vpkMissingPostcodeCustomers = [];
   vpkExcludedHaulierRuns = [];
+  vpkSuspiciousPalletCount = 0;
   const ref = XLSX.utils.decode_range(ws['!ref']);
   const R=ref.e.r, C=ref.e.c, out=[];
   function cv(r,c){const cell=ws[XLSX.utils.encode_cell({r,c})];if(!cell)return null;if(cell.t==='d')return cell.v;return cell.v!==undefined?cell.v:null}
@@ -11039,14 +10948,32 @@ function vpkParseWorksheet(ws, fname) {
       const v=cs(r,c).toLowerCase();
       if(v.includes('haulier')||v==='customer'){
         const m={ha:0,cu:1,sh:2,ti:4,pl:8,po:10};
+        let plScore=-1; // some schedules have BOTH a "Planned pallets" and an
+                         // "Actual pallets" column (the latter blank until the
+                         // run happens) — always prefer the planned one and
+                         // never let "actual" win, regardless of column order
         for(let cc=0;cc<=Math.min(20,C);cc++){
           const h=cs(r,cc).toLowerCase();
+          // Some schedules stack a group label on this row (e.g. "Planned")
+          // with the real field name directly beneath it (e.g. "pallets") —
+          // check both, letting the sub-header row win since it's the more
+          // specific match when the two disagree.
+          const h2=cs(r+1,cc).toLowerCase();
           if(h.includes('haulier')||h.includes('vehicle'))m.ha=cc;
           if(h==='customer')m.cu=cc;
           if(h.includes('shipment'))m.sh=cc;
           if(h==='times'||h==='times ')m.ti=cc;
-          if(h==='plts'||h==='plts '||h.includes('pallet'))m.pl=cc;
           if(h.includes('postal')||h==='postcode'||h==='post code')m.po=cc;
+          if(h2.includes('haulier')||h2.includes('vehicle'))m.ha=cc;
+          if(h2==='customer')m.cu=cc;
+          if(h2.includes('shipment'))m.sh=cc;
+          if(h2==='times'||h2==='times ')m.ti=cc;
+          if(h2.includes('postal')||h2==='postcode'||h2==='post code')m.po=cc;
+          const isPalletCol = (hh)=>hh==='plts'||hh==='plts '||hh.includes('pallet');
+          if(isPalletCol(h)||isPalletCol(h2)){
+            const score = h.includes('planned')?2 : h.includes('actual')?0 : 1;
+            if(score>plScore){ m.pl=cc; plScore=score; }
+          }
         }
         hdrs.push({r,m,date:sdate});break;
       }
@@ -11096,10 +11023,16 @@ function vpkParseWorksheet(ws, fname) {
       // Extract haulier name (PREMIER, Radius VAN, etc.)
       const haulierRow=run.rows.find(rr=>{const v=String(rr.a||'').trim();return v.length>2&&!/^\d{1,2}[:\.]?\d*(am|pm)?$/i.test(v);});
       const runHaulier=haulierRow?String(haulierRow.a).trim():'PREMIER';
-      if(runHaulier.toLowerCase()!=='premier'){
+      // "Own fleet" isn't always branded PREMIER — Selby's depot is operated
+      // by Campeys and Banbury/Wellington's by Wrings, so their own runs show
+      // up under those names in their own schedules, not "Premier". Checking
+      // against 'premier' alone silently treated a site's entire own fleet as
+      // a subcontractor and excluded it.
+      const ownHauliers = SITE_OWN_HAULIERS[(vpkTargetSite||currentSiteId||'').toLowerCase()] || ['premier'];
+      if(!ownHauliers.includes(runHaulier.toLowerCase())){
         // Not own fleet (e.g. a subcontracted courier/van) — same principle as
-        // excluding ASG/Alert/Rigid loads on the Selby import: only Premier's
-        // own fleet gets imported here.
+        // excluding ASG/Alert/Rigid loads on the Selby import: only that
+        // site's own fleet gets imported here.
         vpkExcludedHaulierRuns.push({ run: rn, haulier: runHaulier });
         return;
       }
@@ -11119,7 +11052,17 @@ function vpkParseWorksheet(ws, fname) {
         let pal=0;
         if(rr.iraw!==null&&rr.iraw!==undefined){
           const ps=String(rr.iraw).toLowerCase().trim();
-          if(ps!=='n/a'&&ps!=='na'&&ps!=='')if(!isNaN(Number(rr.iraw)))pal=Math.round(Number(rr.iraw));
+          if(ps!=='n/a'&&ps!=='na'&&ps!==''){
+            const n = Number(rr.iraw);
+            // Sanity cap — a single stop's pallet count is never in the
+            // hundreds, let alone the billions. Guards against the pallets
+            // column being mismapped onto a date, ID, or reference number
+            // (which is exactly what happens on files with a two-row header,
+            // where the real "pallets" sub-header sits a row below the one
+            // we scan and the column position falls back to its default).
+            if(!isNaN(n) && n>=0 && n<=999) pal=Math.round(n);
+            else vpkSuspiciousPalletCount++;
+          }
         }
         out.push({
           ship:curShip, runNum:rn, runLabel, multiLoad,
@@ -11150,6 +11093,9 @@ function vpkParseWorksheet(ws, fname) {
   }
   if(vpkExcludedHaulierRuns.length){
     warnParts.push(`${vpkExcludedHaulierRuns.length} run${vpkExcludedHaulierRuns.length!==1?'s':''} excluded — not Premier's own fleet: ${vpkExcludedHaulierRuns.map(r=>`Run ${r.run} (${r.haulier})`).join(', ')}`);
+  }
+  if(vpkSuspiciousPalletCount){
+    warnParts.push(`${vpkSuspiciousPalletCount} row${vpkSuspiciousPalletCount!==1?'s':''} had an unreadable pallet value and were set to 0 — this usually means the file's column layout doesn't match what this importer expects. Check pallet counts on the preview below before loading.`);
   }
   if(warnParts.length){
     vpkShowMsg('⚠ ' + warnParts.join(' · ') + '.', 'warn');
@@ -11213,7 +11159,7 @@ async function vpkLoadIntoTriad() {
         stops_list: [], pallets: 0,
         runNum: s.runNum, runLabel: s.runLabel,
         runShips: s.runShips || [s.ship].filter(Boolean),
-        haulier: s.haulier || (SITES_META[site]?.biz) || 'Own fleet',
+        haulier: s.haulier || 'PREMIER',
       };
       loadOrder.push(key);
     }
@@ -11277,7 +11223,6 @@ async function vpkLoadIntoTriad() {
         run_label:    r.runLabel     || r.area || null,
         run_ships:    r.runShips     || [],
         multi_load:   r.multiLoad    || false,
-        haulier:      r.haulier      || null,
       })));
       if(re) throw re;
       showReqToast(`✓ ${meta.name} saved to Supabase — ${vpkParsedRows.length} stops`);
@@ -11858,6 +11803,7 @@ function vpkDownloadQargo() {
 let _addressBook = null; // Map<normalizedName, postcode>
 let vpkMissingPostcodeCustomers = []; // customers this import couldn't resolve at all
 let vpkExcludedHaulierRuns = []; // runs skipped because the haulier wasn't Premier's own fleet
+let vpkSuspiciousPalletCount = 0; // rows where the "pallets" cell was out of a sane range and got rejected
 function normalizeCustomerName(name) {
   return String(name||'').toLowerCase().replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
 }
