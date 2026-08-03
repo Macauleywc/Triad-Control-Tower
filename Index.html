@@ -11269,6 +11269,47 @@ let planningRemoved = [];  // stops pulled off a load and parked, not deleted �
 let _planEditing = null;   // {li, si, field} — which stop cell is currently an input, if any
 let _planAddingTo = null;  // load index currently showing its "+ add stop" form, if any
 let _planDrag = null;      // {li, si} — the stop currently mid-drag (li is a load index, or 'unplanned')
+let _planSelectedLoad = null; // load index currently shown in the route-detail side panel, if any
+let _planningRouteMapInst = null;
+// Rough delivery-time estimator — no real routing engine behind this, just
+// straight-line distance between consecutive stops (depot -> stop1 -> stop2
+// -> ...) with a road-distance fudge factor and a flat per-stop service time.
+// It's a starting suggestion to sanity-check a run, not a promise to a
+// customer — the constants below are guesses and worth tuning against what
+// actually happens on the road.
+const PLAN_AVG_SPEED_MPH = 32;
+const PLAN_ROAD_DISTANCE_FACTOR = 1.3; // straight-line miles undercount real road miles
+const PLAN_SERVICE_MIN = 20; // minutes assumed per stop for unloading/paperwork
+function formatClockMinutes(total) {
+  let h = Math.floor(total / 60) % 24;
+  let m = Math.round(total % 60);
+  if (m === 60) { m = 0; h = (h + 1) % 24; }
+  if (h < 0) h += 24;
+  return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+}
+function computeSuggestedTimes(load) {
+  if (!load.startTime) return [];
+  const parts = load.startTime.split(':').map(Number);
+  if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return [];
+  let clockMin = parts[0]*60 + parts[1];
+  const depot = DEPOT_COORDS[planningTargetSite];
+  let prevLat = depot ? depot.lat : null, prevLon = depot ? depot.lon : null;
+  return load.stops.map(s => {
+    if (prevLat != null && s.lat != null) {
+      const miles = kmToMiles(haversineKm(prevLat, prevLon, s.lat, s.lon)) * PLAN_ROAD_DISTANCE_FACTOR;
+      clockMin += (miles / PLAN_AVG_SPEED_MPH) * 60;
+    }
+    const t = formatClockMinutes(clockMin);
+    clockMin += PLAN_SERVICE_MIN;
+    prevLat = s.lat; prevLon = s.lon;
+    return t;
+  });
+}
+function setLoadStartTime(li, value) {
+  const load = planningLoads[li];
+  if (load) load.startTime = value || null;
+  renderPlanningResults();
+}
 
 function initPlanningTab() {
   if (!isSuperUser) { showTab('overview'); return; } // still under development — not for general release yet
@@ -11499,6 +11540,7 @@ function renderPlanningResults() {
   const mapCard = document.getElementById('planning-map-card');
   if (mapCard) mapCard.style.display = planningLoads.length ? '' : 'none';
   if (planningLoads.length) setTimeout(renderPlanningMap, 60); // defer so the card has layout before Leaflet sizes itself
+  if (_planSelectedLoad != null) setTimeout(renderPlanningRouteMap, 60);
   const el = document.getElementById('planning-results');
   if (!el) return;
   if (!planningLoads.length && !planningRemoved.length) { el.innerHTML = ''; return; }
@@ -11567,6 +11609,8 @@ function renderPlanningResults() {
             </tbody>
           </table>` : `<div style="padding:10px 14px 14px;font-size:11.5px;color:var(--ink3)">Nothing parked here.</div>`}
         </div>
+        <div style="display:flex;gap:16px;align-items:flex-start">
+          <div style="flex:1;min-width:0">
         ${(() => {
           const vs = planningVehicleSummary();
           const renderCard = (load, li) => {
@@ -11590,11 +11634,15 @@ function renderPlanningResults() {
               ? `<input autofocus type="number" value="${cap}" style="width:48px;font-size:10.5px;padding:2px 4px;border:1.5px solid var(--navy);border-radius:5px"
                   onblur="commitLoadCap(${li},this.value)" onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){_planEditing=null;renderPlanningResults();}">`
               : `<span onclick="_planEditing={li:${li},si:-1,field:'cap'};renderPlanningResults();" title="Click to set this load's own capacity" style="cursor:pointer">/${cap}p</span>`;
+            const times = computeSuggestedTimes(load);
+            const startTimeInput = `<input type="time" value="${load.startTime||''}" onchange="setLoadStartTime(${li},this.value)" title="Departure time from depot — used to suggest arrival times below" style="font-size:10.5px;padding:2px 4px;border:1px solid var(--rule);border-radius:5px;margin-left:8px">`;
+            const routeBtn = `<button onclick="selectPlanningLoad(${li})" title="View this route on the map" style="margin-left:6px;padding:2px 7px;background:${_planSelectedLoad===li?loadColor:'#fff'};color:${_planSelectedLoad===li?'#fff':'var(--ink2)'};border:1px solid ${_planSelectedLoad===li?loadColor:'var(--rule)'};border-radius:6px;font-size:10.5px;cursor:pointer">🗺</button>`;
             const addForm = _planAddingTo === li ? `<tr style="border-top:1px solid var(--rule);background:var(--cream)">
                 <td></td>
                 <td style="padding:5px 8px"><input id="add-cu-${li}" placeholder="Customer" style="width:100%;font-size:12.5px;padding:4px 6px;border:1px solid var(--rule);border-radius:5px"></td>
                 <td style="padding:5px"><input id="add-po-${li}" placeholder="Postcode" style="width:100%;font-size:11.5px;padding:4px 6px;border:1px solid var(--rule);border-radius:5px;font-family:var(--font-mono)"></td>
                 <td style="padding:5px"><input id="add-pl-${li}" type="number" placeholder="0" style="width:56px;font-size:12.5px;padding:4px 6px;border:1px solid var(--rule);border-radius:5px"></td>
+                <td></td>
                 <td style="padding:5px 14px;white-space:nowrap" colspan="2">
                   <button onclick="confirmAddStop(${li})" style="padding:4px 9px;background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:10.5px;font-weight:700;cursor:pointer">Add</button>
                   <button onclick="_planAddingTo=null;renderPlanningResults();" style="padding:4px 7px;background:none;border:none;color:var(--ink3);font-size:10.5px;cursor:pointer">Cancel</button>
@@ -11602,7 +11650,9 @@ function renderPlanningResults() {
               </tr>` : '';
             return `<div style="border:1px solid var(--rule);border-left:4px solid ${loadColor};border-radius:8px;${runsOnVehicle.length>1?'margin-top:8px':'margin-top:12px'};overflow:hidden">
               <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--cream);border-bottom:1px solid var(--rule);flex-wrap:wrap;gap:6px">
-                <div style="font-weight:700;font-size:12.5px;display:flex;align-items:center">Load ${li+1}${runsOnVehicle.length>1?` <span style="color:var(--ink3);font-weight:400;margin-left:6px;font-size:11px">— Run ${runNum}/${runsOnVehicle.length}</span>`:''}${vehicleSelect}</div>
+                <div style="font-weight:700;font-size:12.5px;display:flex;align-items:center">Load ${li+1}${runsOnVehicle.length>1?` <span style="color:var(--ink3);font-weight:400;margin-left:6px;font-size:11px">— Run ${runNum}/${runsOnVehicle.length}</span>`:''}${vehicleSelect}${routeBtn}
+                  <span style="display:flex;align-items:center;color:var(--ink3);font-size:10.5px">${startTimeInput}</span>
+                </div>
                 <div style="display:flex;align-items:center;gap:5px">
                   ${chip(load.stops.length+' stop'+(load.stops.length!==1?'s':''), '#3A4552')}
                   ${chip(pallets+'p'+capEditor, fillColor)}
@@ -11611,7 +11661,7 @@ function renderPlanningResults() {
               </div>
               <table style="width:100%;border-collapse:collapse" ondragover="event.preventDefault()" ondrop="planDropOnLoadEnd(event,${li})">
                 <thead><tr style="font-size:9.5px;text-transform:uppercase;color:var(--ink3);text-align:left">
-                  <th style="padding:6px 12px;width:18px"></th><th>Customer</th><th>Postcode</th><th>Pallets</th><th style="width:140px">Move to</th><th style="width:22px"></th>
+                  <th style="padding:6px 12px;width:18px"></th><th>Customer</th><th>Postcode</th><th>Pallets</th><th style="width:64px">Suggested</th><th style="width:140px">Move to</th><th style="width:22px"></th>
                 </tr></thead>
                 <tbody>
                   ${load.stops.map((s, si) => `<tr draggable="true"
@@ -11623,6 +11673,7 @@ function renderPlanningResults() {
                     <td style="padding:6px;font-size:12.5px">${editCell(li,si,'customer',s.customer,s.customer)}</td>
                     <td style="font-family:var(--font-mono);font-size:11.5px;padding:6px">${editCell(li,si,'postcode',s.postcode,s.postcode)}</td>
                     <td style="font-size:12.5px;font-weight:600;padding:6px">${editCell(li,si,'pallets',s.pallets,s.pallets+'p')}</td>
+                    <td style="font-size:11.5px;color:var(--ink2);padding:6px;white-space:nowrap">${times[si] || '—'}</td>
                     <td style="padding:6px">
                       <select onchange="movePlanStop(${li},${si},this.value)" style="font-size:11.5px;padding:3px 6px;border:1px solid var(--rule);border-radius:6px;width:100%">
                         <option value="">— move to —</option>
@@ -11634,7 +11685,7 @@ function renderPlanningResults() {
                     <td style="padding:6px 12px 6px 4px"><button onclick="deleteStop(${li},${si})" title="Park in Unplanned" style="background:none;border:none;color:var(--ink3);cursor:pointer;font-size:14px;line-height:1">×</button></td>
                   </tr>`).join('')}
                   ${addForm}
-                  <tr><td colspan="6" style="padding:6px 12px">
+                  <tr><td colspan="7" style="padding:6px 12px">
                     <button onclick="_planAddingTo=${li};renderPlanningResults();setTimeout(()=>document.getElementById('add-cu-${li}')?.focus(),0)" style="padding:4px 9px;background:none;border:1px dashed var(--rule);border-radius:6px;font-size:11px;color:var(--ink3);cursor:pointer">+ Add stop</button>
                   </td></tr>
                 </tbody>
@@ -11659,6 +11710,17 @@ function renderPlanningResults() {
             </div>`;
           }).join('');
         })()}
+          </div>
+          ${_planSelectedLoad != null && planningLoads[_planSelectedLoad] ? `<div style="width:380px;flex-shrink:0;position:sticky;top:16px">
+            <div class="upload-card" style="overflow:hidden">
+              <div class="upload-card-head" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px">
+                <div class="upload-card-title" style="font-size:13px">Load ${_planSelectedLoad+1} route</div>
+                <button onclick="_planSelectedLoad=null;renderPlanningResults();" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--ink3);line-height:1">×</button>
+              </div>
+              <div id="planning-route-map" style="height:460px;width:100%"></div>
+            </div>
+          </div>` : ''}
+        </div>
         ${planningUnplaced.length ? `<div style="margin-top:16px;padding:12px 16px;background:#fff8e1;border:1px solid #ffca28;border-radius:8px;font-size:12px;color:#7a5c00">
           <strong>${planningUnplaced.length} stop${planningUnplaced.length!==1?'s':''} not placed</strong> — no postcode match on file: ${planningUnplaced.map(s=>`${s.customer} (${s.postcode})`).join(', ')}. These won't be included if you commit.
         </div>` : ''}
@@ -11667,6 +11729,51 @@ function renderPlanningResults() {
 }
 let _planningMap = null;
 const PLANNING_LOAD_COLORS = ['#E8520A','#1e3a6e','#1a7a4a','#c0392b','#9333ea','#0ea5e9','#d97706','#0D7A8A','#5e35b1','#c27800'];
+function selectPlanningLoad(li) {
+  _planSelectedLoad = (_planSelectedLoad === li) ? null : li;
+  renderPlanningResults();
+}
+function renderPlanningRouteMap() {
+  const mapDiv = document.getElementById('planning-route-map');
+  if (!mapDiv || typeof L === 'undefined' || _planSelectedLoad == null) return;
+  const load = planningLoads[_planSelectedLoad];
+  if (!load) return;
+  if (_planningRouteMapInst) { _planningRouteMapInst.remove(); _planningRouteMapInst = null; }
+  const depot = DEPOT_COORDS[planningTargetSite];
+  const center = depot ? [depot.lat, depot.lon] : [52.4, -1.5];
+  _planningRouteMapInst = L.map('planning-route-map', { center, zoom: 9, zoomControl: true, attributionControl: false });
+  const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    subdomains: 'abcd', maxZoom: 19,
+  }).addTo(_planningRouteMapInst);
+  tileLayer.on('tileerror', () => {
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { subdomains: 'abc', maxZoom: 19 }).addTo(_planningRouteMapInst);
+  });
+  const color = PLANNING_LOAD_COLORS[_planSelectedLoad % PLANNING_LOAD_COLORS.length];
+  const bounds = [], linePoints = [];
+  const times = computeSuggestedTimes(load);
+  if (depot) {
+    const depotIcon = L.divIcon({
+      className: '', iconSize: [24,24], iconAnchor: [12,12],
+      html: `<div style="width:24px;height:24px;border-radius:50%;background:var(--navy,#0F2B46);border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center">
+        <svg width="11" height="11" viewBox="0 0 18 18" fill="none"><path d="M2 3h14a1 1 0 011 1v8a1 1 0 01-1 1H6l-4 3V4a1 1 0 011-1z" fill="white"/></svg></div>`,
+    });
+    L.marker([depot.lat, depot.lon], { icon: depotIcon }).addTo(_planningRouteMapInst)
+      .bindPopup(`<strong>${SITES_META[planningTargetSite]?.name || planningTargetSite}</strong><br>Depot${load.startTime ? `<br>Departs ${load.startTime}` : ''}`);
+    bounds.push([depot.lat, depot.lon]); linePoints.push([depot.lat, depot.lon]);
+  }
+  load.stops.forEach((s, si) => {
+    if (s.lat == null || s.lon == null) return;
+    const icon = L.divIcon({
+      className: '', iconSize: [28,28], iconAnchor: [14,14],
+      html: `<div style="width:28px;height:28px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;font-family:var(--font-body)">${si+1}</div>`,
+    });
+    L.marker([s.lat, s.lon], { icon, draggable: false }).addTo(_planningRouteMapInst)
+      .bindPopup(`<strong>${si+1}. ${s.customer}</strong><br>${s.postcode} · ${s.pallets}p${times[si] ? `<br>Suggested arrival: <strong>${times[si]}</strong>` : ''}`);
+    bounds.push([s.lat, s.lon]); linePoints.push([s.lat, s.lon]);
+  });
+  if (linePoints.length > 1) L.polyline(linePoints, { color, weight: 3, opacity: 0.75 }).addTo(_planningRouteMapInst);
+  if (bounds.length) _planningRouteMapInst.fitBounds(bounds, { padding: [30,30] });
+}
 function togglePlanningMap() {
   const mapDiv = document.getElementById('planning-map');
   const icon = document.getElementById('planning-map-toggle-icon');
