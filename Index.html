@@ -11260,6 +11260,9 @@ async function vpkLoadIntoTriad() {
 let planningTargetSite = null;
 let planningLoads = [];    // [{id, stops:[{customer,postcode,city,pallets,ref,lat,lon}]}]
 let planningUnplaced = []; // stops we couldn't geocode
+let _planEditing = null;   // {li, si, field} — which stop cell is currently an input, if any
+let _planAddingTo = null;  // load index currently showing its "+ add stop" form, if any
+let _planDrag = null;      // {li, si} — the stop currently mid-drag
 
 function initPlanningTab() {
   if (!isSuperUser) { showTab('overview'); return; } // still under development — not for general release yet
@@ -11494,20 +11497,37 @@ function renderPlanningResults() {
   if (!planningLoads.length) { el.innerHTML = ''; return; }
   const siteMeta = SITES_META[planningTargetSite] || {};
   const target = parseInt(document.getElementById('plan-target-pallets').value) || 40;
+  const editCell = (li, si, field, value, display) => {
+    if (_planEditing && _planEditing.li===li && _planEditing.si===si && _planEditing.field===field) {
+      const type = field==='pallets' ? 'number' : 'text';
+      return `<input autofocus type="${type}" value="${String(value).replace(/"/g,'&quot;')}" style="width:100%;font-size:13px;padding:3px 5px;border:1.5px solid var(--navy);border-radius:5px;font-family:${field==='postcode'?'var(--font-mono)':'inherit'}"
+        onblur="commitStopEdit(${li},${si},'${field}',this.value)"
+        onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){_planEditing=null;renderPlanningResults();}">`;
+    }
+    return `<span onclick="startEditStop(${li},${si},'${field}')" title="Click to edit" style="cursor:text;border-bottom:1px dashed transparent" onmouseover="this.style.borderColor='var(--ink3)'" onmouseout="this.style.borderColor='transparent'">${display}</span>`;
+  };
   el.innerHTML = `
     <div class="upload-card">
       <div class="upload-card-head">
         <div style="display:flex;justify-content:space-between;align-items:center;width:100%;flex-wrap:wrap;gap:12px">
           <div>
             <div class="upload-card-title">Draft plan — ${planningLoads.length} load${planningLoads.length!==1?'s':''}${(() => { const v = planningVehicleSummary(); return v.ids.length !== planningLoads.length ? ` · <span style="color:var(--navy)">${v.ids.length} vehicle${v.ids.length!==1?'s':''} needed</span>` : ''; })()}</div>
-            <div class="upload-card-sub">Move a stop between loads with the dropdown if it doesn't look right. Use "Vehicle" to run two loads back-to-back on the same truck. Nothing is saved until you commit.</div>
+            <div class="upload-card-sub">Drag a stop to move or reorder it, click any field to edit, or use "Move to". Nothing is saved until you commit.</div>
           </div>
-          <button onclick="commitPlanningLoads()" style="padding:10px 20px;background:var(--navy);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-body);white-space:nowrap">
-            ✓ Commit to ${siteMeta.name||planningTargetSite}
-          </button>
-          <button onclick="suggestVehiclePairings()" style="padding:10px 20px;background:#fff;color:var(--navy);border:1.5px solid var(--navy);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-body);white-space:nowrap">
-            ✨ Suggest vehicle pairings
-          </button>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button onclick="commitPlanningLoads()" style="padding:10px 20px;background:var(--navy);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-body);white-space:nowrap">
+              ✓ Commit to ${siteMeta.name||planningTargetSite}
+            </button>
+            <button onclick="suggestVehiclePairings()" style="padding:10px 20px;background:#fff;color:var(--navy);border:1.5px solid var(--navy);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-body);white-space:nowrap">
+              ✨ Suggest vehicle pairings
+            </button>
+            <button onclick="addEmptyLoad()" style="padding:10px 20px;background:#fff;color:var(--ink2);border:1.5px solid var(--rule);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-body);white-space:nowrap">
+              + New load
+            </button>
+            <button onclick="exportPlanningXlsx()" style="padding:10px 20px;background:#fff;color:var(--ink2);border:1.5px solid var(--rule);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-body);white-space:nowrap">
+              ⭳ Export
+            </button>
+          </div>
         </div>
       </div>
       <div class="upload-card-body" style="padding-top:0">
@@ -11515,7 +11535,8 @@ function renderPlanningResults() {
           const vs = planningVehicleSummary();
           const renderCard = (load, li) => {
             const pallets = load.stops.reduce((a,s)=>a+s.pallets,0);
-            const fillPct = Math.round(pallets / target * 100);
+            const cap = load.capOverride || target;
+            const fillPct = cap ? Math.round(pallets / cap * 100) : 0;
             const runsOnVehicle = vs.groups[load.vehicleGroup];
             const runNum = runsOnVehicle.indexOf(li) + 1;
             const otherVehicles = vs.ids.filter(g => g !== load.vehicleGroup);
@@ -11526,28 +11547,51 @@ function renderPlanningResults() {
                 return `<option value="${g}">2nd run: join Vehicle ${vs.label[g]} (${memberLoads})</option>`;
               }).join('')}
             </select>`;
+            const capEditor = (_planEditing && _planEditing.li===li && _planEditing.si===-1 && _planEditing.field==='cap')
+              ? `<input autofocus type="number" value="${cap}" style="width:52px;font-size:12px;padding:2px 4px;border:1.5px solid var(--navy);border-radius:5px"
+                  onblur="commitLoadCap(${li},this.value)" onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){_planEditing=null;renderPlanningResults();}">`
+              : `<span onclick="_planEditing={li:${li},si:-1,field:'cap'};renderPlanningResults();" title="Click to set this load's own capacity" style="cursor:pointer;border-bottom:1px dashed var(--ink3)">of ${cap}p</span>`;
+            const addForm = _planAddingTo === li ? `<tr style="border-top:1px solid var(--rule);background:var(--cream)">
+                <td style="padding:6px 16px"><input id="add-cu-${li}" placeholder="Customer" style="width:100%;font-size:13px;padding:4px 6px;border:1px solid var(--rule);border-radius:5px"></td>
+                <td style="padding:6px"><input id="add-po-${li}" placeholder="Postcode" style="width:100%;font-size:12px;padding:4px 6px;border:1px solid var(--rule);border-radius:5px;font-family:var(--font-mono)"></td>
+                <td style="padding:6px"><input id="add-pl-${li}" type="number" placeholder="0" style="width:60px;font-size:13px;padding:4px 6px;border:1px solid var(--rule);border-radius:5px"></td>
+                <td style="padding:6px 16px;white-space:nowrap">
+                  <button onclick="confirmAddStop(${li})" style="padding:5px 10px;background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">Add</button>
+                  <button onclick="_planAddingTo=null;renderPlanningResults();" style="padding:5px 8px;background:none;border:none;color:var(--ink3);font-size:11px;cursor:pointer">Cancel</button>
+                </td>
+              </tr>` : '';
             return `<div style="border:1px solid var(--rule);border-radius:12px;${runsOnVehicle.length>1?'margin-top:10px':'margin-top:16px'};overflow:hidden">
               <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--cream);border-bottom:1px solid var(--rule);flex-wrap:wrap;gap:6px">
                 <div style="font-weight:700;font-size:13px;display:flex;align-items:center">Draft Load ${li+1}${runsOnVehicle.length>1?` <span style="color:var(--ink3);font-weight:400;margin-left:6px">— Run ${runNum} of ${runsOnVehicle.length}</span>`:''}${vehicleSelect}</div>
-                <div style="font-size:12px;color:var(--ink3)">${load.stops.length} stop${load.stops.length!==1?'s':''} · <strong style="color:var(--ink)">${pallets}p</strong> · ${fillPct}% fill</div>
+                <div style="font-size:12px;color:var(--ink3)">${load.stops.length} stop${load.stops.length!==1?'s':''} · <strong style="color:var(--ink)">${pallets}p</strong> · ${fillPct}% fill ${capEditor}</div>
               </div>
-              <table style="width:100%;border-collapse:collapse">
+              <table style="width:100%;border-collapse:collapse" ondragover="event.preventDefault()" ondrop="planDropOnLoadEnd(event,${li})">
                 <thead><tr style="font-size:10px;text-transform:uppercase;color:var(--ink3);text-align:left">
-                  <th style="padding:8px 16px">Customer</th><th>Postcode</th><th>Pallets</th><th style="width:150px;padding-right:16px">Move to</th>
+                  <th style="padding:8px 16px;width:20px"></th><th>Customer</th><th>Postcode</th><th>Pallets</th><th style="width:150px">Move to</th><th style="width:24px"></th>
                 </tr></thead>
                 <tbody>
-                  ${load.stops.map((s, si) => `<tr style="border-top:1px solid var(--rule)">
-                    <td style="padding:8px 16px;font-size:13px">${s.customer}</td>
-                    <td style="font-family:var(--font-mono);font-size:12px">${s.postcode}</td>
-                    <td style="font-size:13px;font-weight:600">${s.pallets}p</td>
-                    <td style="padding-right:16px">
+                  ${load.stops.map((s, si) => `<tr draggable="true"
+                      ondragstart="_planDrag={li:${li},si:${si}};event.dataTransfer.effectAllowed='move'"
+                      ondragover="event.preventDefault();event.stopPropagation()"
+                      ondrop="event.stopPropagation();planDropOnRow(event,${li},${si})"
+                      style="border-top:1px solid var(--rule);cursor:grab">
+                    <td style="padding:8px 0 8px 16px;color:var(--ink3);font-size:13px">⠿</td>
+                    <td style="padding:8px;font-size:13px">${editCell(li,si,'customer',s.customer,s.customer)}</td>
+                    <td style="font-family:var(--font-mono);font-size:12px;padding:8px">${editCell(li,si,'postcode',s.postcode,s.postcode)}</td>
+                    <td style="font-size:13px;font-weight:600;padding:8px">${editCell(li,si,'pallets',s.pallets,s.pallets+'p')}</td>
+                    <td style="padding:8px">
                       <select onchange="movePlanStop(${li},${si},this.value)" style="font-size:12px;padding:4px 6px;border:1px solid var(--rule);border-radius:6px;width:100%">
                         <option value="">— move to —</option>
                         ${planningLoads.map((_,tli) => tli===li ? '' : `<option value="${tli}">Load ${tli+1}</option>`).join('')}
                         <option value="new">+ New load</option>
                       </select>
                     </td>
+                    <td style="padding:8px 16px 8px 4px"><button onclick="deleteStop(${li},${si})" title="Remove this stop" style="background:none;border:none;color:var(--ink3);cursor:pointer;font-size:15px;line-height:1">×</button></td>
                   </tr>`).join('')}
+                  ${addForm}
+                  <tr><td colspan="6" style="padding:8px 16px">
+                    <button onclick="_planAddingTo=${li};renderPlanningResults();setTimeout(()=>document.getElementById('add-cu-${li}')?.focus(),0)" style="padding:5px 10px;background:none;border:1px dashed var(--rule);border-radius:6px;font-size:12px;color:var(--ink3);cursor:pointer">+ Add stop</button>
+                  </td></tr>
                 </tbody>
               </table>
             </div>`;
@@ -11657,6 +11701,129 @@ function movePlanStop(loadIdx, stopIdx, target) {
   }
   planningLoads = planningLoads.filter(l => l.stops.length > 0);
   renderPlanningResults();
+}
+// Drag-and-drop: dropping a stop onto another row moves/reorders it to that
+// exact position (within the same load or into a different one). Dropping
+// onto the empty space below a load's last row (planDropOnLoadEnd) appends
+// it to the end of that load instead.
+function dragMoveStop(fromLi, fromSi, toLi, toSi) {
+  if (fromLi === toLi && fromSi === toSi) { _planDrag = null; return; }
+  const fromLoad = planningLoads[fromLi];
+  if (!fromLoad || !fromLoad.stops[fromSi]) { _planDrag = null; return; }
+  const [stop] = fromLoad.stops.splice(fromSi, 1);
+  const toLoad = planningLoads[toLi];
+  let insertAt = toSi;
+  if (fromLi === toLi && fromSi < toSi) insertAt -= 1; // account for the shift left after removal
+  toLoad.stops.splice(insertAt, 0, stop);
+  planningLoads = planningLoads.filter(l => l.stops.length > 0);
+  _planDrag = null;
+  renderPlanningResults();
+}
+function planDropOnRow(event, toLi, toSi) {
+  event.preventDefault();
+  if (!_planDrag) return;
+  dragMoveStop(_planDrag.li, _planDrag.si, toLi, toSi);
+}
+function planDropOnLoadEnd(event, toLi) {
+  event.preventDefault();
+  if (!_planDrag) return;
+  const targetLen = planningLoads[toLi] ? planningLoads[toLi].stops.length : 0;
+  dragMoveStop(_planDrag.li, _planDrag.si, toLi, targetLen);
+}
+// Inline click-to-edit on a stop's customer / postcode / pallets cell.
+function startEditStop(li, si, field) {
+  _planEditing = { li, si, field };
+  renderPlanningResults();
+}
+function commitStopEdit(li, si, field, value) {
+  _planEditing = null;
+  const stop = planningLoads[li] && planningLoads[li].stops[si];
+  if (!stop) { renderPlanningResults(); return; }
+  if (field === 'pallets') {
+    const n = parseFloat(value);
+    stop.pallets = (!isNaN(n) && n >= 0) ? n : stop.pallets;
+  } else if (field === 'postcode') {
+    const newPc = String(value || '').trim().toUpperCase();
+    if (newPc && newPc !== stop.postcode) {
+      const coord = postcodeToCoord(newPc);
+      if (coord) {
+        stop.postcode = newPc; stop.lat = coord.lat; stop.lon = coord.lon;
+        const depot = DEPOT_COORDS[planningTargetSite];
+        stop.distFromDepot = depot ? kmToMiles(haversineKm(depot.lat, depot.lon, coord.lat, coord.lon)) : 0;
+      } else {
+        planningShowMsg(`⚠ Couldn't place postcode "${newPc}" — keeping the old one.`, 'warn');
+      }
+    }
+  } else if (field === 'customer') {
+    const v = String(value || '').trim();
+    if (v) stop.customer = v;
+  }
+  renderPlanningResults();
+}
+function commitLoadCap(li, value) {
+  _planEditing = null;
+  const n = parseInt(value);
+  const load = planningLoads[li];
+  if (load) load.capOverride = (!isNaN(n) && n > 0) ? n : null;
+  renderPlanningResults();
+}
+function deleteStop(li, si) {
+  const load = planningLoads[li];
+  if (!load) return;
+  load.stops.splice(si, 1);
+  planningLoads = planningLoads.filter(l => l.stops.length > 0);
+  renderPlanningResults();
+}
+function addEmptyLoad() {
+  const newId = 'draft-'+(planningLoads.length+1);
+  planningLoads.push({ id: newId, vehicleGroup: newId, stops: [] });
+  _planAddingTo = planningLoads.length - 1; // jump straight into "add stop" so it doesn't sit empty
+  renderPlanningResults();
+  setTimeout(() => document.getElementById(`add-cu-${planningLoads.length-1}`)?.focus(), 0);
+}
+function confirmAddStop(li) {
+  const cu = document.getElementById(`add-cu-${li}`)?.value.trim();
+  const po = document.getElementById(`add-po-${li}`)?.value.trim().toUpperCase();
+  const pl = parseFloat(document.getElementById(`add-pl-${li}`)?.value);
+  if (!cu) { planningShowMsg('⚠ Enter a customer name.', 'warn'); return; }
+  if (!po) { planningShowMsg('⚠ Enter a postcode.', 'warn'); return; }
+  const coord = postcodeToCoord(po);
+  if (!coord) { planningShowMsg(`⚠ Couldn't place postcode "${po}" — check it's a valid UK postcode.`, 'warn'); return; }
+  const depot = DEPOT_COORDS[planningTargetSite];
+  const distFromDepot = depot ? kmToMiles(haversineKm(depot.lat, depot.lon, coord.lat, coord.lon)) : 0;
+  planningLoads[li].stops.push({
+    customer: cu, postcode: po, city: '', pallets: (!isNaN(pl) && pl>=0) ? pl : 0,
+    lat: coord.lat, lon: coord.lon, distFromDepot,
+  });
+  _planAddingTo = null;
+  renderPlanningResults();
+}
+// Export the current draft plan — every load, its vehicle assignment, and
+// every stop — to an .xlsx file the person can pass on, print, or file
+// under KPIs. Nothing here touches Supabase; this is a snapshot only.
+function exportPlanningXlsx() {
+  if (!window.XLSX) { planningShowMsg('XLSX library not loaded.', 'err'); return; }
+  const target = parseInt(document.getElementById('plan-target-pallets').value) || 40;
+  const vs = planningVehicleSummary();
+  const siteMeta = SITES_META[planningTargetSite] || {};
+  const rows = [['Load #','Vehicle','Run','Customer','Postcode','Pallets','Load Total (p)','Fill %','Site','Date']];
+  planningLoads.forEach((load, li) => {
+    const pallets = load.stops.reduce((a,s)=>a+s.pallets,0);
+    const cap = load.capOverride || target;
+    const fillPct = cap ? Math.round(pallets/cap*100) : 0;
+    const runsOnVehicle = vs.groups[load.vehicleGroup];
+    const runNum = runsOnVehicle.indexOf(li) + 1;
+    const vLabel = vs.label[load.vehicleGroup];
+    load.stops.forEach(s => {
+      rows.push([li+1, vLabel, runNum, s.customer, s.postcode, s.pallets, pallets, fillPct, siteMeta.name||planningTargetSite, viewDate||todayStr()]);
+    });
+  });
+  const wsSheet = XLSX.utils.aoa_to_sheet(rows);
+  wsSheet['!cols'] = [{wch:7},{wch:9},{wch:6},{wch:28},{wch:11},{wch:9},{wch:13},{wch:8},{wch:14},{wch:12}];
+  const wbOut = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wbOut, wsSheet, 'Draft Plan');
+  const fname = `${(siteMeta.name||planningTargetSite||'plan').replace(/\s+/g,'-')}-draft-plan-${viewDate||todayStr()}.xlsx`;
+  XLSX.writeFile(wbOut, fname);
 }
 // Assign a load to run as a second (or third...) trip on the same vehicle as
 // another load, or split it back off onto its own vehicle. Loads keep their
