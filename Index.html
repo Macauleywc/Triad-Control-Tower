@@ -11260,9 +11260,10 @@ async function vpkLoadIntoTriad() {
 let planningTargetSite = null;
 let planningLoads = [];    // [{id, stops:[{customer,postcode,city,pallets,ref,lat,lon}]}]
 let planningUnplaced = []; // stops we couldn't geocode
+let planningRemoved = [];  // stops pulled off a load and parked, not deleted — draggable back onto any load
 let _planEditing = null;   // {li, si, field} — which stop cell is currently an input, if any
 let _planAddingTo = null;  // load index currently showing its "+ add stop" form, if any
-let _planDrag = null;      // {li, si} — the stop currently mid-drag
+let _planDrag = null;      // {li, si} — the stop currently mid-drag (li is a load index, or 'unplanned')
 
 function initPlanningTab() {
   if (!isSuperUser) { showTab('overview'); return; } // still under development — not for general release yet
@@ -11331,6 +11332,7 @@ function processPlanningFile(file) {
       const loads = mergeNearbyLoads(rawLoads, targetPallets, maxMiles); // fewest loads first, before vehicle-pairing on top
       planningLoads = loads;
       planningUnplaced = unplaced;
+      planningRemoved = [];
       const vs = computeVehiclePairings(); // auto-pair short local runs onto shared vehicles on every import
       renderPlanningResults();
       if (unplaced.length) {
@@ -11494,22 +11496,23 @@ function renderPlanningResults() {
   if (planningLoads.length) setTimeout(renderPlanningMap, 60); // defer so the card has layout before Leaflet sizes itself
   const el = document.getElementById('planning-results');
   if (!el) return;
-  if (!planningLoads.length) { el.innerHTML = ''; return; }
+  if (!planningLoads.length && !planningRemoved.length) { el.innerHTML = ''; return; }
   const siteMeta = SITES_META[planningTargetSite] || {};
   const target = parseInt(document.getElementById('plan-target-pallets').value) || 40;
+  const liJs = (li) => typeof li === 'string' ? `'${li}'` : li; // safely embed a load index OR 'unplanned' into inline JS
   const editCell = (li, si, field, value, display) => {
+    const liArg = liJs(li);
     if (_planEditing && _planEditing.li===li && _planEditing.si===si && _planEditing.field===field) {
       const type = field==='pallets' ? 'number' : 'text';
       return `<input autofocus type="${type}" value="${String(value).replace(/"/g,'&quot;')}" style="width:100%;font-size:13px;padding:3px 5px;border:1.5px solid var(--navy);border-radius:5px;font-family:${field==='postcode'?'var(--font-mono)':'inherit'}"
-        onblur="commitStopEdit(${li},${si},'${field}',this.value)"
+        onblur="commitStopEdit(${liArg},${si},'${field}',this.value)"
         onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){_planEditing=null;renderPlanningResults();}">`;
     }
-    return `<span onclick="startEditStop(${li},${si},'${field}')" title="Click to edit" style="cursor:text;border-bottom:1px dashed transparent" onmouseover="this.style.borderColor='var(--ink3)'" onmouseout="this.style.borderColor='transparent'">${display}</span>`;
+    return `<span onclick="startEditStop(${liArg},${si},'${field}')" title="Click to edit" style="cursor:text;border-bottom:1px dashed transparent" onmouseover="this.style.borderColor='var(--ink3)'" onmouseout="this.style.borderColor='transparent'">${display}</span>`;
   };
   el.innerHTML = `
     <div class="upload-card">
-      <div class="upload-card-head">
-        <div style="display:flex;justify-content:space-between;align-items:center;width:100%;flex-wrap:wrap;gap:12px">
+      <div class="upload-card-head">        <div style="display:flex;justify-content:space-between;align-items:center;width:100%;flex-wrap:wrap;gap:12px">
           <div>
             <div class="upload-card-title">Draft plan — ${planningLoads.length} load${planningLoads.length!==1?'s':''}${(() => { const v = planningVehicleSummary(); return v.ids.length !== planningLoads.length ? ` · <span style="color:var(--navy)">${v.ids.length} vehicle${v.ids.length!==1?'s':''} needed</span>` : ''; })()}</div>
             <div class="upload-card-sub">Drag a stop to move or reorder it, click any field to edit, or use "Move to". Nothing is saved until you commit.</div>
@@ -11584,9 +11587,10 @@ function renderPlanningResults() {
                         <option value="">— move to —</option>
                         ${planningLoads.map((_,tli) => tli===li ? '' : `<option value="${tli}">Load ${tli+1}</option>`).join('')}
                         <option value="new">+ New load</option>
+                        <option value="unplanned">📥 Unplanned</option>
                       </select>
                     </td>
-                    <td style="padding:8px 16px 8px 4px"><button onclick="deleteStop(${li},${si})" title="Remove this stop" style="background:none;border:none;color:var(--ink3);cursor:pointer;font-size:15px;line-height:1">×</button></td>
+                    <td style="padding:8px 16px 8px 4px"><button onclick="deleteStop(${li},${si})" title="Park in Unplanned" style="background:none;border:none;color:var(--ink3);cursor:pointer;font-size:15px;line-height:1">×</button></td>
                   </tr>`).join('')}
                   ${addForm}
                   <tr><td colspan="6" style="padding:8px 16px">
@@ -11614,6 +11618,34 @@ function renderPlanningResults() {
             </div>`;
           }).join('');
         })()}
+        <div ondragover="event.preventDefault()" ondrop="planDropOnLoadEnd(event,'unplanned')" style="border:1.5px dashed var(--rule);border-radius:12px;margin-top:20px;overflow:hidden;background:#fafafa">
+          <div style="padding:10px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+            <span style="font-weight:700;font-size:12px;color:var(--ink3);text-transform:uppercase;letter-spacing:0.03em">📥 Unplanned (${planningRemoved.length})</span>
+            <span style="font-size:11px;color:var(--ink3)">Drag stops here to park them, or drag them back onto any load</span>
+          </div>
+          ${planningRemoved.length ? `<table style="width:100%;border-collapse:collapse">
+            <tbody>
+              ${planningRemoved.map((s, si) => `<tr draggable="true"
+                  ondragstart="_planDrag={li:'unplanned',si:${si}};event.dataTransfer.effectAllowed='move'"
+                  ondragover="event.preventDefault();event.stopPropagation()"
+                  ondrop="event.stopPropagation();planDropOnRow(event,'unplanned',${si})"
+                  style="border-top:1px solid var(--rule);cursor:grab">
+                <td style="padding:8px 0 8px 16px;color:var(--ink3);font-size:13px;width:20px">⠿</td>
+                <td style="padding:8px;font-size:13px">${editCell('unplanned',si,'customer',s.customer,s.customer)}</td>
+                <td style="font-family:var(--font-mono);font-size:12px;padding:8px">${editCell('unplanned',si,'postcode',s.postcode,s.postcode)}</td>
+                <td style="font-size:13px;font-weight:600;padding:8px">${editCell('unplanned',si,'pallets',s.pallets,s.pallets+'p')}</td>
+                <td style="padding:8px;width:150px">
+                  <select onchange="movePlanStopFromUnplanned(${si},this.value)" style="font-size:12px;padding:4px 6px;border:1px solid var(--rule);border-radius:6px;width:100%">
+                    <option value="">— move to —</option>
+                    ${planningLoads.map((_,tli) => `<option value="${tli}">Load ${tli+1}</option>`).join('')}
+                    <option value="new">+ New load</option>
+                  </select>
+                </td>
+                <td style="padding:8px 16px 8px 4px"><button onclick="deleteUnplannedStop(${si})" title="Delete permanently" style="background:none;border:none;color:var(--ink3);cursor:pointer;font-size:15px;line-height:1">×</button></td>
+              </tr>`).join('')}
+            </tbody>
+          </table>` : `<div style="padding:12px 16px 16px;font-size:12px;color:var(--ink3)">Nothing parked here.</div>`}
+        </div>
         ${planningUnplaced.length ? `<div style="margin-top:16px;padding:12px 16px;background:#fff8e1;border:1px solid #ffca28;border-radius:8px;font-size:12px;color:#7a5c00">
           <strong>${planningUnplaced.length} stop${planningUnplaced.length!==1?'s':''} not placed</strong> — no postcode match on file: ${planningUnplaced.map(s=>`${s.customer} (${s.postcode})`).join(', ')}. These won't be included if you commit.
         </div>` : ''}
@@ -11694,6 +11726,8 @@ function movePlanStop(loadIdx, stopIdx, target) {
   if (target === 'new') {
     const newId = 'draft-'+(planningLoads.length+1);
     planningLoads.push({ id: newId, vehicleGroup: newId, stops: [stop] });
+  } else if (target === 'unplanned') {
+    planningRemoved.push(stop);
   } else if (target !== '') {
     planningLoads[parseInt(target)].stops.push(stop);
   } else {
@@ -11702,33 +11736,55 @@ function movePlanStop(loadIdx, stopIdx, target) {
   planningLoads = planningLoads.filter(l => l.stops.length > 0);
   renderPlanningResults();
 }
+// Mirror of movePlanStop, but for the "move to" dropdown sitting on a row
+// already in the Unplanned area.
+function movePlanStopFromUnplanned(stopIdx, target) {
+  const [stop] = planningRemoved.splice(stopIdx, 1);
+  if (target === 'new') {
+    const newId = 'draft-'+(planningLoads.length+1);
+    planningLoads.push({ id: newId, vehicleGroup: newId, stops: [stop] });
+  } else if (target !== '') {
+    planningLoads[parseInt(target)].stops.push(stop);
+  } else {
+    planningRemoved.splice(stopIdx, 0, stop); // blank selected — put it back
+  }
+  renderPlanningResults();
+}
+// Returns the actual stops array a given "location" refers to — a load
+// index, or the string 'unplanned' for the parking area. Centralizing this
+// is what lets drag, edit, and delete all treat the two areas the same way.
+function planStopsArrayFor(loc) {
+  return loc === 'unplanned' ? planningRemoved : (planningLoads[loc] ? planningLoads[loc].stops : null);
+}
 // Drag-and-drop: dropping a stop onto another row moves/reorders it to that
-// exact position (within the same load or into a different one). Dropping
-// onto the empty space below a load's last row (planDropOnLoadEnd) appends
-// it to the end of that load instead.
-function dragMoveStop(fromLi, fromSi, toLi, toSi) {
-  if (fromLi === toLi && fromSi === toSi) { _planDrag = null; return; }
-  const fromLoad = planningLoads[fromLi];
-  if (!fromLoad || !fromLoad.stops[fromSi]) { _planDrag = null; return; }
-  const [stop] = fromLoad.stops.splice(fromSi, 1);
-  const toLoad = planningLoads[toLi];
+// exact position (within the same load, into a different one, or onto the
+// Unplanned parking area). Dropping onto the empty space below a load's
+// last row (planDropOnLoadEnd) appends it to the end of that load instead.
+function dragMoveStop(fromLoc, fromSi, toLoc, toSi) {
+  if (fromLoc === toLoc && fromSi === toSi) { _planDrag = null; return; }
+  const fromArr = planStopsArrayFor(fromLoc);
+  if (!fromArr || !fromArr[fromSi]) { _planDrag = null; return; }
+  const [stop] = fromArr.splice(fromSi, 1);
+  const toArr = planStopsArrayFor(toLoc);
+  if (!toArr) { fromArr.splice(fromSi, 0, stop); _planDrag = null; renderPlanningResults(); return; }
   let insertAt = toSi;
-  if (fromLi === toLi && fromSi < toSi) insertAt -= 1; // account for the shift left after removal
-  toLoad.stops.splice(insertAt, 0, stop);
+  if (fromLoc === toLoc && fromSi < toSi) insertAt -= 1; // account for the shift left after removal
+  toArr.splice(insertAt, 0, stop);
   planningLoads = planningLoads.filter(l => l.stops.length > 0);
   _planDrag = null;
   renderPlanningResults();
 }
-function planDropOnRow(event, toLi, toSi) {
+function planDropOnRow(event, toLoc, toSi) {
   event.preventDefault();
+  event.stopPropagation();
   if (!_planDrag) return;
-  dragMoveStop(_planDrag.li, _planDrag.si, toLi, toSi);
+  dragMoveStop(_planDrag.li, _planDrag.si, toLoc, toSi);
 }
-function planDropOnLoadEnd(event, toLi) {
+function planDropOnLoadEnd(event, toLoc) {
   event.preventDefault();
   if (!_planDrag) return;
-  const targetLen = planningLoads[toLi] ? planningLoads[toLi].stops.length : 0;
-  dragMoveStop(_planDrag.li, _planDrag.si, toLi, targetLen);
+  const targetArr = planStopsArrayFor(toLoc);
+  dragMoveStop(_planDrag.li, _planDrag.si, toLoc, targetArr ? targetArr.length : 0);
 }
 // Inline click-to-edit on a stop's customer / postcode / pallets cell.
 function startEditStop(li, si, field) {
@@ -11737,7 +11793,8 @@ function startEditStop(li, si, field) {
 }
 function commitStopEdit(li, si, field, value) {
   _planEditing = null;
-  const stop = planningLoads[li] && planningLoads[li].stops[si];
+  const arr = planStopsArrayFor(li);
+  const stop = arr && arr[si];
   if (!stop) { renderPlanningResults(); return; }
   if (field === 'pallets') {
     const n = parseFloat(value);
@@ -11767,11 +11824,20 @@ function commitLoadCap(li, value) {
   if (load) load.capOverride = (!isNaN(n) && n > 0) ? n : null;
   renderPlanningResults();
 }
+// Pulls a stop off a load and parks it in the Unplanned area rather than
+// deleting it outright — drag it back onto any load whenever you're ready.
 function deleteStop(li, si) {
   const load = planningLoads[li];
   if (!load) return;
-  load.stops.splice(si, 1);
+  const [stop] = load.stops.splice(si, 1);
+  planningRemoved.push(stop);
   planningLoads = planningLoads.filter(l => l.stops.length > 0);
+  renderPlanningResults();
+}
+// The only true, permanent delete — removes a stop from the Unplanned area
+// for good. Deleting straight off a load never does this; it parks instead.
+function deleteUnplannedStop(si) {
+  planningRemoved.splice(si, 1);
   renderPlanningResults();
 }
 function addEmptyLoad() {
@@ -11955,7 +12021,8 @@ async function commitPlanningLoads() {
   updateDateNav();
   renderAll();
   const vehicleNote = vs.ids.length !== routes.length ? ` on ${vs.ids.length} vehicle${vs.ids.length!==1?'s':''}` : '';
-  showReqToast(`✓ ${meta.name} — ${routes.length} draft load${routes.length!==1?'s':''} committed${vehicleNote}`);
+  const parkedNote = planningRemoved.length ? ` — ${planningRemoved.length} stop${planningRemoved.length!==1?'s':''} still sitting in Unplanned weren't included` : '';
+  showReqToast(`✓ ${meta.name} — ${routes.length} draft load${routes.length!==1?'s':''} committed${vehicleNote}${parkedNote}`);
   showTab('overview');
 }
 function vpkDownloadQargo() {
