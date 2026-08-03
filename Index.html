@@ -11279,7 +11279,8 @@ let _planningRouteMapInst = null;
 // actually happens on the road.
 const PLAN_AVG_SPEED_MPH = 32;
 const PLAN_ROAD_DISTANCE_FACTOR = 1.3; // straight-line miles undercount real road miles
-const PLAN_SERVICE_MIN = 20; // minutes assumed per stop for unloading/paperwork
+const PLAN_SERVICE_MIN = 60; // minutes assumed per stop for unloading
+const PLAN_PRE_DEPARTURE_CHECK_MIN = 30; // driver vehicle checks before pulling out of the depot
 function formatClockMinutes(total) {
   let h = Math.floor(total / 60) % 24;
   let m = Math.round(total % 60);
@@ -11287,11 +11288,14 @@ function formatClockMinutes(total) {
   if (h < 0) h += 24;
   return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
 }
+function roundToNearest15(totalMinutes) {
+  return Math.round(totalMinutes / 15) * 15;
+}
 function computeSuggestedTimes(load) {
   if (!load.startTime) return [];
   const parts = load.startTime.split(':').map(Number);
   if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return [];
-  let clockMin = parts[0]*60 + parts[1];
+  let clockMin = parts[0]*60 + parts[1] + PLAN_PRE_DEPARTURE_CHECK_MIN; // driver checks before wheels actually roll
   const depot = DEPOT_COORDS[planningTargetSite];
   let prevLat = depot ? depot.lat : null, prevLon = depot ? depot.lon : null;
   return load.stops.map(s => {
@@ -11299,6 +11303,7 @@ function computeSuggestedTimes(load) {
       const miles = kmToMiles(haversineKm(prevLat, prevLon, s.lat, s.lon)) * PLAN_ROAD_DISTANCE_FACTOR;
       clockMin += (miles / PLAN_AVG_SPEED_MPH) * 60;
     }
+    clockMin = roundToNearest15(clockMin); // keep the whole run's schedule on clean quarter-hour slots
     const t = formatClockMinutes(clockMin);
     clockMin += PLAN_SERVICE_MIN;
     prevLat = s.lat; prevLon = s.lon;
@@ -11635,7 +11640,7 @@ function renderPlanningResults() {
                   onblur="commitLoadCap(${li},this.value)" onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){_planEditing=null;renderPlanningResults();}">`
               : `<span onclick="_planEditing={li:${li},si:-1,field:'cap'};renderPlanningResults();" title="Click to set this load's own capacity" style="cursor:pointer">/${cap}p</span>`;
             const times = computeSuggestedTimes(load);
-            const startTimeInput = `<input type="time" value="${load.startTime||''}" onchange="setLoadStartTime(${li},this.value)" title="Departure time from depot — used to suggest arrival times below" style="font-size:10.5px;padding:2px 4px;border:1px solid var(--rule);border-radius:5px;margin-left:8px">`;
+            const startTimeInput = `<input type="time" value="${load.startTime||''}" onchange="setLoadStartTime(${li},this.value)" title="Driver check-in time at depot — 30 min for vehicle checks is added automatically before departure, and 1hr unloading per stop" style="font-size:10.5px;padding:2px 4px;border:1px solid var(--rule);border-radius:5px;margin-left:8px">`;
             const routeBtn = `<button onclick="selectPlanningLoad(${li})" title="View this route on the map" style="margin-left:6px;padding:2px 7px;background:${_planSelectedLoad===li?loadColor:'#fff'};color:${_planSelectedLoad===li?'#fff':'var(--ink2)'};border:1px solid ${_planSelectedLoad===li?loadColor:'var(--rule)'};border-radius:6px;font-size:10.5px;cursor:pointer">🗺</button>`;
             const addForm = _planAddingTo === li ? `<tr style="border-top:1px solid var(--rule);background:var(--cream)">
                 <td></td>
