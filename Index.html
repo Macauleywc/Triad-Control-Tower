@@ -11714,12 +11714,14 @@ function renderPlanningMap() {
         html: `<div style="width:24px;height:24px;border-radius:50%;background:${color};border:2.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;font-family:var(--font-body)">${si+1}</div>`,
       });
       L.marker([s.lat, s.lon], { icon }).addTo(_planningMap)
-        .bindPopup(`<strong>Draft Load ${li+1}</strong><br>${s.customer}<br>${s.postcode} · ${s.pallets}p`);
+        .bindPopup(`<strong>Draft Load ${li+1}</strong><br>${s.customer}<br>${s.postcode} · ${s.pallets}p<hr style="margin:6px 0;border-color:#eee">${mapVehicleSelectHtml(li)}`);
       linePoints.push([s.lat, s.lon]);
       bounds.push([s.lat, s.lon]);
     });
     if (linePoints.length > 1) {
-      L.polyline(linePoints, { color, weight: 2.5, opacity: 0.6, dashArray: '5,5' }).addTo(_planningMap);
+      const pallets = load.stops.reduce((a,s)=>a+s.pallets,0);
+      L.polyline(linePoints, { color, weight: 2.5, opacity: 0.6, dashArray: '5,5' }).addTo(_planningMap)
+        .bindPopup(`<strong>Draft Load ${li+1}</strong><br>${load.stops.length} stops · ${pallets}p<hr style="margin:6px 0;border-color:#eee">${mapVehicleSelectHtml(li)}`);
     }
   });
   planningUnplaced.forEach(s => {
@@ -11732,15 +11734,37 @@ function renderPlanningMap() {
   const legend = L.control({ position: 'bottomleft' });
   legend.onAdd = () => {
     const div = L.DomUtil.create('div');
-    div.style.cssText = 'background:#fff;padding:8px 12px;border-radius:8px;box-shadow:0 1px 6px rgba(0,0,0,.2);font-family:var(--font-body);font-size:11px;max-width:220px';
+    L.DomEvent.disableClickPropagation(div); // let the <select> below actually receive clicks/changes instead of the map eating them
+    div.style.cssText = 'background:#fff;padding:8px 12px;border-radius:8px;box-shadow:0 1px 6px rgba(0,0,0,.2);font-family:var(--font-body);font-size:11px;max-width:260px;max-height:300px;overflow-y:auto';
     div.innerHTML = planningLoads.map((load, li) => {
       const color = PLANNING_LOAD_COLORS[li % PLANNING_LOAD_COLORS.length];
       const p = load.stops.reduce((a,s)=>a+s.pallets,0);
-      return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="width:9px;height:9px;border-radius:50%;background:${color};flex-shrink:0"></span>Load ${li+1} — ${p}p</div>`;
+      return `<div style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #f0f0f0">
+        <div style="display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:50%;background:${color};flex-shrink:0"></span>Load ${li+1} — ${p}p</div>
+        ${mapVehicleSelectHtml(li)}
+      </div>`;
     }).join('');
     return div;
   };
   legend.addTo(_planningMap);
+}
+// Small vehicle-pairing dropdown reused in both marker/route popups and the
+// map legend — lets you pair a load as a 2nd run onto another vehicle right
+// from the map, same effect as the dropdown on its card in the list below.
+function mapVehicleSelectHtml(li) {
+  const vs = planningVehicleSummary();
+  const load = planningLoads[li];
+  if (!load) return '';
+  const runsOnVehicle = vs.groups[load.vehicleGroup];
+  const runNum = runsOnVehicle.indexOf(li) + 1;
+  const otherVehicles = vs.ids.filter(g => g !== load.vehicleGroup);
+  return `<select onchange="assignVehicle('${load.id}', this.value)" style="font-size:11px;padding:3px 5px;border:1px solid var(--rule);border-radius:5px;width:100%;margin-top:4px">
+    <option value="__own__"${runNum===1 && runsOnVehicle.length===1?' selected':''}>Own vehicle</option>
+    ${otherVehicles.map(g => {
+      const memberLoads = vs.groups[g].map(i => 'Load '+(i+1)).join(' + ');
+      return `<option value="${g}">2nd run: join Vehicle ${vs.label[g]} (${memberLoads})</option>`;
+    }).join('')}
+  </select>`;
 }
 function movePlanStop(loadIdx, stopIdx, target) {
   const load = planningLoads[loadIdx];
