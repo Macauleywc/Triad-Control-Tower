@@ -10774,12 +10774,12 @@ function parseCampeys(ws) {
     if(['collection','fc u2','us','haulier /','vehicle','selby - delivery schedule'].includes(c0)) continue;
     // Load summary row: col 7 starts with 'Load '
     if(cs(r,7).toLowerCase().startsWith('load ')) {
-      const ref = cs(r,9); // collection ref on this row
+      const ref = cs(r,10); // collection ref on this row
       const cost = Number(cv(r,13))||0;
       if(ref && cost) loadCosts[ref] = cost;
       continue;
     }
-    const colRef = cs(r,9);
+    const colRef = cs(r,10);
     if(colRef.startsWith('CV')) currentRef = colRef;
     // Column A is only meaningful as a haulier marker on a load's first row —
     // on continuation drop-rows for the same load it's reused for other codes
@@ -10788,8 +10788,9 @@ function parseCampeys(ws) {
     if(EXCLUDED_HAULIER_TOKENS.includes(c0) && currentRef) excludedRefs.add(currentRef);
     const customer = cs(r,2);
     let postcode = cs(r,4).toUpperCase();
-    const pallets  = Number(cv(r,11))||0;
-    const delivTime = fmtTime(cv(r,10));
+    const palletsRaw = Number(cv(r,12));
+    const pallets = (!isNaN(palletsRaw) && palletsRaw>=0 && palletsRaw<=999) ? palletsRaw : 0; // sanity cap — guards against a misread column ever producing an absurd total again
+    const delivTime = fmtTime(cv(r,11));
     const lt = fmtTime(cv(r,1));
     if(lt) loadingTime = lt;
     if(!customer) continue;
