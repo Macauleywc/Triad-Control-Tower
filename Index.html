@@ -3821,10 +3821,11 @@ async function loadDateData() {
   }
   // Demo/offline: todayData is already set from allData.filter above — nothing more to do
   renderAll();
-  if (document.getElementById('tab-loads')?.style.display   !== 'none') renderLoads();
-  if (document.getElementById('tab-mapview')?.style.display !== 'none') renderMap();
-  if (document.getElementById('tab-kpi')?.style.display     !== 'none') renderKPIs();
-  if (document.getElementById('tab-savings')?.style.display !== 'none') renderSavingsTab();
+  if (document.getElementById('tab-loads')?.style.display     !== 'none') renderLoads();
+  if (document.getElementById('tab-mapview')?.style.display   !== 'none') renderMap();
+  if (document.getElementById('tab-kpi')?.style.display       !== 'none') renderKPIs();
+  if (document.getElementById('tab-savings')?.style.display   !== 'none') renderSavingsTab();
+  if (document.getElementById('tab-transfers')?.style.display !== 'none') renderTransfersTab();
 }
 const sumStops   = e => (e.routes||[]).reduce((a,r) => a + Number(r.stops||0),   0);
 const sumPallets = e => (e.routes||[]).reduce((a,r) => a + Number(r.pallets||0), 0);
