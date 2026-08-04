@@ -6838,16 +6838,23 @@ async function updateTransferStatus(id, status, idx) {
 }
 
 // ── Delete a job transfer ──
-async function deleteJobTransfer(id, idx) {
+async function deleteJobTransfer(id) {
+  const idx = _jobTransfers.findIndex(x => String(x.id) === String(id));
+  if (idx === -1) { showToast('⚠ Could not find that transfer — refresh and try again', 3000); return; }
   if (!confirm('Remove this transfer proposal?')) return;
-  if (sb && isConfigured && id && String(id).includes('-')) { // real Supabase UUIDs always contain hyphens; a Date.now() local-only id never does — a leading-digit check was wrong because plenty of real UUIDs start with '1' too
-    const { error } = await sb.from('job_transfers').delete().eq('id', id);
-    if (error) { showToast('⚠ Could not remove: ' + error.message, 3000); return; }
+  try {
+    if (sb && isConfigured && id && String(id).includes('-')) { // real Supabase UUIDs always contain hyphens; a Date.now() local-only id never does
+      const { error } = await sb.from('job_transfers').delete().eq('id', id);
+      if (error) { showToast('⚠ Could not remove: ' + error.message, 4000); console.error('deleteJobTransfer:', error); return; }
+    }
+    _jobTransfers.splice(idx, 1);
+    showToast('Transfer removed', 2000);
+    renderTransfersTab();
+    updateTransfersBadge();
+  } catch (err) {
+    console.error('deleteJobTransfer threw:', err);
+    showToast('⚠ Something went wrong removing that transfer — check the console', 4000);
   }
-  _jobTransfers.splice(idx, 1);
-  showToast('Transfer removed', 2000);
-  renderTransfersTab();
-  updateTransfersBadge();
 }
 // For a completed (or declined) transfer that turns out not to have actually
 // happened — removes the job_transfers record, and best-effort finds and
@@ -6855,41 +6862,49 @@ async function deleteJobTransfer(id, idx) {
 // transfer always creates one of those alongside it. If more than one row
 // matches closely enough to be ambiguous, it's left alone rather than risk
 // deleting the wrong savings entry — the person is told to check manually.
-async function removeCompletedTransfer(id, idx) {
-  const t = _jobTransfers[idx];
-  if (!t) return;
+async function removeCompletedTransfer(id) {
+  const idx = _jobTransfers.findIndex(x => String(x.id) === String(id));
+  const t = idx !== -1 ? _jobTransfers[idx] : null;
+  if (!t) { showToast('⚠ Could not find that transfer — refresh and try again', 3000); return; }
   if (!confirm(`Remove this transfer? This didn't happen after all — it'll come off Transfers, and I'll try to remove the matching savings entry too.`)) return;
-  if (sb && isConfigured && id && String(id).includes('-')) { // real Supabase UUIDs always contain hyphens; a Date.now() local-only id never does — a leading-digit check was wrong because plenty of real UUIDs start with '1' too
-    const { error } = await sb.from('job_transfers').delete().eq('id', id);
-    if (error) { showToast('⚠ Could not remove: ' + error.message, 3000); return; }
-  }
-  _jobTransfers.splice(idx, 1);
+  try {
+    if (sb && isConfigured && id && String(id).includes('-')) { // real Supabase UUIDs always contain hyphens; a Date.now() local-only id never does
+      const { error } = await sb.from('job_transfers').delete().eq('id', id);
+      if (error) { showToast('⚠ Could not remove: ' + error.message, 4000); console.error('removeCompletedTransfer:', error); return; }
+    }
+    _jobTransfers.splice(idx, 1);
 
-  let savingsCleaned = false, ambiguous = false;
-  if (sb && isConfigured) {
-    const { data: matches, error: findErr } = await sb.from('transfers').select('id')
-      .eq('transfer_date', t.transfer_date).eq('from_site', t.from_site).eq('to_site', t.to_site)
-      .eq('pallets_transferred', t.pallets || 0);
-    if (!findErr && matches) {
-      if (matches.length === 1) {
-        const { error: delErr } = await sb.from('transfers').delete().eq('id', matches[0].id);
-        if (!delErr) savingsCleaned = true;
-      } else if (matches.length > 1) {
-        ambiguous = true; // several same-day transfers with identical figures — don't guess which one
+    let savingsCleaned = false, ambiguous = false;
+    if (sb && isConfigured) {
+      const { data: matches, error: findErr } = await sb.from('transfers').select('id')
+        .eq('transfer_date', t.transfer_date).eq('from_site', t.from_site).eq('to_site', t.to_site)
+        .eq('pallets_transferred', t.pallets || 0);
+      if (findErr) console.warn('removeCompletedTransfer — could not search savings table:', findErr.message);
+      if (!findErr && matches) {
+        if (matches.length === 1) {
+          const { error: delErr } = await sb.from('transfers').delete().eq('id', matches[0].id);
+          if (!delErr) savingsCleaned = true;
+          else console.warn('removeCompletedTransfer — could not delete matching savings row:', delErr.message);
+        } else if (matches.length > 1) {
+          ambiguous = true; // several same-day transfers with identical figures — don't guess which one
+        }
       }
     }
-  }
-  _confirmedTransfers = _confirmedTransfers.filter(r =>
-    !(r.transfer_date === t.transfer_date && r.from_site === t.from_site && r.to_site === t.to_site && (r.pallets_transferred||0) === (t.pallets||0))
-  );
-  const badge = document.getElementById('savings-badge');
-  if (badge) { badge.textContent = _confirmedTransfers.length; badge.style.display = _confirmedTransfers.length ? '' : 'none'; }
+    _confirmedTransfers = _confirmedTransfers.filter(r =>
+      !(r.transfer_date === t.transfer_date && r.from_site === t.from_site && r.to_site === t.to_site && (r.pallets_transferred||0) === (t.pallets||0))
+    );
+    const badge = document.getElementById('savings-badge');
+    if (badge) { badge.textContent = _confirmedTransfers.length; badge.style.display = _confirmedTransfers.length ? '' : 'none'; }
 
-  showToast(ambiguous
-    ? 'Transfer removed — couldn\'t safely auto-remove the savings entry (more than one similar record that day), check Savings manually'
-    : savingsCleaned ? 'Transfer removed, matching savings entry cleaned up too' : 'Transfer removed', 4000);
-  renderTransfersTab();
-  updateTransfersBadge();
+    showToast(ambiguous
+      ? 'Transfer removed — couldn\'t safely auto-remove the savings entry (more than one similar record that day), check Savings manually'
+      : savingsCleaned ? 'Transfer removed, matching savings entry cleaned up too' : 'Transfer removed', 4000);
+    renderTransfersTab();
+    updateTransfersBadge();
+  } catch (err) {
+    console.error('removeCompletedTransfer threw:', err);
+    showToast('⚠ Something went wrong removing that transfer — check the console', 4000);
+  }
 }
 
 // ── Render Transfers tab ──
@@ -6968,12 +6983,12 @@ async function renderTransfersTab() {
           ✓ Mark completed
         </button>`;
       if ((isRequester || isSuperUser) && t.status === 'proposed') return `
-        <button onclick="deleteJobTransfer('${t.id}',${idx})"
+        <button onclick="deleteJobTransfer('${t.id}')"
           style="padding:8px 14px;border:1px solid var(--rule);background:none;border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--font-body);color:var(--ink3)">
           Withdraw
         </button>`;
       if ((t.status === 'completed' || t.status === 'declined') && (isOutgoing || isIncoming || isSuperUser)) return `
-        <button onclick="removeCompletedTransfer('${t.id}',${idx})"
+        <button onclick="removeCompletedTransfer('${t.id}')"
           style="padding:8px 14px;border:1px solid var(--rule);background:none;border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--font-body);color:var(--red)"
           title="Use this if the transfer didn't actually happen — removes it here and tries to clean up the matching savings record">
           Remove
