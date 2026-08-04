@@ -9150,6 +9150,25 @@ async function saveManualTransferLog() {
     const { error } = await sb.from('transfers').insert(record);
     if (!error) saved = true;
     else { console.error('Manual transfer save error:', error); showToast('⚠ Could not save: '+error.message, 4000); return; }
+    // "Log as taken" means the transfer already happened, informally agreed
+    // outside the Propose/Accept/Decline flow — but it should still show up
+    // in the Transfers tab as a completed record, not just count toward the
+    // savings figures. Without this, a manually-logged transfer is invisible
+    // in Transfers no matter what.
+    const jobRecord = {
+      transfer_date: date, status: 'completed',
+      from_site: data.sid, to_site: currentSiteId,
+      district: null, route_area: data.area,
+      pallets, miles_saved: miles, cost_saving: cost,
+      stops_detail: data.stopsDetail || [],
+      proposed_by: currentUser?.email || currentUser?.id || 'unknown',
+      accepted_by: currentUser?.email || currentUser?.id || 'unknown',
+      plan_date: date,
+      notes: notes || 'Logged as taken directly — informally arranged outside the propose/accept flow.',
+    };
+    const { error: jobErr } = await sb.from('job_transfers').insert(jobRecord);
+    if (jobErr) console.warn('Could not create matching job_transfers record:', jobErr.message);
+    else if (typeof loadJobTransfers === 'function') loadJobTransfers();
   }
   _confirmedTransfers.unshift({ ...record, id: Date.now(), created_at: new Date().toISOString() });
   document.getElementById('manual-transfer-modal')?.remove();
