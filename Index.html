@@ -6840,12 +6840,54 @@ async function updateTransferStatus(id, status, idx) {
 // ── Delete a job transfer ──
 async function deleteJobTransfer(id, idx) {
   if (!confirm('Remove this transfer proposal?')) return;
-  if (sb && isConfigured && id && !String(id).startsWith('1')) {
+  if (sb && isConfigured && id && String(id).includes('-')) { // real Supabase UUIDs always contain hyphens; a Date.now() local-only id never does — a leading-digit check was wrong because plenty of real UUIDs start with '1' too
     const { error } = await sb.from('job_transfers').delete().eq('id', id);
     if (error) { showToast('⚠ Could not remove: ' + error.message, 3000); return; }
   }
   _jobTransfers.splice(idx, 1);
   showToast('Transfer removed', 2000);
+  renderTransfersTab();
+  updateTransfersBadge();
+}
+// For a completed (or declined) transfer that turns out not to have actually
+// happened — removes the job_transfers record, and best-effort finds and
+// removes the matching row in the savings table too, since a completed
+// transfer always creates one of those alongside it. If more than one row
+// matches closely enough to be ambiguous, it's left alone rather than risk
+// deleting the wrong savings entry — the person is told to check manually.
+async function removeCompletedTransfer(id, idx) {
+  const t = _jobTransfers[idx];
+  if (!t) return;
+  if (!confirm(`Remove this transfer? This didn't happen after all — it'll come off Transfers, and I'll try to remove the matching savings entry too.`)) return;
+  if (sb && isConfigured && id && String(id).includes('-')) { // real Supabase UUIDs always contain hyphens; a Date.now() local-only id never does — a leading-digit check was wrong because plenty of real UUIDs start with '1' too
+    const { error } = await sb.from('job_transfers').delete().eq('id', id);
+    if (error) { showToast('⚠ Could not remove: ' + error.message, 3000); return; }
+  }
+  _jobTransfers.splice(idx, 1);
+
+  let savingsCleaned = false, ambiguous = false;
+  if (sb && isConfigured) {
+    const { data: matches, error: findErr } = await sb.from('transfers').select('id')
+      .eq('transfer_date', t.transfer_date).eq('from_site', t.from_site).eq('to_site', t.to_site)
+      .eq('pallets_transferred', t.pallets || 0);
+    if (!findErr && matches) {
+      if (matches.length === 1) {
+        const { error: delErr } = await sb.from('transfers').delete().eq('id', matches[0].id);
+        if (!delErr) savingsCleaned = true;
+      } else if (matches.length > 1) {
+        ambiguous = true; // several same-day transfers with identical figures — don't guess which one
+      }
+    }
+  }
+  _confirmedTransfers = _confirmedTransfers.filter(r =>
+    !(r.transfer_date === t.transfer_date && r.from_site === t.from_site && r.to_site === t.to_site && (r.pallets_transferred||0) === (t.pallets||0))
+  );
+  const badge = document.getElementById('savings-badge');
+  if (badge) { badge.textContent = _confirmedTransfers.length; badge.style.display = _confirmedTransfers.length ? '' : 'none'; }
+
+  showToast(ambiguous
+    ? 'Transfer removed — couldn\'t safely auto-remove the savings entry (more than one similar record that day), check Savings manually'
+    : savingsCleaned ? 'Transfer removed, matching savings entry cleaned up too' : 'Transfer removed', 4000);
   renderTransfersTab();
   updateTransfersBadge();
 }
@@ -6930,20 +6972,39 @@ async function renderTransfersTab() {
           style="padding:8px 14px;border:1px solid var(--rule);background:none;border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--font-body);color:var(--ink3)">
           Withdraw
         </button>`;
+      if ((t.status === 'completed' || t.status === 'declined') && (isOutgoing || isIncoming || isSuperUser)) return `
+        <button onclick="removeCompletedTransfer('${t.id}',${idx})"
+          style="padding:8px 14px;border:1px solid var(--rule);background:none;border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--font-body);color:var(--red)"
+          title="Use this if the transfer didn't actually happen — removes it here and tries to clean up the matching savings record">
+          Remove
+        </button>`;
       return '';
     };
 
     return `<div style="background:#fff;border:1px solid var(--rule);border-radius:12px;overflow:hidden;margin-bottom:12px">
       <div style="height:3px;background:linear-gradient(90deg,${fromMeta.color||'var(--navy)'},${toMeta.color||'var(--navy)'})"></div>
       <div style="padding:16px 20px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap">
           ${statusBadge(t.status)}
-          <span style="font-size:14px;font-weight:700;color:var(--ink)">
-            <span style="color:${fromMeta.color||'var(--navy)'}">${fromMeta.name||t.from_site}</span>
-            → <span style="color:${toMeta.color||'var(--navy)'}">${toMeta.name||t.to_site}</span>
-          </span>
           <span style="font-size:12px;color:var(--ink3)">${t.district||t.route_area||''} · ${t.pallets||0}p · ${t.transfer_date}</span>
           ${t.is_pull_request ? `<span style="padding:2px 8px;border-radius:20px;background:#ede7f6;color:#5e35b1;font-size:10px;font-weight:700">PULL REQUEST</span>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:8px">
+            ${fromMeta.logo ? `<img src="${fromMeta.logo}" style="height:20px;width:20px;object-fit:contain;border-radius:4px" alt="">` : ''}
+            <div>
+              <div style="font-size:14px;font-weight:700;color:var(--ink)">${fromMeta.biz||fromMeta.name||t.from_site}</div>
+              <div style="font-size:10.5px;color:${fromMeta.color||'var(--ink3)'};font-weight:600">${fromMeta.name||t.from_site} depot</div>
+            </div>
+          </div>
+          <span style="font-size:18px;color:var(--ink3)">→</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            ${toMeta.logo ? `<img src="${toMeta.logo}" style="height:20px;width:20px;object-fit:contain;border-radius:4px" alt="">` : ''}
+            <div>
+              <div style="font-size:14px;font-weight:700;color:var(--ink)">${toMeta.biz||toMeta.name||t.to_site}</div>
+              <div style="font-size:10.5px;color:${toMeta.color||'var(--ink3)'};font-weight:600">${toMeta.name||t.to_site} depot — taking the work</div>
+            </div>
+          </div>
         </div>
         ${t.notes ? `<div style="font-size:12px;color:var(--ink3);margin-bottom:12px;font-style:italic">${t.notes}</div>` : ''}
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
@@ -7791,7 +7852,7 @@ async function saveConfirmedTransfer() {
 async function deleteTransfer(id, idx) {
   if (!confirm('Remove this confirmed transfer? This cannot be undone.')) return;
   // Remove from Supabase
-  if (sb && isConfigured && id && !String(id).startsWith('1')) {
+  if (sb && isConfigured && id && String(id).includes('-')) { // real Supabase UUIDs always contain hyphens; a Date.now() local-only id never does — a leading-digit check was wrong because plenty of real UUIDs start with '1' too
     const { error } = await sb.from('transfers').delete().eq('id', id);
     if (error) { showToast('⚠ Could not remove: ' + error.message, 3000); return; }
   }
