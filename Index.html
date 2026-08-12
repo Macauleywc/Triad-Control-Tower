@@ -10900,6 +10900,7 @@ function parseCampeys(ws) {
     if(!customer) continue;
     if(customer.toLowerCase()==='customer') continue;
     if(looksLikeJunkCustomerName(customer)) continue;
+    if(!pallets) continue; // a real customer/postcode with 0 pallets is leftover example data from a reused template, not a real stop
     if(!postcode){
       const known = lookupAddress(customer);
       if(known) postcode = known;
