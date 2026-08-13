@@ -11711,7 +11711,7 @@ function renderPlanningResults() {
             </tbody>
           </table>` : `<div style="padding:10px 14px 14px;font-size:11.5px;color:var(--ink3)">Nothing parked here.</div>`}
         </div>
-        <div style="display:flex;gap:16px;align-items:flex-start">
+        <div id="planning-loads-flex" style="display:flex;gap:16px;align-items:flex-start">
           <div style="flex:1;min-width:0">
         ${(() => {
           const vs = planningVehicleSummary();
@@ -11750,7 +11750,7 @@ function renderPlanningResults() {
                   <button onclick="_planAddingTo=null;renderPlanningResults();" style="padding:4px 7px;background:none;border:none;color:var(--ink3);font-size:10.5px;cursor:pointer">Cancel</button>
                 </td>
               </tr>` : '';
-            return `<div style="border:1px solid var(--rule);border-left:4px solid ${loadColor};border-radius:8px;${runsOnVehicle.length>1?'margin-top:8px':'margin-top:12px'};overflow:hidden">
+            return `<div id="plan-load-card-${li}" style="border:1px solid var(--rule);border-left:4px solid ${loadColor};border-radius:8px;${runsOnVehicle.length>1?'margin-top:8px':'margin-top:12px'};overflow:hidden">
               <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--cream);border-bottom:1px solid var(--rule);flex-wrap:wrap;gap:6px">
                 <div style="font-weight:700;font-size:12.5px;display:flex;align-items:center">Load ${li+1}${runsOnVehicle.length>1?` <span style="color:var(--ink3);font-weight:400;margin-left:6px;font-size:11px">— Run ${runNum}/${runsOnVehicle.length}</span>`:''}${vehicleSelect}${routeBtn}
                   <span style="display:flex;align-items:center;color:var(--ink3);font-size:10.5px">${startTimeInput}</span>
@@ -11813,7 +11813,7 @@ function renderPlanningResults() {
           }).join('');
         })()}
           </div>
-          ${_planSelectedLoad != null && planningLoads[_planSelectedLoad] ? `<div style="width:380px;flex-shrink:0;position:sticky;top:16px">
+          ${_planSelectedLoad != null && planningLoads[_planSelectedLoad] ? `<div id="planning-route-panel-wrap" style="width:380px;flex-shrink:0;position:sticky">
             <div class="upload-card" style="overflow:hidden">
               <div class="upload-card-head" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px">
                 <div class="upload-card-title" style="font-size:13px">Load ${_planSelectedLoad+1} route</div>
@@ -11835,7 +11835,24 @@ function selectPlanningLoad(li) {
   _planSelectedLoad = (_planSelectedLoad === li) ? null : li;
   renderPlanningResults();
 }
+// Keeps the sticky route-map panel starting level with the clicked load's
+// card instead of the top of the whole (possibly very long) load list —
+// margin-top pushes its sticky starting point down to the card, then
+// position:sticky carries it along the viewport from there.
+function alignPlanningRoutePanel() {
+  const wrap = document.getElementById('planning-route-panel-wrap');
+  const flexRow = document.getElementById('planning-loads-flex');
+  if (!wrap || !flexRow || _planSelectedLoad == null) return;
+  const header = document.querySelector('.page-header');
+  const headerH = header ? header.getBoundingClientRect().height : 0;
+  wrap.style.top = (headerH + 16) + 'px';
+  const card = document.getElementById('plan-load-card-' + _planSelectedLoad);
+  const offset = card ? card.getBoundingClientRect().top - flexRow.getBoundingClientRect().top : 0;
+  wrap.style.marginTop = Math.max(0, Math.round(offset)) + 'px';
+}
+window.addEventListener('resize', () => { if (_planSelectedLoad != null) alignPlanningRoutePanel(); });
 function renderPlanningRouteMap() {
+  alignPlanningRoutePanel();
   const mapDiv = document.getElementById('planning-route-map');
   if (!mapDiv || typeof L === 'undefined' || _planSelectedLoad == null) return;
   const load = planningLoads[_planSelectedLoad];
