@@ -10289,6 +10289,13 @@ function initVpkTab() {
         const isMe = sid === currentSiteId;
         return `<button class="site-sel-btn${isMe?' active':''}" onclick="setVpkSite(this,'${sid}')">${meta.name}${isMe?' (you)':''}</button>`;
       }).join('');
+      // The button HTML above always marks currentSiteId as the visually
+      // "active" one on a fresh tab open — but without this, vpkTargetSite
+      // could still be left over from whatever site was clicked last time
+      // the tab was open, silently mismatching what's shown on screen. Any
+      // import done before manually clicking a different button would then
+      // go to the wrong site.
+      vpkTargetSite = currentSiteId;
     }
   }
   // Show MS sign-in if configured
@@ -10869,27 +10876,43 @@ function parseCampeys(ws) {
   const stops = [];
   const loadCosts = {}; // loadRef -> actual cost from file
   const EXCLUDED_HAULIER_TOKENS = ['asg', 'alert', 'rigid']; // subcontracted / non-Campeys markers
-  const excludedRefs = new Set(); // collection refs belonging to an excluded load
   let currentRef = '';
   let loadingTime = '';
+  // Scoped to the current physical load block only, reset at each "Load N"
+  // boundary row. Real-world sheets sometimes reuse the same CV-ref by
+  // accident (copy-paste error) for two unrelated loads elsewhere in the
+  // same sheet — tracking exclusion by ref text globally meant one ASG/Alert
+  // block could wrongly wipe out a completely unrelated Campeys load that
+  // happened to share that ref. Block-scoping never leaks across boundaries.
+  let blockExcluded = false;
+  // Same reasoning applies to grouping: a reused ref could otherwise merge
+  // two separate physical loads (even two legitimate Campeys ones) into one.
+  // Suffixing the ref with a block sequence number keeps every physical
+  // block distinct regardless of what text happens to be in its ref cell.
+  let blockSeq = 0;
   for(let r=11; r<=maxRow; r++){
     const c0 = cs(r,0).toLowerCase();
-    if(!c0 && !cs(r,2) && !cs(r,4)) continue;
-    if(['collection','fc u2','us','haulier /','vehicle','selby - delivery schedule'].includes(c0)) continue;
-    // Load summary row: col 7 starts with 'Load '
+    // Load summary row: col 7 starts with 'Load '. Checked before the
+    // blank-row skip below, since these rows are themselves blank in the
+    // haulier/customer/postcode columns and would otherwise be silently
+    // swallowed — which meant blockSeq never actually advanced.
     if(cs(r,7).toLowerCase().startsWith('load ')) {
       const ref = cs(r,10); // collection ref on this row
       const cost = Number(cv(r,13))||0;
-      if(ref && cost) loadCosts[ref] = cost;
+      if(ref && cost) loadCosts[ref+'#'+blockSeq] = cost;
+      blockExcluded = false; // this block is done — the next one starts clean
+      blockSeq++;
       continue;
     }
+    if(!c0 && !cs(r,2) && !cs(r,4)) continue;
+    if(['collection','fc u2','us','haulier /','vehicle','selby - delivery schedule'].includes(c0)) continue;
     const colRef = cs(r,10);
     if(colRef.startsWith('CV')) currentRef = colRef;
     // Column A is only meaningful as a haulier marker on a load's first row —
     // on continuation drop-rows for the same load it's reused for other codes
-    // (TL, 2nd run, US, etc.), so tag the whole load ref rather than trusting
-    // column A on every row.
-    if(EXCLUDED_HAULIER_TOKENS.includes(c0) && currentRef) excludedRefs.add(currentRef);
+    // (TL, 2nd run, US, etc.), so once flagged, the whole block through the
+    // next "Load N" row is treated as subcontracted.
+    if(EXCLUDED_HAULIER_TOKENS.includes(c0)) blockExcluded = true;
     const customer = cs(r,2);
     let postcode = cs(r,4).toUpperCase();
     const palletsRaw = Number(cv(r,12));
@@ -10901,13 +10924,14 @@ function parseCampeys(ws) {
     if(customer.toLowerCase()==='customer') continue;
     if(looksLikeJunkCustomerName(customer)) continue;
     if(!pallets) continue; // a real customer/postcode with 0 pallets is leftover example data from a reused template, not a real stop
+    if(blockExcluded) continue; // subcontracted (ASG/Alert/Rigid) block — own-fleet Campeys loads only
     if(!postcode){
       const known = lookupAddress(customer);
       if(known) postcode = known;
       else { vpkMissingPostcodeCustomers.push(customer); continue; }
     }
     stops.push({
-      loadRef: currentRef||'SELBY',
+      loadRef: (currentRef||'SELBY')+'#'+blockSeq,
       name: customer,
       postcode,
       pallets,
@@ -10918,9 +10942,7 @@ function parseCampeys(ws) {
   }
   // Attach actual costs to each stop's load
   stops.forEach(s => { s.actualCost = loadCosts[s.loadRef] || null; });
-  // Drop any stop belonging to a load tagged ASG/Alert/Rigid anywhere in its
-  // block — own-fleet Campeys loads only.
-  return stops.filter(s => !excludedRefs.has(s.loadRef));
+  return stops;
 }
 // ── Wellington (Wrings) parser ──
 function parseWellington(ws) {
