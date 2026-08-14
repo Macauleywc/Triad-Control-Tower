@@ -10946,10 +10946,16 @@ function parseCampeys(ws) {
     // blank-row skip below, since these rows are themselves blank in the
     // haulier/customer/postcode columns and would otherwise be silently
     // swallowed — which meant blockSeq never actually advanced.
-    if(cs(r,7).toLowerCase().startsWith('load ')) {
-      const ref = cs(r,10); // collection ref on this row
+    // Fallback: some blocks in real data are missing their "Load N" text
+    // label entirely (a data-entry gap) but still record their pallet total
+    // on an otherwise-blank row — that's the only signal available that a
+    // new block has started, so treat it the same way.
+    const implicitTotal = Number(cv(r,12));
+    const looksLikeBoundary = cs(r,7).toLowerCase().startsWith('load ')
+      || (!c0 && !cs(r,2) && !cs(r,4) && !isNaN(implicitTotal) && implicitTotal > 0);
+    if(looksLikeBoundary) {
       const cost = Number(cv(r,13))||0;
-      if(ref && cost) loadCosts[ref+'#'+blockSeq] = cost;
+      if(cost) loadCosts['B'+blockSeq] = cost;
       blockExcluded = false; // this block is done — the next one starts clean
       blockSeq++;
       continue;
@@ -10982,7 +10988,7 @@ function parseCampeys(ws) {
       else { vpkMissingPostcodeCustomers.push(customer); continue; }
     }
     stops.push({
-      loadRef: (currentRef||'SELBY')+'#'+blockSeq,
+      loadRef: 'B'+blockSeq, // grouped purely by physical block, never by ref text — a CV-ref can legitimately drift partway through one physical load in this data (confirmed: a reused ref from an earlier load appearing on one row, then the block's real ref on the next), which was silently splitting single real loads into two
       name: customer,
       postcode,
       pallets,
