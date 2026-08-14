@@ -10970,10 +10970,11 @@ function parseCampeys(ws) {
     const delivTime = fmtTime(cv(r,11));
     const lt = fmtTime(cv(r,1));
     if(lt) loadingTime = lt;
+    const isCollection = cs(r,9).toLowerCase().includes('collection'); // e.g. a Chep pallet-pool pickup — genuinely 0 pallets, but still a real stop the driver has to make
     if(!customer) continue;
     if(customer.toLowerCase()==='customer') continue;
     if(looksLikeJunkCustomerName(customer)) continue;
-    if(!pallets) continue; // a real customer/postcode with 0 pallets is leftover example data from a reused template, not a real stop
+    if(!pallets && !isCollection) continue; // a real customer/postcode with 0 pallets and no collection marker is leftover example data from a reused template, not a real stop
     if(blockExcluded) continue; // subcontracted (ASG/Alert/Rigid) block — own-fleet Campeys loads only
     if(!postcode){
       const known = lookupAddress(customer);
@@ -10985,6 +10986,7 @@ function parseCampeys(ws) {
       name: customer,
       postcode,
       pallets,
+      isCollection,
       time: delivTime,
       checkIn: loadingTime,
       sheetDate,
