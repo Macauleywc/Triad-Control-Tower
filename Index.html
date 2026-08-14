@@ -4428,7 +4428,12 @@ function renderSiteCards() {
             ${e.notes ? `<div class="site-biz"><em style="color:var(--amber)">${e.notes}</em></div>` : ''}
             <span class="site-pill ${pillCls}">${pillLbl}</span>
           </div>
-          <div style="margin-left:auto;padding:4px 8px;color:var(--ink3);font-size:18px;line-height:1;flex-shrink:0">${collapsed?'▸':'▾'}</div>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <button onclick="event.stopPropagation(); undoImport('${sid}','${e.date}')" title="Remove this site's imported data for ${e.date}" style="padding:4px 10px;background:none;border:1px solid var(--rule);border-radius:6px;color:var(--red);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-body)">
+              Remove
+            </button>
+            <div style="padding:4px 8px;color:var(--ink3);font-size:18px;line-height:1">${collapsed?'▸':'▾'}</div>
+          </div>
         </div>
         ${collapsed ? `
         <div class="site-metrics" style="border-top:1px solid var(--rule)">
