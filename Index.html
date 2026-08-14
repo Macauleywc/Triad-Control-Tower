@@ -2209,8 +2209,11 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--ink3);
-  min-width: 130px;
+  width: 225px; /* fixed, not min — sized for the longest realistic date ("Wednesday, 20 September 2026") so the nav buttons never shift as you navigate between dates */
   text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .date-nav-today {
   font-size: 10px;
