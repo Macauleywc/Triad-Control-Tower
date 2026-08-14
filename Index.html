@@ -4302,7 +4302,7 @@ function actualRunCostTotal(sid, rawActualCost, pallets) {
   if (rawActualCost == null) return null;
   const v = parseFloat(rawActualCost);
   if (isNaN(v)) return null;
-  return sid === 'selby' ? v * (pallets||0) : v;
+  return v; // already a total cost for the whole run, not a per-pallet rate — never multiply by pallets
 }
 function calcRunCost(site, postcodes) {
   const depot = DEPOT_COORDS[site];
