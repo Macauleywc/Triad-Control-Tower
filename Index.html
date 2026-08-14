@@ -11101,7 +11101,9 @@ function vpkLoadBanburyStops(stops, siteOverride) {
     <tr><td>${r.runLabel}</td><td>${r.customer}</td><td>${r.postal}</td><td>${r.pallets}</td><td>${r.delivTime||'—'}</td></tr>
   `).join('');
   document.getElementById('vpk-preview-wrap').style.display = '';
-  vpkShowMsg('✓ Banbury plan loaded — ' + rows.length + ' stops · date: ' + fileDate, 'ok');
+  const siteForMsg = siteOverride || vpkTargetSite || currentSiteId;
+  const siteNameForMsg = SITES_META[siteForMsg]?.name || siteForMsg;
+  vpkShowMsg(`✓ ${siteNameForMsg} plan loaded — ${rows.length} stops · date: ${fileDate}`, 'ok');
 }
 function vpkParseWorksheet(ws, fname) {
   if (!ws || !ws['!ref']) { vpkShowMsg('Empty worksheet.', 'err'); return; }
