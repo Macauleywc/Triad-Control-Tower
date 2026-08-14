@@ -10595,7 +10595,13 @@ async function vpkImportBatch() {
         await vpkImportAllDays();
         imported++;
       } else {
-        // VPK (Desborough single-day) — parse and auto-load
+        // VPK (Desborough single-day) — parse and auto-load. Every other
+        // branch here sets its own site explicitly; this one must too, or
+        // it silently inherits whatever vpkTargetSite was left over from
+        // the previous item in this same batch (e.g. a multi-day Wellington
+        // file leaves it pointed at whichever site its last day belonged
+        // to) and gets saved to the wrong site entirely.
+        vpkTargetSite = it.site || 'desborough';
         vpkParseWorksheet(it.ws, it.file.name);
         await vpkLoadIntoTriad();
         imported++;
