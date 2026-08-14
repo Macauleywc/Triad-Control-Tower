@@ -1942,6 +1942,7 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
 #req-toast.show {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
 }
 #req-toast .toast-tick {
   width: 18px; height: 18px;
@@ -9318,13 +9319,48 @@ function requestToTake(data) {
   // Show toast
   showReqToast(`Request sent to ${siteName} — posted in chat and awaiting accept/decline in their Transfers tab`);
 }
-function showReqToast(msg) {
+function showReqToast(msg, undoFn) {
   const toast = document.getElementById('req-toast');
   const msgEl = document.getElementById('req-toast-msg');
   if (!toast || !msgEl) return;
   msgEl.textContent = msg;
+  const oldBtn = toast.querySelector('.toast-undo-btn');
+  if (oldBtn) oldBtn.remove();
+  if (undoFn) {
+    const btn = document.createElement('button');
+    btn.className = 'toast-undo-btn';
+    btn.textContent = 'Undo';
+    btn.style.cssText = 'margin-left:12px;padding:4px 10px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);border-radius:6px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0';
+    btn.onclick = () => { toast.classList.remove('show'); undoFn(); };
+    toast.appendChild(btn);
+  }
   toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 3500);
+  setTimeout(() => toast.classList.remove('show'), undoFn ? 8000 : 3500); // give more time to notice Undo before it disappears
+}
+// Removes exactly what a single import just wrote — one site, one date —
+// without needing to know to go find it in User Admin > Data management.
+// Safe to call any time after the fact too, not just from the toast: nothing
+// stops someone re-running this later for a site/date they realize was wrong.
+async function undoImport(site, date) {
+  const siteLabel = SITES_META[site]?.name || site;
+  if (!confirm(`Undo the import for ${siteLabel} on ${date}?\n\nThis removes everything that import just wrote for that site and date. Cannot be undone.`)) return;
+  try {
+    if (sb && isConfigured) {
+      const { error } = await sb.from('daily_plans').delete().eq('plan_date', date).eq('site_id', site);
+      if (error) throw new Error(error.message);
+      await sb.from('audit_log').insert({
+        action: 'import_undone', site_id: site, user_email: currentUser?.email,
+        details: { date, undone_by: currentUser?.email },
+      });
+    } else {
+      todayData = todayData.filter(e => !(e.site === site && e.date === date));
+      allData = allData.filter(e => !(e.site === site && e.date === date));
+    }
+    if (viewDate === date) await loadDateData(); else renderAll();
+    showReqToast(`✓ Undone — ${siteLabel}'s import for ${date} removed`);
+  } catch (err) {
+    showReqToast(`⚠ Could not undo: ${err.message}`);
+  }
 }
 /* ══════════════════════════════════════════
    IMPORT TEMPLATE
@@ -11375,7 +11411,7 @@ async function vpkLoadIntoTriad() {
     viewDate = saveDate;
     updateDateNav();
     renderAll();
-    showReqToast(`${meta.name} updated — ${vpkParsedRows.length} stops loaded`);
+    showReqToast(`${meta.name} updated — ${vpkParsedRows.length} stops loaded`, () => undoImport(site, saveDate));
     showTab('overview');
   }
 }
