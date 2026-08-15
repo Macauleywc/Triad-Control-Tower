@@ -1626,7 +1626,7 @@ button, input, select, textarea { font-family: var(--font-body); }
 .kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:24px}
 .kpi-section-header{display:flex;align-items:center;gap:10px;margin:24px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--rule)}
 .kpi-section-header-label{font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;font-family:var(--font-mono)}
-.kpi-section-header-line{flex:1;height:1px}
+.kpi-section-header-line{flex:1;height:1px;background:var(--rule)}
 .kpi-stat-row{display:grid;gap:10px;margin-bottom:12px}
 .kpi-stat-tile{background:#fff;border:1px solid var(--rule);border-radius:10px;padding:16px 18px}
 .kpi-stat-tile .stat-val{font-family:var(--font-head);font-size:28px;font-weight:800;letter-spacing:-1px;color:var(--ink);line-height:1}
@@ -1637,18 +1637,6 @@ button, input, select, textarea { font-family: var(--font-body); }
 .kpi-savings-tile.green{background:#f0fdf4;border-color:#c8e6c9}
 .kpi-savings-tile .sv{font-size:20px;font-weight:700;color:var(--ink);line-height:1}
 .kpi-savings-tile .sl{font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
-.kpi-card{background:#fff;border:1px solid var(--rule);border-radius:var(--r-lg);padding:22px 24px;position:relative;overflow:hidden;transition:box-shadow .2s,transform .2s}
-.kpi-card:hover{box-shadow:0 6px 24px rgba(0,0,0,.07);transform:translateY(-2px)}
-.kpi-accent{position:absolute;top:0;left:0;width:4px;height:100%}
-.kpi-eyebrow{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink3);margin-bottom:10px;padding-left:12px}
-.kpi-value{font-family:var(--font-head);font-size:36px;font-weight:800;letter-spacing:-1.5px;line-height:1;color:var(--ink);padding-left:12px;margin-bottom:6px}
-.kpi-value span{font-size:16px;font-weight:400;color:var(--ink3);letter-spacing:0}
-.kpi-sub{font-size:12px;color:var(--ink3);padding-left:12px;margin-bottom:14px}
-.kpi-chart{height:44px;display:flex;align-items:flex-end;gap:3px;padding-left:12px}
-.kpi-bar{flex:1;border-radius:3px 3px 0 0;min-height:4px;transition:height .4s ease}
-.kpi-trend-row{display:flex;align-items:center;gap:6px;padding-left:12px;margin-top:8px}
-.kpi-trend{font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px}
-.kpi-section-title{font-family:inherit;font-size:16px;font-weight:700;color:#1a1a2e;margin-bottom:14px;display:flex;align-items:center;gap:10px}
 .kpi-site-breakdown{background:#fff;border:1px solid var(--rule);border-radius:var(--r-lg);overflow:hidden;margin-bottom:20px}
 .kpi-breakdown-head{display:grid;grid-template-columns:140px 1fr 1fr 1fr 1fr 100px;padding:10px 20px;background:var(--cream);border-bottom:1px solid var(--rule);gap:12px}
 .kpi-breakdown-head span{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);text-align:right}
@@ -1676,6 +1664,12 @@ button, input, select, textarea { font-family: var(--font-body); }
 .compliance-status{font-family:var(--font-mono);font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
 .cs-ok{background:var(--green-l);color:var(--green)}
 .cs-miss{background:var(--red-l);color:var(--red)}
+.export-section-opt{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;cursor:pointer}
+.export-section-opt .esi{font-size:16px;line-height:1.5}
+.export-section-opt .esb{flex:1}
+.export-section-opt .esb .est{font-size:12px;font-weight:600;color:var(--ink)}
+.export-section-opt .esb .ess{font-size:11px;color:var(--ink3);margin-top:2px}
+.export-section-opt input{width:14px;height:14px;accent-color:var(--navy);cursor:pointer;margin-top:2px}
 /* ══════════════════════════════════════════
    ADMIN SECTION
 ══════════════════════════════════════════ */
@@ -2870,35 +2864,50 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
     <div style="padding:18px 22px;border-bottom:1px solid var(--rule)">
       <div style="font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;font-family:var(--font-mono);margin-bottom:10px">Report sections</div>
       <div id="export-sections" style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;cursor:pointer">
-          <span style="font-size:16px;line-height:1.5">&#128202;</span>
-          <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--ink)">Headline metrics</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">Total runs, stops &amp; pallets</div></div>
-          <input type="checkbox" value="headline" checked style="width:14px;height:14px;accent-color:var(--navy);cursor:pointer;margin-top:2px">
+        <label class="export-section-opt">
+          <span class="esi">&#128202;</span>
+          <div class="esb"><div class="est">Headline metrics</div><div class="ess">Total runs, stops &amp; pallets</div></div>
+          <input type="checkbox" value="headline" checked>
         </label>
-        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;cursor:pointer">
-          <span style="font-size:16px;line-height:1.5">&#128203;</span>
-          <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--ink)">Site breakdown</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">Per-depot summary table</div></div>
-          <input type="checkbox" value="site-breakdown" checked style="width:14px;height:14px;accent-color:var(--navy);cursor:pointer;margin-top:2px">
+        <label class="export-section-opt">
+          <span class="esi">&#128203;</span>
+          <div class="esb"><div class="est">Site breakdown</div><div class="ess">Per-depot summary table</div></div>
+          <input type="checkbox" value="site-breakdown" checked>
         </label>
-        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;cursor:pointer">
-          <span style="font-size:16px;line-height:1.5">&#128197;</span>
-          <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--ink)">Daily breakdown</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">Day-by-day network totals</div></div>
-          <input type="checkbox" value="daily-breakdown" checked style="width:14px;height:14px;accent-color:var(--navy);cursor:pointer;margin-top:2px">
+        <label class="export-section-opt">
+          <span class="esi">&#128197;</span>
+          <div class="esb"><div class="est">Daily breakdown</div><div class="ess">Day-by-day network totals</div></div>
+          <input type="checkbox" value="daily-breakdown" checked>
         </label>
-        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;cursor:pointer">
-          <span style="font-size:16px;line-height:1.5">&#128183;</span>
-          <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--ink)">Estimated costs</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">Per-route cost summary</div></div>
-          <input type="checkbox" value="cost" checked style="width:14px;height:14px;accent-color:var(--navy);cursor:pointer;margin-top:2px">
+        <label class="export-section-opt">
+          <span class="esi">&#128183;</span>
+          <div class="esb"><div class="est">Estimated costs</div><div class="ess">Cost &amp; £/pallet columns</div></div>
+          <input type="checkbox" value="cost" checked>
         </label>
-        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;cursor:pointer">
-          <span style="font-size:16px;line-height:1.5">&#9889;</span>
-          <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--ink)">Utilisation</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">Fill % per site</div></div>
-          <input type="checkbox" value="utilisation" checked style="width:14px;height:14px;accent-color:var(--navy);cursor:pointer;margin-top:2px">
+        <label class="export-section-opt">
+          <span class="esi">&#9889;</span>
+          <div class="esb"><div class="est">Utilisation</div><div class="ess">Fill % per site</div></div>
+          <input type="checkbox" value="utilisation" checked>
         </label>
-        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;cursor:pointer">
-          <span style="font-size:16px;line-height:1.5">&#128260;</span>
-          <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--ink)">Load sharing</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">Transfer opportunities</div></div>
-          <input type="checkbox" value="load-sharing" style="width:14px;height:14px;accent-color:var(--navy);cursor:pointer;margin-top:2px">
+        <label class="export-section-opt">
+          <span class="esi">&#128260;</span>
+          <div class="esb"><div class="est">Load sharing</div><div class="ess">Today's transfer opportunities</div></div>
+          <input type="checkbox" value="load-sharing" checked>
+        </label>
+        <label class="export-section-opt">
+          <span class="esi">&#128176;</span>
+          <div class="esb"><div class="est">Savings tracker</div><div class="ess">Confirmed transfer savings</div></div>
+          <input type="checkbox" value="savings" checked>
+        </label>
+        <label class="export-section-opt">
+          <span class="esi">&#9989;</span>
+          <div class="esb"><div class="est">Upload compliance</div><div class="ess">Which sites submitted</div></div>
+          <input type="checkbox" value="compliance" checked>
+        </label>
+        <label class="export-section-opt">
+          <span class="esi">&#127942;</span>
+          <div class="esb"><div class="est">Delivery leaderboard</div><div class="ess">Top shared customers</div></div>
+          <input type="checkbox" value="leaderboard" checked>
         </label>
       </div>
     </div>
@@ -2954,10 +2963,10 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px" id="kpi-grid"></div>
 
       <!-- Savings tracker -->
-      <div style="display:flex;align-items:center;gap:8px;margin:20px 0 10px">
-        <span style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;font-family:var(--font-mono)">Load sharing savings</span>
-        <div style="flex:1;height:1px;background:var(--rule)"></div>
-        <button onclick="showTab('savings')" style="font-size:11px;color:var(--navy);background:none;border:none;cursor:pointer;font-family:var(--font-body);text-decoration:underline">Full tracker →</button>
+      <div class="kpi-section-header">
+        <span class="kpi-section-header-label">Load sharing savings</span>
+        <div class="kpi-section-header-line"></div>
+        <button onclick="showTab('savings')" style="font-size:11px;color:var(--navy);background:none;border:none;cursor:pointer;font-family:var(--font-body);text-decoration:underline;flex-shrink:0">Full tracker →</button>
       </div>
       <div id="kpi-savings-tracker" style="margin-bottom:24px"></div>
 
@@ -2965,9 +2974,9 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
       <div id="kpi-period-breakdown" style="display:none;margin-bottom:24px"></div>
 
       <!-- Site breakdown -->
-      <div style="display:flex;align-items:center;gap:8px;margin:4px 0 10px">
-        <span class="kpi-section-title" id="kpi-breakdown-title" style="margin:0">Site breakdown — today</span>
-        <div style="flex:1;height:1px;background:var(--rule)"></div>
+      <div class="kpi-section-header">
+        <span class="kpi-section-header-label" id="kpi-breakdown-title">Site breakdown — today</span>
+        <div class="kpi-section-header-line"></div>
       </div>
       <div class="kpi-site-breakdown">
         <div class="kpi-breakdown-head">
@@ -2976,16 +2985,23 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
         <div id="kpi-breakdown"></div>
       </div>
       <!-- Upload compliance -->
-      <div class="kpi-section-title" style="margin-top:24px">Upload compliance — today</div>
+      <div class="kpi-section-header" style="margin-top:24px">
+        <span class="kpi-section-header-label">Upload compliance — today</span>
+        <div class="kpi-section-header-line"></div>
+      </div>
       <div class="compliance-grid" id="kpi-compliance"></div>
       <!-- Load sharing -->
-      <div class="kpi-section-title" style="margin-top:24px">Load sharing opportunities — 30-mile ring fence</div>
+      <div class="kpi-section-header" style="margin-top:24px">
+        <span class="kpi-section-header-label">Load sharing opportunities — 30-mile ring fence</span>
+        <div class="kpi-section-header-line"></div>
+      </div>
       <div id="kpi-savings"></div>
       <!-- Delivery point leaderboard -->
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:28px;margin-bottom:0">
-        <div class="kpi-section-title" style="margin:0">Delivery point leaderboard</div>
+      <div class="kpi-section-header" style="margin-top:28px">
+        <span class="kpi-section-header-label">Delivery point leaderboard</span>
+        <div class="kpi-section-header-line"></div>
         <button id="lb-toggle-btn" onclick="toggleLeaderboard()" title="Hide leaderboard"
-          style="width:28px;height:28px;border:1px solid var(--rule);border-radius:6px;background:none;cursor:pointer;font-size:13px;color:var(--ink2);display:flex;align-items:center;justify-content:center">▲</button>
+          style="width:28px;height:28px;border:1px solid var(--rule);border-radius:6px;background:none;cursor:pointer;font-size:13px;color:var(--ink2);display:flex;align-items:center;justify-content:center;flex-shrink:0">▲</button>
       </div>
       <div class="lb-toggle-row">
         <button class="lb-toggle-btn active" id="lb-btn-today" onclick="switchLeaderboard('today')">Today</button>
@@ -3834,6 +3850,87 @@ async function loadDateData() {
 const sumStops   = e => (e.routes||[]).reduce((a,r) => a + Number(r.stops||0),   0);
 const sumPallets = e => (e.routes||[]).reduce((a,r) => a + Number(r.pallets||0), 0);
 const sumWeight  = e => (e.routes||[]).reduce((a,r) => a + Number(r.weight||0),  0);
+/* ══════════════════════════════════════════
+   SHARED KPI MATH
+   Single source of truth for cost/utilisation/totals so the on-screen
+   KPI tab and the PDF export can never disagree on the same numbers.
+   (calcRunCost/actualRunCostTotal/groupByShipment/countLoads are defined
+   further down the file but usable here — they're function declarations,
+   which are hoisted.)
+══════════════════════════════════════════ */
+function entryCost(e) {
+  return (e.routes||[]).reduce((b,r) => {
+    const ic = actualRunCostTotal(e.site, (r.stops_detail||[]).find(s=>s.actualCost)?.actualCost, r.pallets);
+    if (ic) return b + ic;
+    const rc = calcRunCost(e.site, r.postcodes||r.pc||'');
+    return b + (rc ? parseFloat(rc.cost) : 0);
+  }, 0);
+}
+function computeKpiTotals(data) {
+  const totRuns    = data.reduce((a,e)=>a+groupByShipment(e).length, 0);
+  const totLoads   = data.reduce((a,e)=>a+countLoads(e), 0);
+  const totStops   = data.reduce((a,e)=>a+sumStops(e), 0);
+  const totPallets = data.reduce((a,e)=>a+sumPallets(e), 0);
+  const totWeight  = data.reduce((a,e)=>a+sumWeight(e), 0);
+  // Vehicle capacity target: runs × 40 pallets (a "run" = one vehicle trip).
+  const totCap     = totRuns * 40;
+  const avgUtil    = totCap>0 ? Math.round(totPallets/totCap*100) : 0;
+  const totCost    = data.reduce((a,e)=>a+entryCost(e), 0);
+  const cpp        = totPallets>0 && totCost>0 ? (totCost/totPallets).toFixed(2) : null;
+  const totSites   = new Set(data.map(e=>e.site)).size;
+  const overCap    = data.filter(e=>sumPallets(e) > groupByShipment(e).length*40).length;
+  const totDays    = new Set(data.map(e=>e.date)).size;
+  return { totRuns, totLoads, totStops, totPallets, totWeight, totCap, avgUtil, totCost, cpp, totSites, overCap, totDays };
+}
+// Per-site rows for the given entries — shared by the dashboard breakdown
+// table and the PDF's site-breakdown table.
+function computeSiteBreakdownRows(data, siteOrder) {
+  const order   = siteOrder || Object.keys(SITES_META);
+  const siteMap = data.reduce((acc,e)=>{(acc[e.site]=acc[e.site]||[]).push(e);return acc;},{});
+  return order.filter(sid=>siteMap[sid]).map(sid=>{
+    const entries = siteMap[sid];
+    const t = computeKpiTotals(entries);
+    return {
+      sid, name: SITES_META[sid]?.name||sid,
+      runs: t.totRuns, loads: t.totLoads, stops: t.totStops, pallets: t.totPallets,
+      util: t.avgUtil, cost: t.totCost, cpp: t.cpp, days: t.totDays,
+    };
+  });
+}
+// Confirmed-transfer savings for a date range (+ YTD) — shared by the
+// dashboard's savings tracker and the PDF's savings tracker section.
+function computeSavingsTrackerData(periodStart, periodEnd) {
+  const allTransfers    = _confirmedTransfers || [];
+  const periodTransfers = allTransfers.filter(t => t.transfer_date >= periodStart && t.transfer_date <= periodEnd);
+  const ytdStart        = (viewDate||todayStr()).slice(0,4)+'-01-01';
+  const ytdTransfers    = allTransfers.filter(t => t.transfer_date >= ytdStart);
+  const sum = (arr,f) => arr.reduce((a,t)=>a+parseFloat(t[f]||0),0);
+  return {
+    allTransfers, periodTransfers, ytdTransfers,
+    confCostPeriod:  sum(periodTransfers,'total_cost_saved'),
+    confMilesPeriod: sum(periodTransfers,'miles_saved'),
+    confCO2Period:   sum(periodTransfers,'co2_kg_saved'),
+    confVpkPeriod:   sum(periodTransfers,'total_cost_saved')*0.10,
+    confCostYtd:     sum(ytdTransfers,'total_cost_saved'),
+    confMilesYtd:    sum(ytdTransfers,'miles_saved'),
+    confCO2Ytd:      sum(ytdTransfers,'co2_kg_saved'),
+  };
+}
+// Date -> aggregated totals — shared by the dashboard's period breakdown
+// table and the PDF's daily breakdown table.
+function computeDailyBreakdownRows(data) {
+  const dateMap = {};
+  data.forEach(e => { (dateMap[e.date]=dateMap[e.date]||[]).push(e); });
+  return Object.keys(dateMap).sort().map(date => {
+    const entries = dateMap[date];
+    const t = computeKpiTotals(entries);
+    return {
+      date, sites: entries.map(e=>SITES_META[e.site]?.name||e.site).join(', '),
+      runs: t.totRuns, loads: t.totLoads, stops: t.totStops, pallets: t.totPallets,
+      util: t.avgUtil, cost: t.totCost, cpp: t.cpp,
+    };
+  });
+}
 function setupRealtime() {
   sb.channel('ct-realtime')
     .on('postgres_changes', { event:'*', schema:'public', table:'daily_plans' }, () => loadFromSupabase())
@@ -5233,35 +5330,24 @@ function fmtShortDate(d) {
 function renderKpiPeriodBreakdown(data) {
   const el = document.getElementById('kpi-period-breakdown');
   if (!el || kpiPeriod === 'today') { if (el) el.style.display = 'none'; return; }
-  // Group by date
-  const dateMap = {};
-  data.forEach(e => {
-    if (!dateMap[e.date]) dateMap[e.date] = [];
-    dateMap[e.date].push(e);
-  });
-  const dates = Object.keys(dateMap).sort();
-  if (!dates.length) { el.style.display = 'none'; return; }
+  const dayRows = computeDailyBreakdownRows(data);
+  if (!dayRows.length) { el.style.display = 'none'; return; }
   el.style.display = 'block';
-  const rows = dates.map(date => {
-    const entries = dateMap[date];
-    const totalLoads   = entries.reduce((a,e)=>a+(groupByShipment(e).length),0);
-    const totalStops   = entries.reduce((a,e)=>a+sumStops(e),0);
-    const totalPallets = entries.reduce((a,e)=>a+sumPallets(e),0);
-    const sites = entries.map(e=>SITES_META[e.site]?.name||e.site).join(', ');
-    return `<tr>
-      <td style="font-family:var(--font-mono);font-size:12px;color:var(--ink3)">${fmtShortDate(date)}</td>
-      <td>${sites}</td>
-      <td style="font-family:var(--font-mono);text-align:right">${totalLoads}</td>
-      <td style="font-family:var(--font-mono);text-align:right">${totalStops}</td>
-      <td style="font-family:var(--font-mono);text-align:right;font-weight:600">${totalPallets}</td>
-    </tr>`;
-  }).join('');
-  // Totals row
-  const totLoads   = dates.reduce((a,d)=>a+dateMap[d].reduce((b,e)=>b+groupByShipment(e).length,0),0);
-  const totStops   = dates.reduce((a,d)=>a+dateMap[d].reduce((b,e)=>b+sumStops(e),0),0);
-  const totPallets = dates.reduce((a,d)=>a+dateMap[d].reduce((b,e)=>b+sumPallets(e),0),0);
+  const t = computeKpiTotals(data); // period totals — same formula as everywhere else
+  const rows = dayRows.map(r => `<tr>
+      <td style="font-family:var(--font-mono);font-size:12px;color:var(--ink3)">${fmtShortDate(r.date)}</td>
+      <td>${r.sites}</td>
+      <td style="font-family:var(--font-mono);text-align:right">${r.runs}</td>
+      <td style="font-family:var(--font-mono);text-align:right">${r.stops}</td>
+      <td style="font-family:var(--font-mono);text-align:right;font-weight:600">${r.pallets}</td>
+      <td style="font-family:var(--font-mono);text-align:right;color:${r.util>=90?'var(--red)':r.util>=75?'var(--amber)':'var(--green)'};font-weight:600">${r.util}%</td>
+      <td style="font-family:var(--font-mono);text-align:right">${r.cost>0?'£'+Math.round(r.cost).toLocaleString():'—'}</td>
+    </tr>`).join('');
   el.innerHTML = `
-    <div class="kpi-section-title">Daily breakdown — ${dates.length} day${dates.length!==1?'s':''}</div>
+    <div class="kpi-section-header">
+      <span class="kpi-section-header-label">Daily breakdown — ${dayRows.length} day${dayRows.length!==1?'s':''}</span>
+      <div class="kpi-section-header-line"></div>
+    </div>
     <div class="hist-table-wrap">
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead><tr style="border-bottom:1px solid var(--rule)">
@@ -5270,13 +5356,17 @@ function renderKpiPeriodBreakdown(data) {
           <th style="text-align:right;padding:8px 12px;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">Runs</th>
           <th style="text-align:right;padding:8px 12px;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">Stops</th>
           <th style="text-align:right;padding:8px 12px;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">Pallets</th>
+          <th style="text-align:right;padding:8px 12px;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">Util %</th>
+          <th style="text-align:right;padding:8px 12px;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">Est. Cost</th>
         </tr></thead>
         <tbody>${rows}</tbody>
         <tfoot><tr style="border-top:2px solid var(--rule);background:var(--cream)">
           <td colspan="2" style="padding:8px 12px;font-weight:700;font-size:12px">Total</td>
-          <td style="padding:8px 12px;font-family:var(--font-mono);font-weight:700;text-align:right">${totLoads}</td>
-          <td style="padding:8px 12px;font-family:var(--font-mono);font-weight:700;text-align:right">${totStops}</td>
-          <td style="padding:8px 12px;font-family:var(--font-mono);font-weight:700;text-align:right">${totPallets}</td>
+          <td style="padding:8px 12px;font-family:var(--font-mono);font-weight:700;text-align:right">${t.totRuns}</td>
+          <td style="padding:8px 12px;font-family:var(--font-mono);font-weight:700;text-align:right">${t.totStops}</td>
+          <td style="padding:8px 12px;font-family:var(--font-mono);font-weight:700;text-align:right">${t.totPallets}</td>
+          <td style="padding:8px 12px;font-family:var(--font-mono);font-weight:700;text-align:right">${t.avgUtil}%</td>
+          <td style="padding:8px 12px;font-family:var(--font-mono);font-weight:700;text-align:right">${t.totCost>0?'£'+Math.round(t.totCost).toLocaleString():'—'}</td>
         </tr></tfoot>
       </table>
     </div>`;
@@ -5355,13 +5445,21 @@ async function exportKpiPdf(data, opts) {
   const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
   const period = customTitle || (start===end ? fmtShortDate(start) : fmtShortDate(start)+' → '+fmtShortDate(end));
   data = data || (kpiPeriod === 'today' ? todayData : kpiPeriodData);
-  const incl = sections || new Set(['headline','site-breakdown','daily-breakdown','utilisation','cost']);
+  // Default set covers every section the modal offers — matches the on-screen
+  // KPI tab exactly, so a PDF built with no explicit selection is still complete.
+  const incl = sections || new Set(['headline','site-breakdown','daily-breakdown','utilisation','cost','savings','load-sharing','compliance','leaderboard']);
   const W = 210, margin = 14, contentW = W - margin*2;
   const NAVY=[18,25,45], WHITE=[255,255,255], CREAM=[248,249,251], RULE=[220,222,228];
   const INK3=[120,130,150], INK=[40,45,55];
   const SITE_COLORS = { desborough:[232,82,10], selby:[30,58,110], banbury:[192,57,43], wellington:[26,122,74] };
-  function hex2rgb(h){const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return[r,g,b];}
   function siteRgb(site){return SITE_COLORS[site]||NAVY;}
+  function ensureRoom(needed){ if(y + needed > 275){ doc.addPage(); y = 20; } }
+  function sectionHeading(label){
+    ensureRoom(14);
+    doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(...NAVY);
+    doc.text(label, margin, y); y+=2;
+    doc.setDrawColor(...RULE); doc.setLineWidth(0.3); doc.line(margin,y,W-margin,y); y+=5;
+  }
 
   // ── HEADER ──
   doc.setFillColor(...NAVY); doc.rect(0,0,W,26,'F');
@@ -5383,32 +5481,17 @@ async function exportKpiPdf(data, opts) {
   doc.setTextColor(...INK3); doc.setFontSize(8); doc.setFont('helvetica','normal');
   doc.text(sitesLabel, W-margin, 34, {align:'right'});
 
-  // ── HEADLINE KPI TILES ──
+  // ── HEADLINE KPI TILES ── (same computeKpiTotals as the on-screen dashboard)
   let y = 46;
-  const totRuns    = data.reduce((a,e)=>a+groupByShipment(e).length,0);
-  const totLoads   = data.reduce((a,e)=>a+(e.total_trailers||(e.routes||[]).length),0);
-  const totStops   = data.reduce((a,e)=>a+sumStops(e),0);
-  const totPallets = data.reduce((a,e)=>a+sumPallets(e),0);
-  const totSites   = new Set(data.map(e=>e.site)).size;
-  const totCap     = data.reduce((a,e)=>a+(e.total_trailers||groupByShipment(e).length)*40,0);
-  const avgUtil    = totCap>0 ? Math.round(totPallets/totCap*100) : 0;
-  const totCost    = data.reduce((a,e)=>{
-    return a+(e.routes||[]).reduce((b,r)=>{
-      const ic=actualRunCostTotal(e.site, (r.stops_detail||[]).find(s=>s.actualCost)?.actualCost, r.pallets);
-      if(ic)return b+ic;
-      const rc=calcRunCost(e.site,r.postcodes||r.pc||'');
-      return b+(rc?parseFloat(rc.cost):0);
-    },0);
-  },0);
-  const cppAll = totPallets>0&&totCost>0 ? (totCost/totPallets).toFixed(2) : null;
+  const kt = computeKpiTotals(data);
 
   const tiles = [
-    {label:'Vehicle Runs',  value:String(totRuns),  sub: totLoads !== totRuns ? totLoads+' loads' : null},
-    {label:'Delivery Stops',value:String(totStops),  sub:null},
-    {label:'Total Pallets', value:totPallets.toLocaleString(), sub:null},
-    {label:'Avg Utilisation',value:avgUtil+'%',       sub:null},
-    {label:'Est. Network Cost',value:totCost>0?'£'+Math.round(totCost).toLocaleString():'—', sub:cppAll?'£'+cppAll+'/plt':null},
-    {label:'Sites Active',  value:totSites+'/4',      sub:null},
+    {label:'Vehicle Runs',  value:String(kt.totRuns),  sub: kt.totLoads !== kt.totRuns ? kt.totLoads+' loads' : null},
+    {label:'Delivery Stops',value:String(kt.totStops),  sub:null},
+    {label:'Total Pallets', value:kt.totPallets.toLocaleString(), sub:null},
+    {label:'Avg Utilisation',value:kt.avgUtil+'%',       sub:null},
+    {label:'Est. Network Cost',value:kt.totCost>0?'£'+Math.round(kt.totCost).toLocaleString():'—', sub:kt.cpp?'£'+kt.cpp+'/plt':null},
+    {label:'Sites Active',  value:kt.totSites+'/4',      sub:null},
   ];
   const tW=(contentW-10)/3, tH=22;
   tiles.forEach((t,i)=>{
@@ -5427,99 +5510,81 @@ async function exportKpiPdf(data, opts) {
   });
   y += Math.ceil(tiles.length/3)*(tH+4) + 8;
 
-  // ── SITE BREAKDOWN ──
+  // ── SITE BREAKDOWN ── (same computeSiteBreakdownRows as the on-screen table)
+  const showCost = incl.has('cost');
   if(incl.has('site-breakdown')||incl.has('headline')){
-    doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(...NAVY);
-    doc.text('Site Breakdown', margin, y); y+=2;
-    doc.setDrawColor(...RULE); doc.setLineWidth(0.3); doc.line(margin,y,W-margin,y); y+=5;
-
+    sectionHeading('Site Breakdown');
     const siteOrder = ['desborough','selby','banbury','wellington'];
-    const siteMap = data.reduce((acc,e)=>{(acc[e.site]=acc[e.site]||[]).push(e);return acc;},{});
-    const siteRows = siteOrder.filter(s=>siteMap[s]).map(sid=>{
-      const entries=siteMap[sid], meta=SITES_META[sid]||{};
-      const runs    = entries.reduce((a,e)=>a+groupByShipment(e).length,0);
-      const loads   = entries.reduce((a,e)=>a+(e.total_trailers||(e.routes||[]).length),0);
-      const stops   = entries.reduce((a,e)=>a+sumStops(e),0);
-      const pallets = entries.reduce((a,e)=>a+sumPallets(e),0);
-      // Correct utilisation: pallets vs vehicle capacity (runs × 40 pallets target)
-      const cap  = runs*40;
-      const util = cap>0 ? Math.round(pallets/cap*100) : 0;
-      const cost = entries.reduce((a,e)=>{
-        return a+(e.routes||[]).reduce((b,r)=>{
-          const ic=actualRunCostTotal(sid, (r.stops_detail||[]).find(s=>s.actualCost)?.actualCost, r.pallets);
-          if(ic)return b+ic;
-          const rc=calcRunCost(sid,r.postcodes||r.pc||'');
-          return b+(rc?parseFloat(rc.cost):0);
-        },0);
-      },0);
-      const cpp = pallets>0&&cost>0 ? '£'+(cost/pallets).toFixed(2) : '—';
-      const costStr = cost>0 ? '£'+Math.round(cost).toLocaleString() : '—';
-      return { sid, name:meta.name||sid, runs, loads, stops, pallets, util, cost, cpp, costStr };
-    });
+    const siteRows = computeSiteBreakdownRows(data, siteOrder);
+
+    const head = ['Site','Runs','Loads','Stops','Pallets','Util %'];
+    const body = siteRows.map(r=>[r.name,r.runs,r.loads,r.stops,r.pallets.toLocaleString(),r.util+'%']);
+    const foot = ['Total','','',String(kt.totStops),kt.totPallets.toLocaleString(),kt.avgUtil+'%'];
+    const columnStyles = {
+      0:{fontStyle:'bold', cellWidth:40},
+      1:{halign:'right',cellWidth:16},
+      2:{halign:'right',cellWidth:16},
+      3:{halign:'right',cellWidth:16},
+      4:{halign:'right',cellWidth:20},
+      5:{halign:'right',cellWidth:16},
+    };
+    if(showCost){
+      head.push('Est. Cost','£/Plt');
+      siteRows.forEach((r,i)=>{ body[i].push(r.cost>0?'£'+Math.round(r.cost).toLocaleString():'—', r.cpp?'£'+r.cpp:'—'); });
+      foot.push(kt.totCost>0?'£'+Math.round(kt.totCost).toLocaleString():'—', kt.cpp?'£'+kt.cpp:'—');
+      columnStyles[6] = {halign:'right',cellWidth:24};
+      columnStyles[7] = {halign:'right',cellWidth:18};
+    }
 
     doc.autoTable({
       startY: y,
-      head: [['Site','Runs','Loads','Stops','Pallets','Util %','Est. Cost','£/Plt']],
-      body: siteRows.map(r=>[r.name,r.runs,r.loads,r.stops,r.pallets.toLocaleString(),r.util+'%',r.costStr,r.cpp]),
+      head: [head],
+      body,
       theme: 'grid',
       headStyles:{ fillColor:NAVY, textColor:WHITE, fontStyle:'bold', fontSize:8, cellPadding:3 },
       bodyStyles:{ fontSize:8, cellPadding:3 },
-      columnStyles:{
-        0:{fontStyle:'bold', cellWidth:36},
-        1:{halign:'right',cellWidth:14},
-        2:{halign:'right',cellWidth:14},
-        3:{halign:'right',cellWidth:14},
-        4:{halign:'right',cellWidth:18},
-        5:{halign:'right',cellWidth:14},
-        6:{halign:'right',cellWidth:24},
-        7:{halign:'right',cellWidth:18},
-      },
-      didParseCell(data){
-        if(data.section==='body'){
-          const r=siteRows[data.row.index];
+      columnStyles,
+      didParseCell(d){
+        if(d.section==='body'){
+          const r=siteRows[d.row.index];
           if(!r)return;
           const rgb=siteRgb(r.sid);
-          if(data.column.index===0){data.cell.styles.textColor=rgb;}
-          if(data.column.index===5){
+          if(d.column.index===0){d.cell.styles.textColor=rgb;}
+          if(d.column.index===5){
             const u=r.util;
-            data.cell.styles.textColor=u>=90?[39,174,96]:u>=70?[230,126,34]:[192,57,43];
-            data.cell.styles.fontStyle='bold';
+            d.cell.styles.textColor=u>=90?[39,174,96]:u>=70?[230,126,34]:[192,57,43];
+            d.cell.styles.fontStyle='bold';
           }
         }
       },
-      didDrawCell(data){
+      didDrawCell(d){
         // draw site colour bar on left of first column body rows
-        if(data.section==='body' && data.column.index===0){
-          const r=siteRows[data.row.index]; if(!r)return;
+        if(d.section==='body' && d.column.index===0){
+          const r=siteRows[d.row.index]; if(!r)return;
           const rgb=siteRgb(r.sid);
           doc.setFillColor(...rgb);
-          doc.rect(data.cell.x, data.cell.y, 2, data.cell.height, 'F');
+          doc.rect(d.cell.x, d.cell.y, 2, d.cell.height, 'F');
         }
       },
       margin:{left:margin,right:margin},
-      foot:[['Total','','',String(totStops),totPallets.toLocaleString(),avgUtil+'%',totCost>0?'£'+Math.round(totCost).toLocaleString():'—',cppAll?'£'+cppAll:'—']],
+      foot:[foot],
       footStyles:{fillColor:CREAM,textColor:INK,fontStyle:'bold',fontSize:8,cellPadding:3},
     });
     y = doc.lastAutoTable.finalY + 10;
   }
 
   // ── UTILISATION BARS (visual) ──
-  if(incl.has('utilisation') && y < 240){
+  if(incl.has('utilisation')){
     const siteOrder=['desborough','selby','banbury','wellington'];
-    const siteMap=data.reduce((acc,e)=>{(acc[e.site]=acc[e.site]||[]).push(e);return acc;},{});
-    doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(...NAVY);
-    doc.text('Utilisation by Site', margin, y); y+=2;
-    doc.setDrawColor(...RULE); doc.line(margin,y,W-margin,y); y+=5;
+    const siteRows = computeSiteBreakdownRows(data, siteOrder);
+    ensureRoom(14 + siteRows.length*11);
+    sectionHeading('Utilisation by Site');
     const barH=7, barMaxW=contentW-50, labelW=36;
-    siteOrder.filter(s=>siteMap[s]).forEach(sid=>{
-      const entries=siteMap[sid], meta=SITES_META[sid]||{};
-      const runs=entries.reduce((a,e)=>a+groupByShipment(e).length,0);
-      const pallets=entries.reduce((a,e)=>a+sumPallets(e),0);
-      const util=Math.min(runs*40>0?pallets/(runs*40):0,1.5);
-      const pct=Math.round(util*100);
-      const rgb=siteRgb(sid);
+    siteRows.forEach(r=>{
+      const pct=Math.min(r.util,150);
+      const rgb=siteRgb(r.sid);
       doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(...INK);
-      doc.text(meta.name||sid, margin, y+barH/2+1.5);
+      doc.text(r.name, margin, y+barH/2+1.5);
       // bar background
       doc.setFillColor(...CREAM); doc.setDrawColor(...RULE); doc.setLineWidth(0.2);
       doc.roundedRect(margin+labelW, y, barMaxW, barH, 1.5, 1.5, 'FD');
@@ -5538,35 +5603,23 @@ async function exportKpiPdf(data, opts) {
     y+=6;
   }
 
-  // ── DAILY BREAKDOWN ──
+  // ── DAILY BREAKDOWN ── (same computeDailyBreakdownRows as the on-screen table)
   if(incl.has('daily-breakdown') && start !== end){
-    const dateMap={};
-    data.forEach(e=>{(dateMap[e.date]=dateMap[e.date]||[]).push(e);});
-    const dates=Object.keys(dateMap).sort();
-    if(dates.length>1){
-      if(y>230){doc.addPage();y=20;}
-      doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(...NAVY);
-      doc.text('Daily Breakdown', margin, y); y+=2;
-      doc.setDrawColor(...RULE); doc.line(margin,y,W-margin,y); y+=5;
-      const dayRows=dates.map(date=>{
-        const entries=dateMap[date];
-        const runs=entries.reduce((a,e)=>a+groupByShipment(e).length,0);
-        const stops=entries.reduce((a,e)=>a+sumStops(e),0);
-        const pallets=entries.reduce((a,e)=>a+sumPallets(e),0);
-        const cap=runs*40; const util=cap>0?Math.round(pallets/cap*100):0;
-        const cost=entries.reduce((a,e)=>a+(e.routes||[]).reduce((b,r)=>{
-          const ic=actualRunCostTotal(e.site, (r.stops_detail||[]).find(s=>s.actualCost)?.actualCost, r.pallets);
-          if(ic)return b+ic;
-          const rc=calcRunCost(e.site,r.postcodes||r.pc||'');
-          return b+(rc?parseFloat(rc.cost):0);
-        },0),0);
-        const sitesStr=entries.map(e=>SITES_META[e.site]?.name||e.site).join(', ');
-        return[fmtShortDate(date),sitesStr,String(runs),String(stops),pallets.toLocaleString(),util+'%',cost>0?'£'+Math.round(cost).toLocaleString():'—'];
+    const dayRows = computeDailyBreakdownRows(data);
+    if(dayRows.length>1){
+      ensureRoom(20);
+      sectionHeading('Daily Breakdown');
+      const head = ['Date','Sites','Runs','Stops','Pallets','Util %'];
+      const body = dayRows.map(r=>{
+        const row=[fmtShortDate(r.date),r.sites,String(r.runs),String(r.stops),r.pallets.toLocaleString(),r.util+'%'];
+        if(showCost) row.push(r.cost>0?'£'+Math.round(r.cost).toLocaleString():'—');
+        return row;
       });
+      if(showCost) head.push('Est. Cost');
       doc.autoTable({
         startY:y,
-        head:[['Date','Sites','Runs','Stops','Pallets','Util %','Est. Cost']],
-        body:dayRows,
+        head:[head],
+        body,
         theme:'striped',
         headStyles:{fillColor:NAVY,textColor:WHITE,fontStyle:'bold',fontSize:8,cellPadding:3},
         bodyStyles:{fontSize:8,cellPadding:3},
@@ -5575,6 +5628,130 @@ async function exportKpiPdf(data, opts) {
         margin:{left:margin,right:margin},
       });
       y=doc.lastAutoTable.finalY+10;
+    }
+  }
+
+  // ── LOAD SHARING SAVINGS TRACKER (confirmed transfers) ──
+  if(incl.has('savings')){
+    const st = computeSavingsTrackerData(start, end);
+    ensureRoom(30);
+    sectionHeading('Load Sharing Savings Tracker');
+    if(!st.periodTransfers.length){
+      doc.setFontSize(8.5); doc.setFont('helvetica','normal'); doc.setTextColor(...INK3);
+      doc.text('No confirmed transfers in this period.', margin, y); y+=8;
+    } else {
+      doc.autoTable({
+        startY:y,
+        head:[['Truck cost saved','Miles avoided','CO₂ avoided','VPK 10%','Transfers']],
+        body:[[
+          '£'+Math.round(st.confCostPeriod).toLocaleString(),
+          Math.round(st.confMilesPeriod).toLocaleString()+' mi',
+          Math.round(st.confCO2Period)+' kg',
+          '£'+Math.round(st.confVpkPeriod).toLocaleString(),
+          String(st.periodTransfers.length),
+        ]],
+        theme:'grid',
+        headStyles:{fillColor:NAVY,textColor:WHITE,fontStyle:'bold',fontSize:8,cellPadding:3,halign:'center'},
+        bodyStyles:{fontSize:10,fontStyle:'bold',cellPadding:4,halign:'center',textColor:[39,174,96]},
+        margin:{left:margin,right:margin},
+      });
+      y=doc.lastAutoTable.finalY+4;
+      if(st.ytdTransfers.length > st.periodTransfers.length){
+        doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(...INK3);
+        doc.text(`Year to date: £${Math.round(st.confCostYtd).toLocaleString()} saved · ${Math.round(st.confMilesYtd).toLocaleString()} mi removed · ${Math.round(st.confCO2Ytd)} kg CO₂ avoided · ${st.ytdTransfers.length} total transfers`, margin, y);
+        y+=8;
+      } else { y+=4; }
+    }
+    y+=6;
+  }
+
+  // ── LOAD SHARING OPPORTUNITIES ── (live — see note below)
+  if(incl.has('load-sharing')){
+    const opps = computeOpps(todayData);
+    ensureRoom(24);
+    sectionHeading('Load Sharing Opportunities');
+    doc.setFontSize(7.5); doc.setFont('helvetica','italic'); doc.setTextColor(...INK3);
+    doc.text('Live snapshot as of report generation — reflects today\'s plan, not the selected period.', margin, y); y+=6;
+    if(!opps.length){
+      doc.setFontSize(8.5); doc.setFont('helvetica','normal'); doc.setTextColor(...INK3);
+      doc.text('No sharing opportunities today — network is well balanced.', margin, y); y+=8;
+    } else {
+      const totalSavings = opps.reduce((a,o)=>a+o.saving,0);
+      doc.autoTable({
+        startY:y,
+        head:[['From','To','Overlap postcodes','Avg dist','Est. saving']],
+        body: opps.slice(0,15).map(o=>[o.fromName,o.toName,o.overlap.join(', '),(o.avgDist||'<30')+' mi',o.saving+' mi']),
+        theme:'striped',
+        headStyles:{fillColor:NAVY,textColor:WHITE,fontStyle:'bold',fontSize:8,cellPadding:3},
+        bodyStyles:{fontSize:7.5,cellPadding:2.5},
+        alternateRowStyles:{fillColor:CREAM},
+        columnStyles:{3:{halign:'right'},4:{halign:'right',fontStyle:'bold'}},
+        margin:{left:margin,right:margin},
+        foot:[['Total','','','',totalSavings+' mi (~£'+Math.round(totalSavings*0.45)+')']],
+        footStyles:{fillColor:CREAM,textColor:INK,fontStyle:'bold',fontSize:7.5,cellPadding:2.5},
+      });
+      y=doc.lastAutoTable.finalY+10;
+    }
+  }
+
+  // ── UPLOAD COMPLIANCE ──
+  if(incl.has('compliance')){
+    const checkList = siteChecks && siteChecks.length ? siteChecks : Object.keys(SITES_META);
+    const siteRows = computeSiteBreakdownRows(data);
+    const rowMap = Object.fromEntries(siteRows.map(r=>[r.sid,r]));
+    ensureRoom(14 + checkList.length*8);
+    sectionHeading('Upload Compliance');
+    doc.autoTable({
+      startY:y,
+      head:[['Site','Status','Runs','Loads','Stops']],
+      body: checkList.map(sid=>{
+        const meta=SITES_META[sid]||{}; const r=rowMap[sid];
+        return [meta.name||sid, r?'Submitted':'Not uploaded', r?String(r.runs):'—', r?String(r.loads):'—', r?String(r.stops):'—'];
+      }),
+      theme:'grid',
+      headStyles:{fillColor:NAVY,textColor:WHITE,fontStyle:'bold',fontSize:8,cellPadding:3},
+      bodyStyles:{fontSize:8,cellPadding:3},
+      columnStyles:{2:{halign:'right'},3:{halign:'right'},4:{halign:'right'}},
+      didParseCell(d){
+        if(d.section==='body' && d.column.index===1){
+          d.cell.styles.textColor = d.cell.raw==='Submitted' ? [39,174,96] : [192,57,43];
+          d.cell.styles.fontStyle = 'bold';
+        }
+      },
+      margin:{left:margin,right:margin},
+    });
+    y=doc.lastAutoTable.finalY+10;
+  }
+
+  // ── DELIVERY POINT LEADERBOARD (top shared customers) ──
+  if(incl.has('leaderboard')){
+    const points = buildDeliveryPoints(data);
+    ensureRoom(24);
+    sectionHeading('Delivery Point Leaderboard — top shared customers');
+    const shared = points.filter(p=>p.sites.size>1);
+    if(!shared.length){
+      doc.setFontSize(8.5); doc.setFont('helvetica','normal'); doc.setTextColor(...INK3);
+      doc.text('No customers served by more than one depot in this period.', margin, y); y+=8;
+    } else {
+      doc.autoTable({
+        startY:y,
+        head:[['Customer','Postcode','Sites','Pallets']],
+        body: shared.slice(0,10).map(p=>[
+          p.customer, p.postcode,
+          Object.values(p.siteBreakdown).sort((a,b)=>b.pallets-a.pallets).map(s=>s.name).join(', '),
+          String(p.totalPallets),
+        ]),
+        theme:'striped',
+        headStyles:{fillColor:NAVY,textColor:WHITE,fontStyle:'bold',fontSize:8,cellPadding:3},
+        bodyStyles:{fontSize:8,cellPadding:3},
+        alternateRowStyles:{fillColor:CREAM},
+        columnStyles:{3:{halign:'right',fontStyle:'bold'}},
+        margin:{left:margin,right:margin},
+      });
+      y=doc.lastAutoTable.finalY+4;
+      doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(...INK3);
+      doc.text(`${shared.length} shared customer${shared.length!==1?'s':''} · ${points.length} unique delivery points · ${points.reduce((a,p)=>a+p.totalPallets,0).toLocaleString()} pallets total`, margin, y);
+      y+=8;
     }
   }
 
@@ -5611,77 +5788,49 @@ function renderKPIs() {
     if (kpiSavings) kpiSavings.innerHTML = '';
     return;
   }
-  // Use dataSet (period-filtered + site-filtered) for all headline metrics
+  // Use dataSet (period-filtered + site-filtered) for all headline metrics —
+  // computeKpiTotals is the single source of truth also used by the PDF export.
   const isMultiDay  = kpiPeriod !== 'today';
-  const opps        = computeOpps(todayData); // load sharing always uses live today
-  const totStops    = dataSet.reduce((a,e)=>a+sumStops(e),0);
-  const totPallets  = dataSet.reduce((a,e)=>a+sumPallets(e),0);
-  const totWeight   = dataSet.reduce((a,e)=>a+sumWeight(e),0);
-  const totLoads    = dataSet.reduce((a,e)=>a+countLoads(e),0);
-  const totRuns     = dataSet.reduce((a,e)=>a+groupByShipment(e).length,0);
-  // Utilisation: pallets vs vehicle capacity (runs × 40 target pallets)
-  const totCap      = dataSet.reduce((a,e)=>a+groupByShipment(e).length*40,0);
-  const avgUtil     = totCap>0 ? Math.round(totPallets/totCap*100) : 0;
+  const t           = computeKpiTotals(dataSet);
+  // Load sharing opportunities are a live, right-now signal (which stops are
+  // currently closer to another depot) — there's no historical record of past
+  // opportunities to look back on, so this always reflects today regardless
+  // of the period filter. Clearly labelled "live" below so it doesn't read
+  // as a bug when the other tiles change with the period and this doesn't.
+  const opps        = computeOpps(todayData);
   const totalSavings = opps.reduce((a,o)=>a+o.saving,0);
   // Compliance: use todayData for today, count unique sites in period for range
-  const uploadedSites = isMultiDay ? new Set(dataSet.map(e=>e.site)).size : todayData.length;
-  const overCap     = dataSet.filter(e=>sumPallets(e)>groupByShipment(e).length*40).length;
+  const uploadedSites = isMultiDay ? t.totSites : todayData.length;
   const costPerMile = 0.45;
-  const daysLabel   = isMultiDay ? (() => {const ds=new Set(dataSet.map(e=>e.date));return ds.size+' day'+(ds.size!==1?'s':'');})() : '1 day';
-  // ── 6 KPI cards ──
-  function kpiCard(accent, label, value, unit, sub, pill, pillColor) {
-    return `<div class="kpi-card">
-      <div class="kpi-accent" style="background:${accent}"></div>
-      <div class="kpi-eyebrow">${label}</div>
-      <div class="kpi-value">${value}${unit?`<span style="font-size:18px;font-weight:400;color:var(--ink3)"> ${unit}</span>`:''}</div>
-      <div class="kpi-sub">${sub}</div>
-      ${pill?`<div class="kpi-trend-row" style="margin-top:12px"><span class="kpi-trend" style="background:${pillColor}20;color:${pillColor}">${pill}</span></div>`:''}
-    </div>`;
-  }
-  const utilCol  = avgUtil>=90?'var(--red)':avgUtil>=75?'var(--amber)':'var(--green)';
+  const daysLabel   = isMultiDay ? `${t.totDays} day${t.totDays!==1?'s':''}` : '1 day';
+  const utilCol  = t.avgUtil>=90?'var(--red)':t.avgUtil>=75?'var(--amber)':'var(--green)';
   const compCol  = uploadedSites===4?'var(--green)':'var(--amber)';
-  const overCol  = overCap>0?'var(--red)':'var(--green)';
   // ── Savings tracker data ──
   const periodStart = (() => { if(kpiPeriod==='today') return viewDate||todayStr(); const r=getKpiDateRange(kpiPeriod); return r.start; })();
   const periodEnd   = (() => { if(kpiPeriod==='today') return viewDate||todayStr(); const r=getKpiDateRange(kpiPeriod); return r.end; })();
-  const allTransfers     = _confirmedTransfers || [];
-  const periodTransfers  = allTransfers.filter(t => t.transfer_date >= periodStart && t.transfer_date <= periodEnd);
-  const ytdTransfers     = allTransfers.filter(t => t.transfer_date >= (viewDate||todayStr()).slice(0,4)+'-01-01');
-  const confCostPeriod   = periodTransfers.reduce((a,t)=>a+parseFloat(t.total_cost_saved||0),0);
-  const confMilesPeriod  = periodTransfers.reduce((a,t)=>a+parseFloat(t.miles_saved||0),0);
-  const confCO2Period    = periodTransfers.reduce((a,t)=>a+parseFloat(t.co2_kg_saved||0),0);
-  const confVpkPeriod    = periodTransfers.reduce((a,t)=>a+parseFloat(t.total_cost_saved||0)*0.10,0);
-  const confCostYtd      = ytdTransfers.reduce((a,t)=>a+parseFloat(t.total_cost_saved||0),0);
-  const confMilesYtd     = ytdTransfers.reduce((a,t)=>a+parseFloat(t.miles_saved||0),0);
-  const confCO2Ytd       = ytdTransfers.reduce((a,t)=>a+parseFloat(t.co2_kg_saved||0),0);
-  // Est network cost
-  const estCost  = dataSet.reduce((a,e)=>{
-    return a+(e.routes||[]).reduce((b,r)=>{
-      const ic=actualRunCostTotal(e.site, (r.stops_detail||[]).find(s=>s.actualCost)?.actualCost, r.pallets);
-      if(ic) return b+ic;
-      const rc=calcRunCost(e.site,r.postcodes||r.pc||'');
-      return b+(rc?parseFloat(rc.cost):0);
-    },0);
-  },0);
-  const cpp = totPallets>0&&estCost>0 ? (estCost/totPallets).toFixed(2) : null;
+  const {
+    allTransfers, periodTransfers, ytdTransfers,
+    confCostPeriod, confMilesPeriod, confCO2Period, confVpkPeriod,
+    confCostYtd, confMilesYtd, confCO2Ytd,
+  } = computeSavingsTrackerData(periodStart, periodEnd);
   const periodLabel = isMultiDay ? daysLabel : 'today';
 
   if (kpiGrid) kpiGrid.innerHTML = `
     <!-- ── Row 1: 4 hero metrics ── -->
     <div class="kpi-stat-tile" style="border-left:3px solid var(--navy)">
-      <div class="stat-val">${totRuns}</div>
+      <div class="stat-val">${t.totRuns}</div>
       <div class="stat-lbl">${isMultiDay?'Total runs — '+daysLabel:'Total runs today'}</div>
-      <div class="stat-sub">${totLoads} loads · ${new Set(dataSet.map(e=>e.site)).size} sites active</div>
+      <div class="stat-sub">${t.totLoads} loads · ${t.totSites} sites active</div>
     </div>
     <div class="kpi-stat-tile" style="border-left:3px solid var(--navy2)">
-      <div class="stat-val">${totStops}</div>
+      <div class="stat-val">${t.totStops}</div>
       <div class="stat-lbl">Delivery stops</div>
-      <div class="stat-sub">${totPallets.toLocaleString()} pallets · ${totWeight.toFixed(1)}t</div>
+      <div class="stat-sub">${t.totPallets.toLocaleString()} pallets · ${t.totWeight.toFixed(1)}t</div>
     </div>
     <div class="kpi-stat-tile" style="border-left:3px solid ${utilCol}">
-      <div class="stat-val" style="color:${utilCol}">${avgUtil}%</div>
+      <div class="stat-val" style="color:${utilCol}">${t.avgUtil}%</div>
       <div class="stat-lbl">Avg utilisation</div>
-      <div class="stat-sub">${avgUtil>=90?'⚠ Over capacity — action needed':avgUtil>=75?'Near capacity':'✓ Healthy — within target'}</div>
+      <div class="stat-sub">${t.avgUtil>=90?'⚠ Over capacity — action needed':t.avgUtil>=75?'Near capacity':'✓ Healthy — within target'}</div>
     </div>
     <div class="kpi-stat-tile" style="border-left:3px solid ${compCol}">
       <div class="stat-val">${uploadedSites}<span style="font-size:18px;font-weight:400;color:var(--ink3)">/4</span></div>
@@ -5691,23 +5840,23 @@ function renderKPIs() {
 
     <!-- ── Row 2: 4 supporting metrics ── -->
     <div class="kpi-stat-tile">
-      <div class="stat-val" style="font-size:22px">${estCost>0?'£'+Math.round(estCost).toLocaleString():'—'}</div>
+      <div class="stat-val" style="font-size:22px">${t.totCost>0?'£'+Math.round(t.totCost).toLocaleString():'—'}</div>
       <div class="stat-lbl">Est. network cost</div>
-      <div class="stat-sub">${cpp?'£'+cpp+' per pallet':isMultiDay?daysLabel:'today'}</div>
+      <div class="stat-sub">${t.cpp?'£'+t.cpp+' per pallet':isMultiDay?daysLabel:'today'}</div>
     </div>
     <div class="kpi-stat-tile">
-      <div class="stat-val" style="font-size:22px">${cpp?'£'+cpp:'—'}</div>
+      <div class="stat-val" style="font-size:22px">${t.cpp?'£'+t.cpp:'—'}</div>
       <div class="stat-lbl">Cost per pallet</div>
-      <div class="stat-sub">${totPallets.toLocaleString()} pallets across ${new Set(dataSet.map(e=>e.site)).size} sites</div>
+      <div class="stat-sub">${t.totPallets.toLocaleString()} pallets across ${t.totSites} sites</div>
     </div>
     <div class="kpi-stat-tile">
-      <div class="stat-val" style="font-size:22px">${overCap}</div>
+      <div class="stat-val" style="font-size:22px">${t.overCap}</div>
       <div class="stat-lbl">Sites over capacity</div>
-      <div class="stat-sub">${overCap===0?'✓ All sites within limit':`${overCap} plan${overCap!==1?'s':''} need attention`}</div>
+      <div class="stat-sub">${t.overCap===0?'✓ All sites within limit':`${t.overCap} plan${t.overCap!==1?'s':''} need attention`}</div>
     </div>
-    <div class="kpi-stat-tile">
+    <div class="kpi-stat-tile" style="position:relative">
       <div class="stat-val" style="font-size:22px">${opps.length}</div>
-      <div class="stat-lbl">Sharing opps today</div>
+      <div class="stat-lbl">Sharing opps <span title="Always shows today's live opportunities — not affected by the period filter above, since sharing opportunities aren't stored historically." style="display:inline-flex;align-items:center;gap:3px;color:var(--amber);cursor:help">● live</span></div>
       <div class="stat-sub">~${totalSavings} mi · ~£${Math.round(totalSavings*costPerMile)} if all taken</div>
     </div>`;
 
@@ -5746,18 +5895,14 @@ function renderKPIs() {
           <span><strong style="color:var(--ink)">${ytdTransfers.length}</strong> total transfers</span>
         </div>` : ''}`;
   }
-  // ── Site breakdown — aggregate across all days in period ──
-  const siteDataMap = dataSet.reduce((acc,e)=>{(acc[e.site]=acc[e.site]||[]).push(e);return acc;},{});
-  const maxS = Math.max(...Object.values(siteDataMap).map(arr=>arr.reduce((a,e)=>a+sumStops(e),0)), 1);
+  // ── Site breakdown — one calc, shared with the PDF export ──
+  const siteRows = computeSiteBreakdownRows(dataSet);
+  const siteRowMap = Object.fromEntries(siteRows.map(r=>[r.sid,r]));
+  const maxS = Math.max(...siteRows.map(r=>r.stops), 1);
   if (kpiBreakdown) kpiBreakdown.innerHTML = Object.keys(SITES_META).map(sid => {
     const meta = SITES_META[sid];
-    const entries = siteDataMap[sid] || [];
-    const e    = entries.length === 1 ? entries[0] : entries.length > 0 ? {
-      site: sid, capacity: entries[0].capacity,
-      routes: entries.flatMap(en=>en.routes||[]),
-      total_trailers: entries.reduce((a,en)=>a+(en.total_trailers||0),0),
-    } : null;
-    if (!e) return `<div class="kpi-breakdown-row">
+    const r = siteRowMap[sid];
+    if (!r) return `<div class="kpi-breakdown-row">
       <div class="kpi-site-label">
         ${meta.logo?`<img src="${meta.logo}" style="height:20px;width:auto;object-fit:contain" alt="${meta.name}">`:`<div style="width:8px;height:8px;border-radius:50%;background:${meta.color}40"></div>`}
         <span>${meta.name}</span>
@@ -5769,50 +5914,39 @@ function renderKPIs() {
       <div class="kpi-cell" style="color:var(--ink3)">—</div>
       <div class="kpi-cell"><span class="compliance-status cs-miss">No data</span></div>
     </div>`;
-    // Aggregate across all days in the period for this site
-    const runs   = entries.reduce((a,en)=>a+groupByShipment(en).length, 0);
-    const loads  = entries.reduce((a,en)=>a+countLoads(en), 0);
-    const s      = entries.reduce((a,en)=>a+sumStops(en), 0);
-    const p      = entries.reduce((a,en)=>a+sumPallets(en), 0);
-    // Utilisation: pallets vs (runs × 40 target)
-    const cap    = runs * 40 || 40;
-    const pct    = Math.round(p/cap*100);
-    const col    = pct>=90?'var(--red)':pct>=75?'var(--amber)':'var(--green)';
-    const pill   = pct>=90?'cs-miss':pct>=75?'cs-warn':'cs-ok';
-    const lbl    = pct>=90?'Over':pct>=75?'Near cap':'On track';
+    const col    = r.util>=90?'var(--red)':r.util>=75?'var(--amber)':'var(--green)';
+    const pill   = r.util>=90?'cs-miss':r.util>=75?'cs-warn':'cs-ok';
+    const lbl    = r.util>=90?'Over':r.util>=75?'Near cap':'On track';
     return `<div class="kpi-breakdown-row">
       <div class="kpi-site-label">
         ${meta.logo?`<img src="${meta.logo}" style="height:20px;width:auto;object-fit:contain" alt="${meta.name}">`:`<div style="width:8px;height:8px;border-radius:50%;background:${meta.color}"></div>`}
         <span>${meta.name}</span>
       </div>
-      <div class="kpi-cell" style="font-family:var(--font-mono);font-weight:600">${runs}</div>
-      <div class="kpi-cell" style="font-family:var(--font-mono);font-weight:600">${loads}</div>
-      <div class="kpi-cell">${s}
-        <div class="inline-bar"><div class="inline-bar-fill" style="width:${Math.round(s/maxS*100)}%;background:${meta.color}"></div></div>
+      <div class="kpi-cell" style="font-family:var(--font-mono);font-weight:600">${r.runs}</div>
+      <div class="kpi-cell" style="font-family:var(--font-mono);font-weight:600">${r.loads}</div>
+      <div class="kpi-cell">${r.stops}
+        <div class="inline-bar"><div class="inline-bar-fill" style="width:${Math.round(r.stops/maxS*100)}%;background:${meta.color}"></div></div>
       </div>
-      <div class="kpi-cell" style="font-family:var(--font-mono)">${p}</div>
-      <div class="kpi-cell" style="font-family:var(--font-mono);color:${col};font-weight:600">${pct}%</div>
+      <div class="kpi-cell" style="font-family:var(--font-mono)">${r.pallets}</div>
+      <div class="kpi-cell" style="font-family:var(--font-mono);color:${col};font-weight:600">${r.util}%</div>
       <div class="kpi-cell"><span class="compliance-status ${pill}">${lbl}</span></div>
     </div>`;
   }).join('');
   // ── Compliance ──
   if (kpiCompliance) kpiCompliance.innerHTML = Object.keys(SITES_META).map(sid => {
-    const meta    = SITES_META[sid];
-    const entries = siteDataMap[sid] || [];
-    const has     = entries.length > 0;
-    const runs    = entries.reduce((a,en)=>a+groupByShipment(en).length,0);
-    const loads   = entries.reduce((a,en)=>a+countLoads(en),0);
-    const stops   = entries.reduce((a,en)=>a+sumStops(en),0);
-    const daysStr = isMultiDay && has ? ` · ${new Set(entries.map(en=>en.date)).size} day${new Set(entries.map(en=>en.date)).size!==1?'s':''}` : '';
+    const meta = SITES_META[sid];
+    const r    = siteRowMap[sid];
+    const has  = !!r;
+    const daysStr = isMultiDay && has ? ` · ${r.days} day${r.days!==1?'s':''}` : '';
     return `<div class="compliance-row">
       <div class="compliance-site">
         <div class="compliance-dot" style="background:${has?meta.color:meta.color+'40'}"></div>
         <div>
           <div>${meta.name} <span style="font-size:11px;color:var(--ink3);font-weight:400">${meta.biz}</span></div>
-          ${has?`<div style="font-size:11px;font-family:var(--font-mono);color:var(--ink3)">${runs} runs · ${loads} loads · ${stops} stops${daysStr}</div>`:''}
+          ${has?`<div style="font-size:11px;font-family:var(--font-mono);color:var(--ink3)">${r.runs} runs · ${r.loads} loads · ${r.stops} stops${daysStr}</div>`:''}
         </div>
       </div>
-      <span class="compliance-status ${has?'cs-ok':'cs-miss'}">${has?(isMultiDay?'✓ '+new Set(entries.map(en=>en.date)).size+' days':'✓ Submitted'):'Not uploaded'}</span>
+      <span class="compliance-status ${has?'cs-ok':'cs-miss'}">${has?(isMultiDay?'✓ '+r.days+' days':'✓ Submitted'):'Not uploaded'}</span>
     </div>`;
   }).join('');
   // ── Sharing opportunities ──
@@ -9116,10 +9250,10 @@ function wireTooltips() {
     '.exp-card:nth-child(3)': 'Email draft',
     '.exp-card:nth-child(4)': 'JSON',
     // KPI cards
-    '.kpi-card:nth-child(1)': 'Total stops',
-    '.kpi-card:nth-child(2)': 'Utilisation',
-    '.kpi-card:nth-child(3)': 'Savings',
-    '.kpi-card:nth-child(4)': 'Compliance',
+    '.kpi-stat-tile:nth-child(1)': 'Total runs',
+    '.kpi-stat-tile:nth-child(2)': 'Delivery stops',
+    '.kpi-stat-tile:nth-child(3)': 'Utilisation',
+    '.kpi-stat-tile:nth-child(4)': 'Compliance',
     // Status pills
     '.live-dot':              'Live',
   };
