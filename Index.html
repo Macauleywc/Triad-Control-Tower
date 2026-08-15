@@ -3889,13 +3889,50 @@ const sumWeight  = e => (e.routes||[]).reduce((a,r) => a + Number(r.weight||0), 
    further down the file but usable here — they're function declarations,
    which are hoisted.)
 ══════════════════════════════════════════ */
-function entryCost(e) {
-  return (e.routes||[]).reduce((b,r) => {
-    const ic = actualRunCostTotal(e.site, (r.stops_detail||[]).find(s=>s.actualCost)?.actualCost, r.pallets);
-    if (ic) return b + ic;
-    const rc = calcRunCost(e.site, r.postcodes||r.pc||'');
-    return b + (rc ? parseFloat(rc.cost) : 0);
-  }, 0);
+// Cost for a single route, plus which source it came from — 'actual' (a real
+// cost was imported from the spreadsheet), 'estimated' (fell back to the
+// mileage-based formula because no actual cost was found), or 'none' (no
+// cost could be produced at all — usually missing postcode data).
+function routeCostDetail(site, route) {
+  const rawActual = (route.stops_detail||[]).find(s=>s.actualCost)?.actualCost;
+  const ic = actualRunCostTotal(site, rawActual, route.pallets);
+  if (ic) return { cost: ic, source: 'actual' };
+  const rc = calcRunCost(site, route.postcodes||route.pc||'');
+  if (rc) return { cost: parseFloat(rc.cost), source: 'estimated' };
+  return { cost: 0, source: 'none' };
+}
+// Total cost for one plan entry (a site on a date), plus a breakdown of how
+// many of its routes were real vs estimated — this is what lets every UI
+// that shows a cost figure also show whether that figure is trustworthy.
+function entryCostDetail(e) {
+  let cost = 0, actualCount = 0, estimatedCount = 0, noneCount = 0;
+  (e.routes||[]).forEach(r => {
+    const d = routeCostDetail(e.site, r);
+    cost += d.cost;
+    if (d.source==='actual') actualCount++;
+    else if (d.source==='estimated') estimatedCount++;
+    else noneCount++;
+  });
+  return { cost, actualCount, estimatedCount, noneCount };
+}
+function entryCost(e) { return entryCostDetail(e).cost; }
+// 'actual' = every route that produced a cost used a real imported figure.
+// 'estimated' = every route that produced a cost used the mileage fallback.
+// 'mixed' = some of each. null = no cost could be produced at all.
+function costSourceLabel(actual, estimated) {
+  if (!actual && !estimated) return null;
+  if (estimated===0) return 'actual';
+  if (actual===0) return 'estimated';
+  return 'mixed';
+}
+// On-screen badge for a cost figure whose source isn't fully "actual" —
+// deliberately silent when the source IS fully actual (or there's no cost
+// at all), so the badge only appears when it's telling you something you
+// need to know: this number includes a mileage-based guess, not a real cost.
+function costSourceBadge(source) {
+  if (source === 'estimated') return ` <span style="color:var(--amber);font-weight:600;cursor:help" title="No actual cost was imported for these runs — this figure is a mileage-based estimate, not a real cost.">~ estimated</span>`;
+  if (source === 'mixed') return ` <span style="color:var(--amber);font-weight:600;cursor:help" title="Some runs use a real imported cost; others had none, so this figure blends real costs with a mileage-based estimate.">~ partly estimated</span>`;
+  return '';
 }
 function computeKpiTotals(data) {
   const totRuns    = data.reduce((a,e)=>a+groupByShipment(e).length, 0);
@@ -3906,12 +3943,17 @@ function computeKpiTotals(data) {
   // Vehicle capacity target: runs × 40 pallets (a "run" = one vehicle trip).
   const totCap     = totRuns * 40;
   const avgUtil    = totCap>0 ? Math.round(totPallets/totCap*100) : 0;
-  const totCost    = data.reduce((a,e)=>a+entryCost(e), 0);
+  let totCost=0, actualRuns=0, estimatedRuns=0;
+  data.forEach(e => {
+    const d = entryCostDetail(e);
+    totCost += d.cost; actualRuns += d.actualCount; estimatedRuns += d.estimatedCount;
+  });
+  const costSource = costSourceLabel(actualRuns, estimatedRuns);
   const cpp        = totPallets>0 && totCost>0 ? (totCost/totPallets).toFixed(2) : null;
   const totSites   = new Set(data.map(e=>e.site)).size;
   const overCap    = data.filter(e=>sumPallets(e) > groupByShipment(e).length*40).length;
   const totDays    = new Set(data.map(e=>e.date)).size;
-  return { totRuns, totLoads, totStops, totPallets, totWeight, totCap, avgUtil, totCost, cpp, totSites, overCap, totDays };
+  return { totRuns, totLoads, totStops, totPallets, totWeight, totCap, avgUtil, totCost, cpp, totSites, overCap, totDays, costSource, actualRuns, estimatedRuns };
 }
 // Per-site rows for the given entries — shared by the dashboard breakdown
 // table and the PDF's site-breakdown table.
@@ -3924,7 +3966,7 @@ function computeSiteBreakdownRows(data, siteOrder) {
     return {
       sid, name: SITES_META[sid]?.name||sid,
       runs: t.totRuns, loads: t.totLoads, stops: t.totStops, pallets: t.totPallets,
-      util: t.avgUtil, cost: t.totCost, cpp: t.cpp, days: t.totDays,
+      util: t.avgUtil, cost: t.totCost, cpp: t.cpp, days: t.totDays, costSource: t.costSource,
     };
   });
 }
@@ -3958,7 +4000,7 @@ function computeDailyBreakdownRows(data) {
     return {
       date, sites: entries.map(e=>SITES_META[e.site]?.name||e.site).join(', '),
       runs: t.totRuns, loads: t.totLoads, stops: t.totStops, pallets: t.totPallets,
-      util: t.avgUtil, cost: t.totCost, cpp: t.cpp,
+      util: t.avgUtil, cost: t.totCost, cpp: t.cpp, costSource: t.costSource,
     };
   });
 }
@@ -5370,6 +5412,10 @@ function renderKpiPeriodBreakdown(data) {
   // given utilisation number is never colored differently in different
   // parts of this page.
   const utilColor = u => u>=90?'var(--red)':u>=75?'var(--amber)':'var(--green)';
+  const costDot = source => source==='estimated'||source==='mixed'
+    ? ` <span style="color:var(--amber);cursor:help" title="${source==='mixed'?'Some runs use a real imported cost; others had none, so this figure blends real costs with a mileage-based estimate.':'No actual cost was imported for this day — this figure is a mileage-based estimate, not a real cost.'}">●</span>`
+    : '';
+  const anyEstimated = dayRows.some(r=>r.costSource==='estimated'||r.costSource==='mixed');
   const rows = dayRows.map(r => `<div class="kpi-daily-row">
       <span style="font-family:var(--font-mono);font-size:12px;color:var(--ink3)">${fmtShortDate(r.date)}</span>
       <span style="font-size:12px;color:var(--ink);font-weight:500;text-align:left">${r.sites}</span>
@@ -5377,7 +5423,7 @@ function renderKpiPeriodBreakdown(data) {
       <span class="kpi-cell">${r.stops}</span>
       <span class="kpi-cell" style="font-weight:600">${r.pallets.toLocaleString()}</span>
       <span class="kpi-cell" style="font-weight:700;color:${utilColor(r.util)}">${r.util}%</span>
-      <span class="kpi-cell">${r.cost>0?'£'+Math.round(r.cost).toLocaleString():'—'}</span>
+      <span class="kpi-cell">${r.cost>0?'£'+Math.round(r.cost).toLocaleString():'—'}${costDot(r.costSource)}</span>
     </div>`).join('');
   el.innerHTML = `
     <div class="kpi-section-header">
@@ -5396,9 +5442,10 @@ function renderKpiPeriodBreakdown(data) {
         <span class="kpi-cell" style="color:var(--ink);font-weight:700">${t.totStops}</span>
         <span class="kpi-cell" style="color:var(--ink);font-weight:700">${t.totPallets.toLocaleString()}</span>
         <span class="kpi-cell" style="color:${utilColor(t.avgUtil)};font-weight:700">${t.avgUtil}%</span>
-        <span class="kpi-cell" style="color:var(--ink);font-weight:700">${t.totCost>0?'£'+Math.round(t.totCost).toLocaleString():'—'}</span>
+        <span class="kpi-cell" style="color:var(--ink);font-weight:700">${t.totCost>0?'£'+Math.round(t.totCost).toLocaleString():'—'}${costDot(t.costSource)}</span>
       </div>
-    </div>`;
+    </div>
+    ${anyEstimated?`<div style="font-size:11px;color:var(--ink3);padding:8px 4px 0"><span style="color:var(--amber)">●</span> cost includes a mileage-based estimate — no actual cost was found in that day's import for one or more runs.</div>`:''}`;
 }
 
 /* ══════════════════════════════════════════
@@ -5531,7 +5578,7 @@ async function exportKpiPdf(data, opts) {
     {label:'Delivery Stops',value:String(kt.totStops),  sub:null},
     {label:'Total Pallets', value:kt.totPallets.toLocaleString(), sub:null},
     {label:'Avg Utilisation',value:kt.avgUtil+'%',       sub:null},
-    {label:'Est. Network Cost',value:kt.totCost>0?'£'+Math.round(kt.totCost).toLocaleString():'—', sub:kt.cpp?'£'+kt.cpp+'/plt':null},
+    {label:'Est. Network Cost',value:kt.totCost>0?'£'+Math.round(kt.totCost).toLocaleString():'—', sub:(kt.costSource==='estimated'||kt.costSource==='mixed')?'includes est.*':kt.cpp?'£'+kt.cpp+'/plt':null},
     {label:'Sites Active',  value:kt.totSites+'/4',      sub:null},
   ];
   const tW=(contentW-10)/3, tH=22;
@@ -5571,8 +5618,12 @@ async function exportKpiPdf(data, opts) {
     };
     if(showCost){
       head.push('Est. Cost','£/Plt');
-      siteRows.forEach((r,i)=>{ body[i].push(r.cost>0?'£'+Math.round(r.cost).toLocaleString():'—', r.cpp?'£'+r.cpp:'—'); });
-      foot.push(kt.totCost>0?'£'+Math.round(kt.totCost).toLocaleString():'—', kt.cpp?'£'+kt.cpp:'—');
+      siteRows.forEach((r,i)=>{
+        const flag = r.costSource==='estimated'||r.costSource==='mixed' ? ' *' : '';
+        body[i].push(r.cost>0?'£'+Math.round(r.cost).toLocaleString()+flag:'—', r.cpp?'£'+r.cpp:'—');
+      });
+      const totFlag = kt.costSource==='estimated'||kt.costSource==='mixed' ? ' *' : '';
+      foot.push(kt.totCost>0?'£'+Math.round(kt.totCost).toLocaleString()+totFlag:'—', kt.cpp?'£'+kt.cpp:'—');
       columnStyles[6] = {halign:'right',cellWidth:24};
       columnStyles[7] = {halign:'right',cellWidth:18};
     }
@@ -5596,6 +5647,9 @@ async function exportKpiPdf(data, opts) {
             d.cell.styles.textColor=utilRgb(u);
             d.cell.styles.fontStyle='bold';
           }
+          if(d.column.index===6 && (r.costSource==='estimated'||r.costSource==='mixed')){
+            d.cell.styles.textColor=AMBER_RGB;
+          }
         }
       },
       didDrawCell(d){
@@ -5612,7 +5666,11 @@ async function exportKpiPdf(data, opts) {
       showFoot:'lastPage',
       footStyles:{fillColor:CREAM,textColor:INK,fontStyle:'bold',fontSize:8,cellPadding:3},
     });
-    y = doc.lastAutoTable.finalY + 10;
+    y = doc.lastAutoTable.finalY + (showCost && siteRows.some(r=>r.costSource==='estimated'||r.costSource==='mixed') ? 5 : 10);
+    if(showCost && siteRows.some(r=>r.costSource==='estimated'||r.costSource==='mixed')){
+      doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(...INK3);
+      doc.text('* includes a mileage-based estimate — no actual cost was found in the import for one or more runs.', margin, y); y+=8;
+    }
   }
 
   // ── UTILISATION BARS (visual) ──
@@ -5653,12 +5711,18 @@ async function exportKpiPdf(data, opts) {
       const head = ['Date','Sites','Runs','Stops','Pallets','Util %'];
       const body = dayRows.map(r=>{
         const row=[fmtShortDate(r.date),r.sites,String(r.runs),String(r.stops),r.pallets.toLocaleString(),r.util+'%'];
-        if(showCost) row.push(r.cost>0?'£'+Math.round(r.cost).toLocaleString():'—');
+        if(showCost){
+          const flag = r.costSource==='estimated'||r.costSource==='mixed' ? ' *' : '';
+          row.push(r.cost>0?'£'+Math.round(r.cost).toLocaleString()+flag:'—');
+        }
         return row;
       });
       if(showCost) head.push('Est. Cost');
       const footRow=['Total','',String(kt.totRuns),String(kt.totStops),kt.totPallets.toLocaleString(),kt.avgUtil+'%'];
-      if(showCost) footRow.push(kt.totCost>0?'£'+Math.round(kt.totCost).toLocaleString():'—');
+      if(showCost){
+        const totFlag = kt.costSource==='estimated'||kt.costSource==='mixed' ? ' *' : '';
+        footRow.push(kt.totCost>0?'£'+Math.round(kt.totCost).toLocaleString()+totFlag:'—');
+      }
       doc.autoTable({
         startY:y,
         head:[head],
@@ -5672,8 +5736,18 @@ async function exportKpiPdf(data, opts) {
         foot:[footRow],
         showFoot:'lastPage',
         footStyles:{fillColor:CREAM,textColor:INK,fontStyle:'bold',fontSize:8,cellPadding:3},
+        didParseCell(d){
+          if(d.section==='body' && showCost && d.column.index===6){
+            const r=dayRows[d.row.index]; if(!r)return;
+            if(r.costSource==='estimated'||r.costSource==='mixed') d.cell.styles.textColor=AMBER_RGB;
+          }
+        },
       });
-      y=doc.lastAutoTable.finalY+10;
+      y=doc.lastAutoTable.finalY + (showCost && dayRows.some(r=>r.costSource==='estimated'||r.costSource==='mixed') ? 5 : 10);
+      if(showCost && dayRows.some(r=>r.costSource==='estimated'||r.costSource==='mixed')){
+        doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(...INK3);
+        doc.text('* includes a mileage-based estimate — no actual cost was found in the import for one or more runs.', margin, y); y+=8;
+      }
     }
   }
 
@@ -5918,7 +5992,7 @@ function renderKPIs() {
     <div class="kpi-stat-tile">
       <div class="stat-val" style="font-size:22px">${t.totCost>0?'£'+Math.round(t.totCost).toLocaleString():'—'}</div>
       <div class="stat-lbl">Est. network cost</div>
-      <div class="stat-sub">${t.cpp?'£'+t.cpp+' per pallet':isMultiDay?daysLabel:'today'}</div>
+      <div class="stat-sub">${t.cpp?'£'+t.cpp+' per pallet':isMultiDay?daysLabel:'today'}${costSourceBadge(t.costSource)}</div>
     </div>
     <div class="kpi-stat-tile">
       <div class="stat-val" style="font-size:22px">${t.cpp?'£'+t.cpp:'—'}</div>
