@@ -2959,6 +2959,14 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
         <span id="kpi-period-label" style="font-size:11px;color:var(--ink3);font-family:var(--font-mono);margin-left:4px"></span>
         <span id="kpi-loading" style="display:none;font-size:11px;color:var(--ink3);font-family:var(--font-mono)">Loading…</span>
       </div>
+      <!-- Site filter — same active-sites state as the date picker's site chips, kept in sync -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+        <span style="font-size:12px;font-weight:600;color:var(--ink3);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.05em">Sites:</span>
+        <button class="dp-site-chip active" data-site="desborough" onclick="kpiToggleSite('desborough')"><span class="dot" style="background:#E8520A"></span>Desborough</button>
+        <button class="dp-site-chip active" data-site="selby"      onclick="kpiToggleSite('selby')"     ><span class="dot" style="background:#1e3a6e"></span>Selby</button>
+        <button class="dp-site-chip active" data-site="banbury"    onclick="kpiToggleSite('banbury')"   ><span class="dot" style="background:#c0392b"></span>Banbury</button>
+        <button class="dp-site-chip active" data-site="wellington" onclick="kpiToggleSite('wellington')"><span class="dot" style="background:#1a7a4a"></span>Wellington</button>
+      </div>
       <!-- Headline metrics: 4 hero + 4 supporting -->
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px" id="kpi-grid"></div>
 
@@ -3735,10 +3743,20 @@ function dpToggleSite(sid) {
   } else {
     _dpActiveSites.add(sid);
   }
-  // Update chip appearance
+  // Update chip appearance — global selector so this also updates the KPI
+  // tab's own site chips, keeping both controls in sync automatically.
   document.querySelectorAll('.dp-site-chip').forEach(chip => {
     chip.classList.toggle('active', _dpActiveSites.has(chip.dataset.site));
   });
+}
+// KPI tab's own site filter row. Shares _dpActiveSites with the date picker's
+// chips (so the two controls can never disagree about which sites are
+// active) but, unlike the date picker, applies immediately — no "Apply"
+// click needed — since the KPI tab has no other pending change to batch it with.
+function kpiToggleSite(sid) {
+  dpToggleSite(sid);
+  window._kpiSiteFilter = _dpActiveSites.size < 4 ? new Set(_dpActiveSites) : null;
+  renderKPIs();
 }
 
 function dpQuickRange(type) {
@@ -5393,6 +5411,11 @@ function openKpiExport() {
   modal.style.display = 'flex';
   // Sync period buttons with current selection
   setTimeout(() => setExportPeriod(kpiPeriod), 10);
+  // Sync site checkboxes with whatever the KPI tab's site filter is
+  // currently showing, so exporting "what's on screen" is the default.
+  document.querySelectorAll('#export-sites input').forEach(cb => {
+    cb.checked = _dpActiveSites.has(cb.value);
+  });
 }
 function closeKpiExport() {
   const modal = document.getElementById('kpi-export-modal');
