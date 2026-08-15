@@ -1638,10 +1638,10 @@ button, input, select, textarea { font-family: var(--font-body); }
 .kpi-savings-tile .sv{font-size:20px;font-weight:700;color:var(--ink);line-height:1}
 .kpi-savings-tile .sl{font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
 .kpi-site-breakdown{background:#fff;border:1px solid var(--rule);border-radius:var(--r-lg);overflow:hidden;margin-bottom:20px}
-.kpi-breakdown-head{display:grid;grid-template-columns:140px 1fr 1fr 1fr 1fr 100px;padding:10px 20px;background:var(--cream);border-bottom:1px solid var(--rule);gap:12px}
+.kpi-breakdown-head{display:grid;grid-template-columns:140px 1fr 1fr 1fr 1fr 80px 100px;padding:10px 20px;background:var(--cream);border-bottom:1px solid var(--rule);gap:12px}
 .kpi-breakdown-head span{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);text-align:right}
 .kpi-breakdown-head span:first-child{text-align:left}
-.kpi-breakdown-row{display:grid;grid-template-columns:140px 1fr 1fr 1fr 1fr 100px;padding:14px 20px;border-bottom:1px solid var(--rule);gap:12px;align-items:center;transition:background .1s}
+.kpi-breakdown-row{display:grid;grid-template-columns:140px 1fr 1fr 1fr 1fr 80px 100px;padding:14px 20px;border-bottom:1px solid var(--rule);gap:12px;align-items:center;transition:background .1s}
 .kpi-breakdown-row:last-child{border-bottom:none}
 .kpi-breakdown-row:hover{background:var(--cream)}
 .kpi-daily-breakdown{background:#fff;border:1px solid var(--rule);border-radius:var(--r-lg);overflow:hidden;margin-bottom:24px}
@@ -5481,6 +5481,10 @@ async function exportKpiPdf(data, opts) {
   const INK3=[120,130,150], INK=[40,45,55];
   const SITE_COLORS = { desborough:[232,82,10], selby:[30,58,110], banbury:[192,57,43], wellington:[26,122,74] };
   function siteRgb(site){return SITE_COLORS[site]||NAVY;}
+  // Same severity direction and 90%/75% thresholds as the on-screen dashboard:
+  // HIGH utilisation (over capacity) is the warning state → red, not green.
+  const RED_RGB=[192,57,43], AMBER_RGB=[230,126,34], GREEN_RGB=[39,174,96];
+  function utilRgb(u){ return u>=90?RED_RGB:u>=75?AMBER_RGB:GREEN_RGB; }
   function ensureRoom(needed){ if(y + needed > 275){ doc.addPage(); y = 20; } }
   function sectionHeading(label){
     ensureRoom(14);
@@ -5527,8 +5531,8 @@ async function exportKpiPdf(data, opts) {
     const tx=margin+col*(tW+5), ty=y+row*(tH+4);
     doc.setFillColor(...WHITE); doc.setDrawColor(...RULE); doc.setLineWidth(0.3);
     doc.roundedRect(tx,ty,tW,tH,2,2,'FD');
-    // top colour bar
-    const barCol = i===0?SITE_COLORS.desborough : i===3?[39,174,96] : i===4?[41,128,185] : NAVY;
+    // top colour bar — 4th tile (Avg Utilisation) reflects actual severity
+    const barCol = i===0?SITE_COLORS.desborough : i===3?utilRgb(kt.avgUtil) : i===4?[41,128,185] : NAVY;
     doc.setFillColor(...barCol); doc.roundedRect(tx,ty,tW,3,1,1,'F');
     doc.setTextColor(...INK); doc.setFontSize(15); doc.setFont('helvetica','bold');
     doc.text(t.value, tx+tW/2, ty+13, {align:'center'});
@@ -5547,7 +5551,7 @@ async function exportKpiPdf(data, opts) {
 
     const head = ['Site','Runs','Loads','Stops','Pallets','Util %'];
     const body = siteRows.map(r=>[r.name,r.runs,r.loads,r.stops,r.pallets.toLocaleString(),r.util+'%']);
-    const foot = ['Total','','',String(kt.totStops),kt.totPallets.toLocaleString(),kt.avgUtil+'%'];
+    const foot = ['Total',String(kt.totRuns),String(kt.totLoads),String(kt.totStops),kt.totPallets.toLocaleString(),kt.avgUtil+'%'];
     const columnStyles = {
       0:{fontStyle:'bold', cellWidth:40},
       1:{halign:'right',cellWidth:16},
@@ -5580,7 +5584,7 @@ async function exportKpiPdf(data, opts) {
           if(d.column.index===0){d.cell.styles.textColor=rgb;}
           if(d.column.index===5){
             const u=r.util;
-            d.cell.styles.textColor=u>=90?[39,174,96]:u>=70?[230,126,34]:[192,57,43];
+            d.cell.styles.textColor=utilRgb(u);
             d.cell.styles.fontStyle='bold';
           }
         }
@@ -5596,6 +5600,7 @@ async function exportKpiPdf(data, opts) {
       },
       margin:{left:margin,right:margin},
       foot:[foot],
+      showFoot:'lastPage',
       footStyles:{fillColor:CREAM,textColor:INK,fontStyle:'bold',fontSize:8,cellPadding:3},
     });
     y = doc.lastAutoTable.finalY + 10;
@@ -5610,7 +5615,6 @@ async function exportKpiPdf(data, opts) {
     const barH=7, barMaxW=contentW-50, labelW=36;
     siteRows.forEach(r=>{
       const pct=Math.min(r.util,150);
-      const rgb=siteRgb(r.sid);
       doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(...INK);
       doc.text(r.name, margin, y+barH/2+1.5);
       // bar background
@@ -5618,7 +5622,7 @@ async function exportKpiPdf(data, opts) {
       doc.roundedRect(margin+labelW, y, barMaxW, barH, 1.5, 1.5, 'FD');
       // bar fill
       const fillW=Math.min(barMaxW*Math.min(pct,100)/100, barMaxW);
-      const fillCol=pct>=90?[39,174,96]:pct>=70?[230,126,34]:[192,57,43];
+      const fillCol=utilRgb(r.util);
       doc.setFillColor(...fillCol);
       doc.roundedRect(margin+labelW, y, fillW, barH, 1.5, 1.5, 'F');
       // pct label
@@ -5644,6 +5648,8 @@ async function exportKpiPdf(data, opts) {
         return row;
       });
       if(showCost) head.push('Est. Cost');
+      const footRow=['Total','',String(kt.totRuns),String(kt.totStops),kt.totPallets.toLocaleString(),kt.avgUtil+'%'];
+      if(showCost) footRow.push(kt.totCost>0?'£'+Math.round(kt.totCost).toLocaleString():'—');
       doc.autoTable({
         startY:y,
         head:[head],
@@ -5654,6 +5660,9 @@ async function exportKpiPdf(data, opts) {
         alternateRowStyles:{fillColor:CREAM},
         columnStyles:{2:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'right',fontStyle:'bold'},6:{halign:'right'}},
         margin:{left:margin,right:margin},
+        foot:[footRow],
+        showFoot:'lastPage',
+        footStyles:{fillColor:CREAM,textColor:INK,fontStyle:'bold',fontSize:8,cellPadding:3},
       });
       y=doc.lastAutoTable.finalY+10;
     }
@@ -5716,6 +5725,7 @@ async function exportKpiPdf(data, opts) {
         columnStyles:{3:{halign:'right'},4:{halign:'right',fontStyle:'bold'}},
         margin:{left:margin,right:margin},
         foot:[['Total','','','',totalSavings+' mi (~£'+Math.round(totalSavings*0.45)+')']],
+        showFoot:'lastPage',
         footStyles:{fillColor:CREAM,textColor:INK,fontStyle:'bold',fontSize:7.5,cellPadding:2.5},
       });
       y=doc.lastAutoTable.finalY+10;
