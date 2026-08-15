@@ -5285,10 +5285,11 @@ function getKpiDateRange(period) {
   const d = new Date(parts[0], parts[1]-1, parts[2]);
   if (period === 'today') return { start: today, end: today };
   if (period === 'week') {
-    const dow = (d.getDay()+6)%7; // Mon=0
-    const mon = new Date(d); mon.setDate(d.getDate()-dow);
-    const sun = new Date(mon); sun.setDate(mon.getDate()+6);
-    return { start: fmtDateStr(mon), end: fmtDateStr(sun) };
+    // Sunday-to-Saturday week, not ISO Monday-to-Sunday.
+    const dow = d.getDay(); // Sun=0 ... Sat=6
+    const sun = new Date(d); sun.setDate(d.getDate()-dow);
+    const sat = new Date(sun); sat.setDate(sun.getDate()+6);
+    return { start: fmtDateStr(sun), end: fmtDateStr(sat) };
   }
   if (period === 'month') {
     const start = `${parts[0]}-${String(parts[1]).padStart(2,'0')}-01`;
