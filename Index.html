@@ -2416,6 +2416,15 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
         <span>Savings</span>
         <span class="sb-badge" id="savings-badge" style="display:none">0</span>
       </button>
+      <button class="sb-link" data-tab="missed" onclick="showTab('missed')">
+        <svg class="sb-link-icon" viewBox="0 0 18 18" fill="none">
+          <circle cx="9" cy="9" r="6.5" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M9 5.5v3.5l2.5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M3 3l12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <span>Missed opportunities</span>
+        <span class="sb-badge" id="missed-badge" style="display:none">0</span>
+      </button>
       <button class="sb-link" data-tab="history" onclick="showTab('history')">
         <svg class="sb-link-icon" viewBox="0 0 18 18" fill="none">
           <circle cx="9" cy="9" r="6.5" stroke="currentColor" stroke-width="1.5"/>
@@ -2769,6 +2778,10 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
     <!-- ─── SAVINGS ─── -->
     <div id="tab-savings" class="content" style="display:none">
       <div id="savings-content"></div>
+    </div>
+    <!-- ─── MISSED OPPORTUNITIES ─── -->
+    <div id="tab-missed" class="content" style="display:none">
+      <div id="missed-content"></div>
     </div>
     <!-- ─── HISTORY ─── -->
     <div id="tab-history" class="content" style="display:none">
@@ -5194,9 +5207,9 @@ async function renderHistory() {
    TABS
 ══════════════════════════════════════════ */
 const PAGE_TITLES = { overview:'Overview', upload:'Upload data', sharing:'Load sharing', transfers:'Transfers',
-    savings:'Savings tracker', history:'History', export:'Export & share', kpi:'KPIs & performance', admin:'User admin', loads:'All loads', mapview:'Network map', chat:'Live chat', vpkimport:'Import', planning:'Planning' };
+    savings:'Savings tracker', history:'History', export:'Export & share', kpi:'KPIs & performance', admin:'User admin', loads:'All loads', mapview:'Network map', chat:'Live chat', vpkimport:'Import', planning:'Planning', missed:'Missed opportunities' };
 function showTab(tab) {
-  ['overview','upload','sharing','transfers','savings','history','export','kpi','admin','loads','mapview','chat','vpkimport','planning'].forEach(t => {
+  ['overview','upload','sharing','transfers','savings','history','export','kpi','admin','loads','mapview','chat','vpkimport','planning','missed'].forEach(t => {
     const el = document.getElementById('tab-'+t);
     if (el) el.style.display = t===tab ? (t==='chat'||t==='mapview'?'flex':'') : 'none';
   });
@@ -5212,6 +5225,7 @@ function showTab(tab) {
   if (tab==='savings')  renderSavingsTab();
     if (tab==='transfers') renderTransfersTab();
   if (tab==='planning') initPlanningTab();
+  if (tab==='missed')  renderMissedOpportunities();
 }
 /* ══════════════════════════════════════════
    EXPORT
@@ -8358,6 +8372,180 @@ async function renderSavingsTab() {
         </tr></tfoot>
       </table>` : `<div style="text-align:center;padding:32px;color:var(--ink3);font-size:13px">No transfers confirmed yet. Go to Load sharing and click "Confirm — this happened" when a transfer occurs.</div>`}
     </div>`;
+}
+/* ══════════════════════════════════════════
+   MISSED OPPORTUNITIES
+   Two real, quantifiable sources of "missed" savings:
+   - job_transfers with status='declined' (someone said no — has real
+     cost_saving/miles_saved captured at proposal time)
+   - job_transfers with status='proposed' whose date has passed without
+     being actioned (fell through the cracks)
+   NOT included: opportunities dismissed via "ignore" directly on the Load
+   Sharing tab — that flow only stores a date/type key locally, not a dollar
+   value at the time, so there's nothing reliable to sum. Worth capturing
+   going forward if this page needs to be exhaustive, not just directional.
+══════════════════════════════════════════ */
+let _missedOpportunities = [];
+async function loadMissedOpportunities() {
+  if (!sb || !isConfigured) { _missedOpportunities = []; return; }
+  const { data, error } = await sb.from('job_transfers')
+    .select('*')
+    .in('status', ['declined','proposed'])
+    .order('transfer_date', { ascending: false })
+    .limit(500);
+  if (!error && data) {
+    const today = todayStr();
+    _missedOpportunities = data.filter(t => t.status === 'declined' || (t.status === 'proposed' && t.transfer_date < today));
+  } else {
+    _missedOpportunities = [];
+  }
+}
+async function renderMissedOpportunities() {
+  await Promise.all([loadMissedOpportunities(), loadJobTransfers()]);
+  const el = document.getElementById('missed-content');
+  if (!el) return;
+
+  const totalCost  = _missedOpportunities.reduce((a,t)=>a+parseFloat(t.cost_saving||0),0);
+  const totalMiles = _missedOpportunities.reduce((a,t)=>a+parseFloat(t.miles_saved||0),0);
+  const totalVpk   = totalCost * 0.10;
+  const declinedCount = _missedOpportunities.filter(t=>t.status==='declined').length;
+  const expiredCount  = _missedOpportunities.filter(t=>t.status==='proposed').length;
+
+  // By depot pair
+  const pairMap = {};
+  _missedOpportunities.forEach(t => {
+    const key = t.from_site+'→'+t.to_site;
+    if (!pairMap[key]) pairMap[key] = { from:t.from_site, to:t.to_site, count:0, cost:0, miles:0 };
+    pairMap[key].count++; pairMap[key].cost += parseFloat(t.cost_saving||0); pairMap[key].miles += parseFloat(t.miles_saved||0);
+  });
+  const pairs = Object.values(pairMap).sort((a,b)=>b.cost-a.cost);
+
+  // By month (last 6)
+  const monthMap = {};
+  _missedOpportunities.forEach(t => {
+    const m = (t.transfer_date||'').slice(0,7); if (!m) return;
+    if (!monthMap[m]) monthMap[m] = { cost:0, count:0 };
+    monthMap[m].cost += parseFloat(t.cost_saving||0); monthMap[m].count++;
+  });
+  const months = Object.keys(monthMap).sort().slice(-6);
+  const maxMonthCost = Math.max(...months.map(m=>monthMap[m].cost), 1);
+
+  // Today's live opportunities with no job_transfers record yet at all —
+  // fuzzy-matched by depot pair since computeOpps' route grouping and
+  // job_transfers' district grouping aren't guaranteed to align exactly.
+  const todaysProposedPairs = new Set((_jobTransfers||[]).map(t => t.from_site+'|'+t.to_site));
+  const liveOpps = computeOpps(todayData).filter(o => !todaysProposedPairs.has(o.from+'|'+o.to));
+  const liveMiles = liveOpps.reduce((a,o)=>a+o.saving,0);
+  const liveCost  = liveOpps.reduce((a,o)=>a+Math.round(o.saving*0.45),0);
+
+  const setupWarning = (!sb || !isConfigured) ? `
+    <div style="background:#fff8e1;border:1px solid #ffca28;border-radius:10px;padding:16px;margin-bottom:20px;font-size:13px">
+      <strong>⚠ Supabase not configured</strong> — this page reads historical data from the job_transfers table, so it's empty in demo mode.
+    </div>` : '';
+
+  el.innerHTML = `
+    <div style="margin-bottom:24px">
+      <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:var(--ink);margin-bottom:4px">Missed opportunities</div>
+      <div style="font-size:13px;color:var(--ink3)">Load sharing opportunities that were declined or never actioned — and what taking them would have been worth.</div>
+    </div>
+    ${setupWarning}
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+      <div class="kpi-stat-tile" style="border-left:3px solid var(--red)">
+        <div class="stat-val">${_missedOpportunities.length}</div>
+        <div class="stat-lbl">Missed opportunities</div>
+        <div class="stat-sub">${declinedCount} declined · ${expiredCount} never actioned</div>
+      </div>
+      <div class="kpi-stat-tile">
+        <div class="stat-val" style="font-size:22px">${Math.round(totalMiles).toLocaleString()} mi</div>
+        <div class="stat-lbl">Miles not saved</div>
+        <div class="stat-sub">across all missed opportunities</div>
+      </div>
+      <div class="kpi-stat-tile">
+        <div class="stat-val" style="font-size:22px">£${Math.round(totalCost).toLocaleString()}</div>
+        <div class="stat-lbl">Truck cost not saved</div>
+        <div class="stat-sub">estimated, had they all been taken</div>
+      </div>
+      <div class="kpi-stat-tile" style="border-left:3px solid var(--amber)">
+        <div class="stat-val" style="font-size:22px;color:var(--amber)">£${Math.round(totalVpk).toLocaleString()}</div>
+        <div class="stat-lbl">VPK 10% missed</div>
+        <div class="stat-sub">10% of the cost not saved</div>
+      </div>
+    </div>
+
+    ${liveOpps.length ? `
+    <div class="kpi-section-header">
+      <span class="kpi-section-header-label">On the table right now — ${liveOpps.length} not yet proposed today</span>
+      <div class="kpi-section-header-line"></div>
+    </div>
+    <div style="background:#fff;border:1px solid var(--rule);border-radius:var(--r-lg);overflow:hidden;margin-bottom:6px">
+      ${liveOpps.slice(0,8).map(o=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--rule)">
+        <div>
+          <div style="font-weight:600;font-size:13px">${o.fromName} → ${o.toName}</div>
+          <div style="font-size:11px;color:var(--ink3);font-family:var(--font-mono)">${o.overlap.join(', ')}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:700;font-size:13px">~${o.saving} mi</div>
+          <div style="font-size:11px;color:var(--ink3)">~£${Math.round(o.saving*0.45)}</div>
+        </div>
+      </div>`).join('')}
+    </div>
+    <div style="font-size:11px;color:var(--ink3);margin-bottom:24px">~£${Math.round(liveCost).toLocaleString()} and ${Math.round(liveMiles).toLocaleString()} mi unactioned today — propose these from the Load sharing tab before they expire.</div>
+    ` : ''}
+
+    <div class="kpi-section-header">
+      <span class="kpi-section-header-label">By depot pair</span>
+      <div class="kpi-section-header-line"></div>
+    </div>
+    ${pairs.length ? `
+    <div style="background:#fff;border:1px solid var(--rule);border-radius:var(--r-lg);overflow:hidden;margin-bottom:24px">
+      ${pairs.map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--rule)">
+        <div style="font-weight:600;font-size:13px">${SITES_META[p.from]?.name||p.from} → ${SITES_META[p.to]?.name||p.to}</div>
+        <div style="display:flex;gap:20px;align-items:center">
+          <span style="font-size:12px;color:var(--ink3)">${p.count} missed</span>
+          <span style="font-size:12px;font-family:var(--font-mono)">${Math.round(p.miles)} mi</span>
+          <span style="font-weight:700;font-size:13px">£${Math.round(p.cost).toLocaleString()}</span>
+        </div>
+      </div>`).join('')}
+    </div>` : `<div style="text-align:center;padding:32px;color:var(--ink3);font-size:13px;margin-bottom:24px">No declined or expired proposals recorded yet.</div>`}
+
+    ${months.length>1 ? `
+    <div class="kpi-section-header">
+      <span class="kpi-section-header-label">By month</span>
+      <div class="kpi-section-header-line"></div>
+    </div>
+    <div style="background:#fff;border:1px solid var(--rule);border-radius:var(--r-lg);padding:16px 20px;margin-bottom:24px">
+      ${months.map(m=>{
+        const d = monthMap[m]; const pct = Math.round(d.cost/maxMonthCost*100);
+        const label = new Date(m+'-01').toLocaleDateString('en-GB',{month:'short',year:'2-digit'});
+        return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+          <span style="width:50px;font-size:12px;color:var(--ink3);font-family:var(--font-mono)">${label}</span>
+          <div style="flex:1;height:20px;background:var(--cream);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--red)"></div></div>
+          <span style="width:80px;text-align:right;font-weight:600;font-size:13px">£${Math.round(d.cost).toLocaleString()}</span>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
+
+    <div class="kpi-section-header">
+      <span class="kpi-section-header-label">All missed opportunities</span>
+      <div class="kpi-section-header-line"></div>
+    </div>
+    ${_missedOpportunities.length ? `
+    <div style="background:#fff;border:1px solid var(--rule);border-radius:var(--r-lg);overflow:hidden">
+      ${_missedOpportunities.map(t=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--rule)">
+        <div>
+          <div style="font-weight:600;font-size:13px">${SITES_META[t.from_site]?.name||t.from_site} → ${SITES_META[t.to_site]?.name||t.to_site} <span style="font-weight:400;color:var(--ink3)">· ${t.district||t.route_area||''}</span></div>
+          <div style="font-size:11px;color:var(--ink3);font-family:var(--font-mono)">${fmtShortDate(t.transfer_date)} · ${t.status==='declined'?'Declined':'Never actioned'}${t.notes?' · '+t.notes:''}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:700;font-size:13px">£${Math.round(t.cost_saving||0).toLocaleString()}</div>
+          <div style="font-size:11px;color:var(--ink3)">${Math.round(t.miles_saved||0)} mi</div>
+        </div>
+      </div>`).join('')}
+    </div>` : `<div style="text-align:center;padding:32px;color:var(--ink3);font-size:13px">No missed opportunities on record.</div>`}
+  `;
+
+  const badge = document.getElementById('missed-badge');
+  if (badge) { badge.textContent = _missedOpportunities.length; badge.style.display = _missedOpportunities.length ? '' : 'none'; }
 }
 
 // ── VPK clean view ──
