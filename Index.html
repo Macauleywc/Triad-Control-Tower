@@ -2917,6 +2917,11 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
           <div class="esb"><div class="est">Delivery leaderboard</div><div class="ess">Top shared customers</div></div>
           <input type="checkbox" value="leaderboard" checked>
         </label>
+        <label class="export-section-opt">
+          <span class="esi">&#128230;</span>
+          <div class="esb"><div class="est">Top 10 customers</div><div class="ess">Ranked by pallet volume</div></div>
+          <input type="checkbox" value="top-customers" checked>
+        </label>
       </div>
     </div>
 
@@ -5472,11 +5477,14 @@ async function exportKpiPdf(data, opts) {
   const { jsPDF } = window.jspdf || {};
   if (!jsPDF) { alert('PDF library not loaded yet — please wait a moment and try again.'); return; }
   const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
-  const period = customTitle || (start===end ? fmtShortDate(start) : fmtShortDate(start)+' → '+fmtShortDate(end));
+  // Note: jsPDF's default fonts only support WinAnsi encoding, which has no
+  // right-arrow glyph (→ renders as garbage) — use an en dash instead, which
+  // is in WinAnsi and already used elsewhere in this report successfully.
+  const period = customTitle || (start===end ? fmtShortDate(start) : fmtShortDate(start)+' – '+fmtShortDate(end));
   data = data || (kpiPeriod === 'today' ? todayData : kpiPeriodData);
   // Default set covers every section the modal offers — matches the on-screen
   // KPI tab exactly, so a PDF built with no explicit selection is still complete.
-  const incl = sections || new Set(['headline','site-breakdown','daily-breakdown','utilisation','cost','savings','load-sharing','compliance','leaderboard']);
+  const incl = sections || new Set(['headline','site-breakdown','daily-breakdown','utilisation','cost','savings','load-sharing','compliance','leaderboard','top-customers']);
   const W = 210, margin = 14, contentW = W - margin*2;
   const NAVY=[18,25,45], WHITE=[255,255,255], CREAM=[248,249,251], RULE=[220,222,228];
   const INK3=[120,130,150], INK=[40,45,55];
@@ -5680,7 +5688,7 @@ async function exportKpiPdf(data, opts) {
     } else {
       doc.autoTable({
         startY:y,
-        head:[['Truck cost saved','Miles avoided','CO₂ avoided','VPK 10%','Transfers']],
+        head:[['Truck cost saved','Miles avoided','CO2 avoided','VPK 10%','Transfers']],
         body:[[
           '£'+Math.round(st.confCostPeriod).toLocaleString(),
           Math.round(st.confMilesPeriod).toLocaleString()+' mi',
@@ -5696,7 +5704,7 @@ async function exportKpiPdf(data, opts) {
       y=doc.lastAutoTable.finalY+4;
       if(st.ytdTransfers.length > st.periodTransfers.length){
         doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(...INK3);
-        doc.text(`Year to date: £${Math.round(st.confCostYtd).toLocaleString()} saved · ${Math.round(st.confMilesYtd).toLocaleString()} mi removed · ${Math.round(st.confCO2Ytd)} kg CO₂ avoided · ${st.ytdTransfers.length} total transfers`, margin, y);
+        doc.text(`Year to date: £${Math.round(st.confCostYtd).toLocaleString()} saved · ${Math.round(st.confMilesYtd).toLocaleString()} mi removed · ${Math.round(st.confCO2Ytd)} kg CO2 avoided · ${st.ytdTransfers.length} total transfers`, margin, y);
         y+=8;
       } else { y+=4; }
     }
@@ -5791,6 +5799,35 @@ async function exportKpiPdf(data, opts) {
       doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(...INK3);
       doc.text(`${shared.length} shared customer${shared.length!==1?'s':''} · ${points.length} unique delivery points · ${points.reduce((a,p)=>a+p.totalPallets,0).toLocaleString()} pallets total`, margin, y);
       y+=8;
+    }
+  }
+
+  // ── TOP 10 CUSTOMERS BY VOLUME (all customers, not just shared ones) ──
+  if(incl.has('top-customers')){
+    const points = buildDeliveryPoints(data);
+    ensureRoom(24);
+    sectionHeading('Top 10 Customers by Volume');
+    if(!points.length){
+      doc.setFontSize(8.5); doc.setFont('helvetica','normal'); doc.setTextColor(...INK3);
+      doc.text('No delivery point data in this period.', margin, y); y+=8;
+    } else {
+      const topTen = [...points].sort((a,b)=>b.totalPallets-a.totalPallets).slice(0,10);
+      doc.autoTable({
+        startY:y,
+        head:[['Rank','Customer','Postcode','Site(s)','Pallets']],
+        body: topTen.map((p,i)=>[
+          String(i+1), p.customer, p.postcode,
+          Object.values(p.siteBreakdown).sort((a,b)=>b.pallets-a.pallets).map(s=>s.name).join(', '),
+          String(p.totalPallets),
+        ]),
+        theme:'striped',
+        headStyles:{fillColor:NAVY,textColor:WHITE,fontStyle:'bold',fontSize:8,cellPadding:3},
+        bodyStyles:{fontSize:8,cellPadding:3},
+        alternateRowStyles:{fillColor:CREAM},
+        columnStyles:{0:{halign:'center',cellWidth:14,fontStyle:'bold'},4:{halign:'right',fontStyle:'bold'}},
+        margin:{left:margin,right:margin},
+      });
+      y=doc.lastAutoTable.finalY+8;
     }
   }
 
