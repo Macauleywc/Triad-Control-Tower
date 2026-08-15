@@ -3893,21 +3893,32 @@ const sumWeight  = e => (e.routes||[]).reduce((a,r) => a + Number(r.weight||0), 
 // cost was imported from the spreadsheet), 'estimated' (fell back to the
 // mileage-based formula because no actual cost was found), or 'none' (no
 // cost could be produced at all — usually missing postcode data).
-function routeCostDetail(site, route) {
-  const rawActual = (route.stops_detail||[]).find(s=>s.actualCost)?.actualCost;
-  const ic = actualRunCostTotal(site, rawActual, route.pallets);
+//
+// IMPORTANT: this must be costed per GROUPED RUN (groupByShipment), never
+// per raw route record. A single physical run can be split into multiple
+// route records when its stops span more than one postcode district — each
+// fragment still carries a copy of that run's actualCost, so costing raw
+// routes double- (or triple-) counts every run that got split this way.
+// This mirrors the Overview tab's own "Est. daily transport cost" exactly,
+// which is the trusted, verified-correct calculation.
+function runCostDetail(site, run) {
+  const allStopDetails = run.shipmentList.flatMap(s => s.stops);
+  const allPallets = allStopDetails.reduce((a,s)=>a+(s.pallets||0),0);
+  const rawActual = allStopDetails.find(s=>s.actualCost)?.actualCost;
+  const ic = actualRunCostTotal(site, rawActual, allPallets);
   if (ic) return { cost: ic, source: 'actual' };
-  const rc = calcRunCost(site, route.postcodes||route.pc||'');
+  const stopPCs = [...new Set(allStopDetails.map(s=>(s.postal||s.postcode||'').trim().toUpperCase()).filter(Boolean))].join(',');
+  const rc = calcRunCost(site, stopPCs);
   if (rc) return { cost: parseFloat(rc.cost), source: 'estimated' };
   return { cost: 0, source: 'none' };
 }
 // Total cost for one plan entry (a site on a date), plus a breakdown of how
-// many of its routes were real vs estimated — this is what lets every UI
+// many of its runs were real vs estimated — this is what lets every UI
 // that shows a cost figure also show whether that figure is trustworthy.
 function entryCostDetail(e) {
   let cost = 0, actualCount = 0, estimatedCount = 0, noneCount = 0;
-  (e.routes||[]).forEach(r => {
-    const d = routeCostDetail(e.site, r);
+  groupByShipment(e).forEach(run => {
+    const d = runCostDetail(e.site, run);
     cost += d.cost;
     if (d.source==='actual') actualCount++;
     else if (d.source==='estimated') estimatedCount++;
