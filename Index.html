@@ -2935,6 +2935,11 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
           <div class="esb"><div class="est">Top 10 customers</div><div class="ess">Ranked by pallet volume</div></div>
           <input type="checkbox" value="top-customers" checked>
         </label>
+        <label class="export-section-opt">
+          <span class="esi">&#10060;</span>
+          <div class="esb"><div class="est">Missed opportunities</div><div class="ess">Declined &amp; never-actioned, validated only</div></div>
+          <input type="checkbox" value="missed-opportunities" checked>
+        </label>
       </div>
     </div>
 
@@ -5556,7 +5561,7 @@ async function exportKpiPdf(data, opts) {
   data = data || (kpiPeriod === 'today' ? todayData : kpiPeriodData);
   // Default set covers every section the modal offers — matches the on-screen
   // KPI tab exactly, so a PDF built with no explicit selection is still complete.
-  const incl = sections || new Set(['headline','site-breakdown','daily-breakdown','utilisation','cost','savings','load-sharing','compliance','leaderboard','top-customers']);
+  const incl = sections || new Set(['headline','site-breakdown','daily-breakdown','utilisation','cost','savings','load-sharing','compliance','leaderboard','top-customers','missed-opportunities']);
   const W = 210, margin = 14, contentW = W - margin*2;
   const NAVY=[18,25,45], WHITE=[255,255,255], CREAM=[248,249,251], RULE=[220,222,228];
   const INK3=[120,130,150], INK=[40,45,55];
@@ -5927,6 +5932,47 @@ async function exportKpiPdf(data, opts) {
         margin:{left:margin,right:margin},
       });
       y=doc.lastAutoTable.finalY+8;
+    }
+  }
+
+  // ── MISSED OPPORTUNITIES (validated only — excludes anything marked
+  // "not achievable" on the Missed Opportunities page) ──
+  if(incl.has('missed-opportunities')){
+    await loadMissedOpportunities();
+    const missedInRange = _missedOpportunities.filter(t => t.transfer_date >= start && t.transfer_date <= end);
+    ensureRoom(24);
+    sectionHeading('Missed Opportunities');
+    if(!missedInRange.length){
+      doc.setFontSize(8.5); doc.setFont('helvetica','normal'); doc.setTextColor(...INK3);
+      doc.text('No declined or never-actioned opportunities in this period.', margin, y); y+=8;
+    } else {
+      const missedCost = missedInRange.reduce((a,t)=>a+parseFloat(t.cost_saving||0),0);
+      const missedVpk  = missedCost * 0.10;
+      doc.autoTable({
+        startY:y,
+        head:[['Date','From','To','District','Status','Miles','Cost']],
+        body: missedInRange.map(t=>[
+          fmtShortDate(t.transfer_date),
+          SITES_META[t.from_site]?.name||t.from_site, SITES_META[t.to_site]?.name||t.to_site,
+          t.district||t.route_area||'—',
+          t.status==='declined'?'Declined':'Never actioned',
+          Math.round(t.miles_saved||0)+' mi',
+          '£'+Math.round(t.cost_saving||0).toLocaleString(),
+        ]),
+        theme:'striped',
+        headStyles:{fillColor:NAVY,textColor:WHITE,fontStyle:'bold',fontSize:8,cellPadding:3},
+        bodyStyles:{fontSize:7.5,cellPadding:2.5},
+        alternateRowStyles:{fillColor:CREAM},
+        columnStyles:{5:{halign:'right'},6:{halign:'right',fontStyle:'bold'}},
+        margin:{left:margin,right:margin},
+        foot:[['Total','','','','',Math.round(missedInRange.reduce((a,t)=>a+parseFloat(t.miles_saved||0),0))+' mi','£'+Math.round(missedCost).toLocaleString()]],
+        showFoot:'lastPage',
+        footStyles:{fillColor:CREAM,textColor:INK,fontStyle:'bold',fontSize:7.5,cellPadding:2.5},
+      });
+      y=doc.lastAutoTable.finalY+4;
+      doc.setFontSize(7.5); doc.setFont('helvetica','italic'); doc.setTextColor(...INK3);
+      doc.text(`Est. VPK 10% missed: £${Math.round(missedVpk).toLocaleString()}. Excludes anything marked "not achievable" on the Missed Opportunities page.`, margin, y);
+      y+=8;
     }
   }
 
@@ -8385,9 +8431,24 @@ async function renderSavingsTab() {
    value at the time, so there's nothing reliable to sum. Worth capturing
    going forward if this page needs to be exhaustive, not just directional.
 ══════════════════════════════════════════ */
-let _missedOpportunities = [];
+const MISSED_OPPS_VALIDATION_SQL = `
+ALTER TABLE job_transfers ADD COLUMN IF NOT EXISTS excluded_from_missed boolean DEFAULT false;
+ALTER TABLE job_transfers ADD COLUMN IF NOT EXISTS excluded_reason text;
+ALTER TABLE job_transfers ADD COLUMN IF NOT EXISTS excluded_by text;
+ALTER TABLE job_transfers ADD COLUMN IF NOT EXISTS excluded_at timestamptz;`;
+let _missedOpportunities = [];         // active — counted in totals and the export
+let _excludedMissedOpportunities = []; // marked "not achievable" — kept for audit, excluded from totals
+let _missedValidationColumnsExist = true; // flips false if an update fails because the columns don't exist yet
+let missedPeriod = 'all'; // 'today' | 'week' | 'month' | 'all' — independent of the global date-nav arrows
+function setMissedPeriod(p) {
+  missedPeriod = p;
+  ['today','week','month','all'].forEach(id => {
+    document.getElementById('missed-p-'+id)?.classList.toggle('active', id===p);
+  });
+  renderMissedOpportunities();
+}
 async function loadMissedOpportunities() {
-  if (!sb || !isConfigured) { _missedOpportunities = []; return; }
+  if (!sb || !isConfigured) { _missedOpportunities = []; _excludedMissedOpportunities = []; return; }
   const { data, error } = await sb.from('job_transfers')
     .select('*')
     .in('status', ['declined','proposed'])
@@ -8395,32 +8456,80 @@ async function loadMissedOpportunities() {
     .limit(500);
   if (!error && data) {
     const today = todayStr();
-    _missedOpportunities = data.filter(t => t.status === 'declined' || (t.status === 'proposed' && t.transfer_date < today));
+    const relevant = data.filter(t => t.status === 'declined' || (t.status === 'proposed' && t.transfer_date < today));
+    _missedOpportunities         = relevant.filter(t => !t.excluded_from_missed);
+    _excludedMissedOpportunities = relevant.filter(t => t.excluded_from_missed);
   } else {
-    _missedOpportunities = [];
+    _missedOpportunities = []; _excludedMissedOpportunities = [];
   }
+}
+// Mark a missed opportunity as "not actually achievable" — kept on record
+// (never deleted) but excluded from every total and from the KPI export,
+// so the numbers reflect what a human has validated, not just raw data.
+async function excludeMissedOpportunity(id) {
+  const reason = prompt('Optional: why wasn\'t this achievable?') || null;
+  if (!sb || !isConfigured) { showToast('⚠ Supabase not configured — nothing to save', 3000); return; }
+  const { error } = await sb.from('job_transfers').update({
+    excluded_from_missed: true, excluded_reason: reason,
+    excluded_by: currentUser?.email || currentUser?.id || 'unknown',
+    excluded_at: new Date().toISOString(),
+  }).eq('id', id);
+  if (error) {
+    _missedValidationColumnsExist = false;
+    showToast('⚠ Could not save — run the setup SQL shown below first', 4000);
+    await renderMissedOpportunities();
+    return;
+  }
+  showToast('Marked as not achievable', 2000);
+  await renderMissedOpportunities();
+}
+async function restoreMissedOpportunity(id) {
+  if (!sb || !isConfigured) return;
+  const { error } = await sb.from('job_transfers').update({
+    excluded_from_missed: false, excluded_reason: null, excluded_by: null, excluded_at: null,
+  }).eq('id', id);
+  if (error) { showToast('⚠ Restore failed: ' + error.message, 3000); return; }
+  showToast('Restored to missed opportunities', 2000);
+  await renderMissedOpportunities();
 }
 async function renderMissedOpportunities() {
   await Promise.all([loadMissedOpportunities(), loadJobTransfers()]);
   const el = document.getElementById('missed-content');
   if (!el) return;
 
-  const totalCost  = _missedOpportunities.reduce((a,t)=>a+parseFloat(t.cost_saving||0),0);
-  const totalMiles = _missedOpportunities.reduce((a,t)=>a+parseFloat(t.miles_saved||0),0);
+  // Filter to the selected period — this is what makes the page actually
+  // respond when you change it, instead of always showing all-time totals
+  // no matter what's selected.
+  const today = todayStr();
+  let periodStart = null, periodEnd = null, periodLabel = 'All time';
+  if (missedPeriod === 'today') { periodStart = periodEnd = today; periodLabel = 'Today'; }
+  else if (missedPeriod === 'week')  { const r = getKpiDateRange('week');  periodStart = r.start; periodEnd = r.end; periodLabel = 'This week'; }
+  else if (missedPeriod === 'month') { const r = getKpiDateRange('month'); periodStart = r.start; periodEnd = r.end; periodLabel = 'This month'; }
+  const periodOpps = periodStart
+    ? _missedOpportunities.filter(t => t.transfer_date >= periodStart && t.transfer_date <= periodEnd)
+    : _missedOpportunities;
+  const periodExcluded = periodStart
+    ? _excludedMissedOpportunities.filter(t => t.transfer_date >= periodStart && t.transfer_date <= periodEnd)
+    : _excludedMissedOpportunities;
+
+  const totalCost  = periodOpps.reduce((a,t)=>a+parseFloat(t.cost_saving||0),0);
+  const totalMiles = periodOpps.reduce((a,t)=>a+parseFloat(t.miles_saved||0),0);
   const totalVpk   = totalCost * 0.10;
-  const declinedCount = _missedOpportunities.filter(t=>t.status==='declined').length;
-  const expiredCount  = _missedOpportunities.filter(t=>t.status==='proposed').length;
+  const declinedCount = periodOpps.filter(t=>t.status==='declined').length;
+  const expiredCount  = periodOpps.filter(t=>t.status==='proposed').length;
 
   // By depot pair
   const pairMap = {};
-  _missedOpportunities.forEach(t => {
+  periodOpps.forEach(t => {
     const key = t.from_site+'→'+t.to_site;
     if (!pairMap[key]) pairMap[key] = { from:t.from_site, to:t.to_site, count:0, cost:0, miles:0 };
     pairMap[key].count++; pairMap[key].cost += parseFloat(t.cost_saving||0); pairMap[key].miles += parseFloat(t.miles_saved||0);
   });
   const pairs = Object.values(pairMap).sort((a,b)=>b.cost-a.cost);
 
-  // By month (last 6)
+  // By month (last 6) — always all-time regardless of the period filter,
+  // since the point of this chart is to show the trend the period buttons
+  // are slicing into, not to be sliced itself.
   const monthMap = {};
   _missedOpportunities.forEach(t => {
     const m = (t.transfer_date||'').slice(0,7); if (!m) return;
@@ -8430,9 +8539,9 @@ async function renderMissedOpportunities() {
   const months = Object.keys(monthMap).sort().slice(-6);
   const maxMonthCost = Math.max(...months.map(m=>monthMap[m].cost), 1);
 
-  // Today's live opportunities with no job_transfers record yet at all —
-  // fuzzy-matched by depot pair since computeOpps' route grouping and
-  // job_transfers' district grouping aren't guaranteed to align exactly.
+  // "On the table right now" is deliberately always today's live data,
+  // regardless of the period selector above — clearly labelled "live" so
+  // that's obvious rather than looking like the page ignored your choice.
   const todaysProposedPairs = new Set((_jobTransfers||[]).map(t => t.from_site+'|'+t.to_site));
   const liveOpps = computeOpps(todayData).filter(o => !todaysProposedPairs.has(o.from+'|'+o.to));
   const liveMiles = liveOpps.reduce((a,o)=>a+o.saving,0);
@@ -8444,21 +8553,28 @@ async function renderMissedOpportunities() {
     </div>` : '';
 
   el.innerHTML = `
-    <div style="margin-bottom:24px">
+    <div style="margin-bottom:16px">
       <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:var(--ink);margin-bottom:4px">Missed opportunities</div>
       <div style="font-size:13px;color:var(--ink3)">Load sharing opportunities that were declined or never actioned — and what taking them would have been worth.</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+      <span style="font-size:12px;font-weight:600;color:var(--ink3);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.05em">Period:</span>
+      <button class="lb-toggle-btn${missedPeriod==='today'?' active':''}" id="missed-p-today" onclick="setMissedPeriod('today')">Today</button>
+      <button class="lb-toggle-btn${missedPeriod==='week'?' active':''}" id="missed-p-week" onclick="setMissedPeriod('week')">This week</button>
+      <button class="lb-toggle-btn${missedPeriod==='month'?' active':''}" id="missed-p-month" onclick="setMissedPeriod('month')">This month</button>
+      <button class="lb-toggle-btn${missedPeriod==='all'?' active':''}" id="missed-p-all" onclick="setMissedPeriod('all')">All time</button>
     </div>
     ${setupWarning}
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
       <div class="kpi-stat-tile" style="border-left:3px solid var(--red)">
-        <div class="stat-val">${_missedOpportunities.length}</div>
-        <div class="stat-lbl">Missed opportunities</div>
+        <div class="stat-val">${periodOpps.length}</div>
+        <div class="stat-lbl">Missed opportunities — ${periodLabel}</div>
         <div class="stat-sub">${declinedCount} declined · ${expiredCount} never actioned</div>
       </div>
       <div class="kpi-stat-tile">
         <div class="stat-val" style="font-size:22px">${Math.round(totalMiles).toLocaleString()} mi</div>
         <div class="stat-lbl">Miles not saved</div>
-        <div class="stat-sub">across all missed opportunities</div>
+        <div class="stat-sub">${periodLabel}</div>
       </div>
       <div class="kpi-stat-tile">
         <div class="stat-val" style="font-size:22px">£${Math.round(totalCost).toLocaleString()}</div>
@@ -8474,7 +8590,7 @@ async function renderMissedOpportunities() {
 
     ${liveOpps.length ? `
     <div class="kpi-section-header">
-      <span class="kpi-section-header-label">On the table right now — ${liveOpps.length} not yet proposed today</span>
+      <span class="kpi-section-header-label">On the table right now <span title="Always shows today's live opportunities — not affected by the period selector above." style="color:var(--amber);cursor:help">● live</span> — ${liveOpps.length} not yet proposed today</span>
       <div class="kpi-section-header-line"></div>
     </div>
     <div style="background:#fff;border:1px solid var(--rule);border-radius:var(--r-lg);overflow:hidden;margin-bottom:6px">
@@ -8526,22 +8642,49 @@ async function renderMissedOpportunities() {
     </div>` : ''}
 
     <div class="kpi-section-header">
-      <span class="kpi-section-header-label">All missed opportunities</span>
+      <span class="kpi-section-header-label">All missed opportunities — ${periodLabel}</span>
       <div class="kpi-section-header-line"></div>
     </div>
-    ${_missedOpportunities.length ? `
+    ${!_missedValidationColumnsExist ? `
+    <div style="background:#fff8e1;border:1px solid #ffca28;border-radius:10px;padding:16px;margin-bottom:16px;font-size:13px">
+      <strong>⚠ Can't save exclusions yet</strong> — run this in your Supabase SQL editor first:<br><br>
+      <code style="font-size:11px;background:#f5f5f5;padding:4px 8px;border-radius:4px;display:block;margin-top:8px;white-space:pre-wrap">${MISSED_OPPS_VALIDATION_SQL}</code>
+    </div>` : ''}
+    ${periodOpps.length ? `
     <div style="background:#fff;border:1px solid var(--rule);border-radius:var(--r-lg);overflow:hidden">
-      ${_missedOpportunities.map(t=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--rule)">
-        <div>
+      ${periodOpps.map(t=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--rule);gap:12px">
+        <div style="min-width:0">
           <div style="font-weight:600;font-size:13px">${SITES_META[t.from_site]?.name||t.from_site} → ${SITES_META[t.to_site]?.name||t.to_site} <span style="font-weight:400;color:var(--ink3)">· ${t.district||t.route_area||''}</span></div>
           <div style="font-size:11px;color:var(--ink3);font-family:var(--font-mono)">${fmtShortDate(t.transfer_date)} · ${t.status==='declined'?'Declined':'Never actioned'}${t.notes?' · '+t.notes:''}</div>
         </div>
-        <div style="text-align:right">
-          <div style="font-weight:700;font-size:13px">£${Math.round(t.cost_saving||0).toLocaleString()}</div>
-          <div style="font-size:11px;color:var(--ink3)">${Math.round(t.miles_saved||0)} mi</div>
+        <div style="text-align:right;flex-shrink:0;display:flex;align-items:center;gap:14px">
+          <div>
+            <div style="font-weight:700;font-size:13px">£${Math.round(t.cost_saving||0).toLocaleString()}</div>
+            <div style="font-size:11px;color:var(--ink3)">${Math.round(t.miles_saved||0)} mi</div>
+          </div>
+          <button onclick="excludeMissedOpportunity('${t.id}')" title="Mark as not actually achievable — removes it from the totals and the KPI export, but keeps it on record"
+            style="font-size:11px;color:var(--ink3);background:none;border:1px solid var(--rule);border-radius:6px;padding:5px 9px;cursor:pointer;white-space:nowrap">✕ Not achievable</button>
         </div>
       </div>`).join('')}
-    </div>` : `<div style="text-align:center;padding:32px;color:var(--ink3);font-size:13px">No missed opportunities on record.</div>`}
+    </div>` : `<div style="text-align:center;padding:32px;color:var(--ink3);font-size:13px">No missed opportunities in this period.</div>`}
+
+    ${periodExcluded.length ? `
+    <div class="kpi-section-header" style="margin-top:24px">
+      <span class="kpi-section-header-label">Excluded — ${periodExcluded.length} marked not achievable</span>
+      <div class="kpi-section-header-line"></div>
+    </div>
+    <div style="background:#fff;border:1px solid var(--rule);border-radius:var(--r-lg);overflow:hidden;opacity:.7">
+      ${periodExcluded.map(t=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--rule);gap:12px">
+        <div style="min-width:0">
+          <div style="font-weight:600;font-size:13px;text-decoration:line-through">${SITES_META[t.from_site]?.name||t.from_site} → ${SITES_META[t.to_site]?.name||t.to_site} <span style="font-weight:400;color:var(--ink3)">· ${t.district||t.route_area||''}</span></div>
+          <div style="font-size:11px;color:var(--ink3);font-family:var(--font-mono)">${fmtShortDate(t.transfer_date)}${t.excluded_reason?' · '+t.excluded_reason:''}${t.excluded_by?' · by '+t.excluded_by:''}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;display:flex;align-items:center;gap:14px">
+          <div style="font-size:11px;color:var(--ink3)">£${Math.round(t.cost_saving||0).toLocaleString()} not counted</div>
+          <button onclick="restoreMissedOpportunity('${t.id}')" style="font-size:11px;color:var(--navy);background:none;border:1px solid var(--rule);border-radius:6px;padding:5px 9px;cursor:pointer;white-space:nowrap">↺ Restore</button>
+        </div>
+      </div>`).join('')}
+    </div>` : ''}
   `;
 
   const badge = document.getElementById('missed-badge');
