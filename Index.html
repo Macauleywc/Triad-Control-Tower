@@ -1787,11 +1787,6 @@ button, input, select, textarea { font-family: var(--font-body); }
 /* ══════════════════════════════════════════
    MAP VIEW TAB
 ══════════════════════════════════════════ */
-.map-legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink2);padding:5px 10px;background:#fff;border:1px solid var(--rule);border-radius:8px}
-.map-legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.map-legend-line{width:20px;height:2px;border-radius:1px;flex-shrink:0}
-.map-opp-card{background:#fff;border:1px solid var(--rule);border-radius:var(--r-lg);padding:16px 20px;transition:box-shadow .15s}
-.map-opp-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.07)}
 .map-opp-route{font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px;display:flex;align-items:center;gap:8px}
 .map-opp-desc{font-size:12px;color:var(--ink3);line-height:1.6}
 .map-opp-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
@@ -8962,10 +8957,6 @@ function renderMap() {
       mapDiv.style.justifyContent = 'center';
       mapDiv.innerHTML = '<div style="text-align:center;color:var(--ink3);font-size:13px;font-family:var(--font-body)"><div style="font-size:32px;margin-bottom:12px">🗺</div><div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--ink);margin-bottom:6px">No data to display</div><div>Upload delivery data from the Upload tab<br>and the map will populate automatically.</div></div>';
     }
-    const legEl = document.getElementById('map-legend');
-    if (legEl) legEl.innerHTML = '';
-    const oppEl = document.getElementById('map-opp-list');
-    if (oppEl) oppEl.innerHTML = '';
     return;
   }
   // Restore map div to normal state before reinitialising
@@ -9913,11 +9904,6 @@ function wireTooltips() {
     '#urgent-toggle':         'Urgent',
     // Chat send button
     '[onclick="sendChatMsg()"]': 'Send',
-    // Map legend items
-    '.map-legend-item:nth-child(1)': 'Depot',
-    '.map-legend-item:nth-child(2)': 'Urgent',
-    '.map-legend-item:nth-child(3)': 'Recommended',
-    '.map-legend-item:nth-child(4)': 'Optional',
     // Export cards
     '.exp-card:nth-child(1)': 'CSV',
     '.exp-card:nth-child(2)': 'Print / PDF',
