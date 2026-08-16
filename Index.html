@@ -2943,6 +2943,11 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
           <input type="checkbox" value="savings" checked>
         </label>
         <label class="export-section-opt">
+          <span class="esi">&#9878;</span>
+          <div class="esb"><div class="est">Taken vs not taken</div><div class="ess">Opportunity conversion rate</div></div>
+          <input type="checkbox" value="opp-conversion" checked>
+        </label>
+        <label class="export-section-opt">
           <span class="esi">&#9989;</span>
           <div class="esb"><div class="est">Upload compliance</div><div class="ess">Which sites submitted</div></div>
           <input type="checkbox" value="compliance" checked>
@@ -3030,6 +3035,14 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
         <button onclick="showTab('savings')" style="font-size:11px;color:var(--navy);background:none;border:none;cursor:pointer;font-family:var(--font-body);text-decoration:underline;flex-shrink:0">Full tracker →</button>
       </div>
       <div id="kpi-savings-tracker" style="margin-bottom:24px"></div>
+
+      <!-- Opportunities taken vs not taken -->
+      <div class="kpi-section-header">
+        <span class="kpi-section-header-label">Opportunities: taken vs not taken</span>
+        <div class="kpi-section-header-line"></div>
+        <button onclick="showTab('missed')" style="font-size:11px;color:var(--navy);background:none;border:none;cursor:pointer;font-family:var(--font-body);text-decoration:underline;flex-shrink:0">Missed detail →</button>
+      </div>
+      <div id="kpi-opp-conversion" style="margin-bottom:24px"></div>
 
       <!-- Period daily breakdown (hidden for Today) -->
       <div id="kpi-period-breakdown" style="display:none;margin-bottom:24px"></div>
@@ -4066,6 +4079,34 @@ function computeSavingsTrackerData(periodStart, periodEnd) {
     confCostYtd:     sum(ytdTransfers,'total_cost_saved'),
     confMilesYtd:    sum(ytdTransfers,'miles_saved'),
     confCO2Ytd:      sum(ytdTransfers,'co2_kg_saved'),
+  };
+}
+// Combines confirmed transfers ("taken") with missed opportunities ("not
+// taken" — declined, dismissed, or never actioned, excluding anything a
+// human has validated as not actually achievable) for a date range, into
+// one conversion-rate view: of everything the network could have shared,
+// how much actually got shared? Assumes _confirmedTransfers and
+// _missedOpportunities are already loaded (same assumption
+// computeSavingsTrackerData already makes about _confirmedTransfers).
+function computeOpportunityConversion(periodStart, periodEnd) {
+  const st = computeSavingsTrackerData(periodStart, periodEnd);
+  const missedInPeriod = (_missedOpportunities||[]).filter(t => t.transfer_date >= periodStart && t.transfer_date <= periodEnd);
+  const takenCount  = st.periodTransfers.length;
+  const takenCost   = st.confCostPeriod;
+  const takenMiles  = st.confMilesPeriod;
+  const takenVpk    = st.confVpkPeriod;
+  const missedCount = missedInPeriod.length;
+  const missedCost  = missedInPeriod.reduce((a,t)=>a+parseFloat(t.cost_saving||0),0);
+  const missedMiles = missedInPeriod.reduce((a,t)=>a+parseFloat(t.miles_saved||0),0);
+  const missedVpk   = missedCost * TENANT_CONFIG.vpkCommissionRate;
+  const totalCount  = takenCount + missedCount;
+  const totalCost   = takenCost + missedCost;
+  return {
+    takenCount, takenCost, takenMiles, takenVpk,
+    missedCount, missedCost, missedMiles, missedVpk,
+    totalCount, totalCost,
+    conversionRateByCount: totalCount>0 ? Math.round(takenCount/totalCount*100) : null,
+    conversionRateByValue: totalCost>0  ? Math.round(takenCost/totalCost*100)  : null,
   };
 }
 // Date -> aggregated totals — shared by the dashboard's period breakdown
@@ -5646,6 +5687,11 @@ async function exportKpiPdf(data, opts) {
   const { start, end, siteChecks, sections, customTitle } = opts||{};
   const { jsPDF } = window.jspdf || {};
   if (!jsPDF) { alert('PDF library not loaded yet — please wait a moment and try again.'); return; }
+  // Always fresh, never session-cached — this PDF is meant to be handed
+  // directly to VPK, so it can't silently show stale/zero savings or
+  // missed-opportunity figures just because those tabs weren't visited
+  // earlier in the session.
+  await Promise.all([loadTransferHistory(), loadMissedOpportunities()]);
   const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
   // Note: jsPDF's default fonts only support WinAnsi encoding, which has no
   // right-arrow glyph (→ renders as garbage) — use an en dash instead, which
@@ -5654,7 +5700,7 @@ async function exportKpiPdf(data, opts) {
   data = data || (kpiPeriod === 'today' ? todayData : kpiPeriodData);
   // Default set covers every section the modal offers — matches the on-screen
   // KPI tab exactly, so a PDF built with no explicit selection is still complete.
-  const incl = sections || new Set(['headline','site-breakdown','daily-breakdown','utilisation','cost','savings','load-sharing','compliance','leaderboard','top-customers','missed-opportunities']);
+  const incl = sections || new Set(['headline','site-breakdown','daily-breakdown','utilisation','cost','savings','opp-conversion','load-sharing','compliance','leaderboard','top-customers','missed-opportunities']);
   const W = 210, margin = 14, contentW = W - margin*2;
   const NAVY=[18,25,45], WHITE=[255,255,255], CREAM=[248,249,251], RULE=[220,222,228];
   const INK3=[120,130,150], INK=[40,45,55];
@@ -5908,6 +5954,50 @@ async function exportKpiPdf(data, opts) {
     y+=6;
   }
 
+  // ── OPPORTUNITIES: TAKEN VS NOT TAKEN ──
+  if(incl.has('opp-conversion')){
+    const oc = computeOpportunityConversion(start, end);
+    ensureRoom(40);
+    sectionHeading('Opportunities: Taken vs Not Taken');
+    if(oc.totalCount === 0){
+      doc.setFontSize(8.5); doc.setFont('helvetica','normal'); doc.setTextColor(...INK3);
+      doc.text('No opportunities identified in this period yet.', margin, y); y+=8;
+    } else {
+      const takenPct = oc.conversionRateByValue ?? oc.conversionRateByCount ?? 0;
+      const pctCol = takenPct>=70?[39,174,96]:takenPct>=40?[230,126,34]:[192,57,43];
+      doc.setFontSize(22); doc.setFont('helvetica','bold'); doc.setTextColor(...pctCol);
+      doc.text(takenPct+'%', margin, y+8);
+      doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(...INK3);
+      doc.text('of available opportunity value taken', margin+28, y+8);
+      y+=14;
+      // split bar
+      const barW = contentW, barH = 6;
+      doc.setFillColor(39,174,96); doc.rect(margin, y, barW*takenPct/100, barH, 'F');
+      doc.setFillColor(192,57,43); doc.rect(margin+barW*takenPct/100, y, barW*(100-takenPct)/100, barH, 'F');
+      doc.setDrawColor(...RULE); doc.setLineWidth(0.3); doc.rect(margin, y, barW, barH);
+      y += barH + 8;
+      doc.autoTable({
+        startY:y,
+        head:[['','Count','Truck cost','Miles','VPK 10%']],
+        body:[
+          ['Taken', String(oc.takenCount), '£'+Math.round(oc.takenCost).toLocaleString(), Math.round(oc.takenMiles).toLocaleString()+' mi', '£'+Math.round(oc.takenVpk).toLocaleString()],
+          ['Not taken', String(oc.missedCount), '£'+Math.round(oc.missedCost).toLocaleString(), Math.round(oc.missedMiles).toLocaleString()+' mi', '£'+Math.round(oc.missedVpk).toLocaleString()],
+        ],
+        theme:'grid',
+        headStyles:{fillColor:NAVY,textColor:WHITE,fontStyle:'bold',fontSize:8,cellPadding:3},
+        bodyStyles:{fontSize:9,fontStyle:'bold',cellPadding:3.5},
+        columnStyles:{1:{halign:'right'},2:{halign:'right'},3:{halign:'right'},4:{halign:'right'}},
+        didParseCell(d){
+          if(d.section==='body' && d.column.index===0){
+            d.cell.styles.textColor = d.row.index===0 ? [39,174,96] : [192,57,43];
+          }
+        },
+        margin:{left:margin,right:margin},
+      });
+      y=doc.lastAutoTable.finalY+8;
+    }
+  }
+
   // ── LOAD SHARING OPPORTUNITIES ── (live — see note below)
   if(incl.has('load-sharing')){
     const opps = computeOpps(todayData);
@@ -6031,7 +6121,6 @@ async function exportKpiPdf(data, opts) {
   // ── MISSED OPPORTUNITIES (validated only — excludes anything marked
   // "not achievable" on the Missed Opportunities page) ──
   if(incl.has('missed-opportunities')){
-    await loadMissedOpportunities();
     const missedInRange = _missedOpportunities.filter(t => t.transfer_date >= start && t.transfer_date <= end);
     ensureRoom(24);
     sectionHeading('Missed Opportunities');
@@ -6083,7 +6172,12 @@ async function exportKpiPdf(data, opts) {
   doc.save('Triad-KPI-'+period.replace(/[^a-z0-9]+/gi,'-')+'.pdf');
 }
 
-function renderKPIs() {
+async function renderKPIs() {
+  // Fresh, not session-cached — this page (and its export) is meant to be
+  // trustworthy enough to hand to VPK directly, so it shouldn't silently
+  // show stale/zero figures just because the Savings or Missed
+  // Opportunities tabs haven't been visited yet this session.
+  await Promise.all([loadTransferHistory(), loadMissedOpportunities()]);
   const rawSet = kpiPeriod === 'today' ? todayData : kpiPeriodData;
   const kpiFilter = window._kpiSiteFilter; const dataSet = kpiFilter ? rawSet.filter(e=>kpiFilter.has(e.site)) : rawSet;
   const el_bt = document.getElementById('kpi-breakdown-title'); if(el_bt) el_bt.textContent = kpiPeriod==='today'?'Site breakdown — today':'Site breakdown — period total';
@@ -6208,6 +6302,39 @@ function renderKPIs() {
           <span><strong style="color:var(--ink)">${Math.round(confCO2Ytd)} kg</strong> CO₂ avoided</span>
           <span><strong style="color:var(--ink)">${ytdTransfers.length}</strong> total transfers</span>
         </div>` : ''}`;
+  }
+  // ── Opportunities: taken vs not taken ──
+  const oppConvEl = document.getElementById('kpi-opp-conversion');
+  if (oppConvEl) {
+    const oc = computeOpportunityConversion(periodStart, periodEnd);
+    if (oc.totalCount === 0) {
+      oppConvEl.innerHTML = `<div style="text-align:center;padding:24px;color:var(--ink3);font-size:13px">No opportunities identified in this period yet.</div>`;
+    } else {
+      const takenPct = oc.conversionRateByValue ?? oc.conversionRateByCount ?? 0;
+      oppConvEl.innerHTML = `
+        <div style="text-align:center;margin-bottom:14px">
+          <span style="font-family:var(--font-head);font-size:32px;font-weight:800;color:${takenPct>=70?'var(--green)':takenPct>=40?'var(--amber)':'var(--red)'}">${takenPct}%</span>
+          <span style="font-size:13px;color:var(--ink3)"> of available opportunity value taken — ${periodLabel}</span>
+        </div>
+        <div style="height:14px;border-radius:7px;overflow:hidden;display:flex;margin-bottom:16px;border:1px solid var(--rule)">
+          <div style="width:${takenPct}%;background:var(--green)"></div>
+          <div style="width:${100-takenPct}%;background:var(--red)"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div style="background:var(--green-l);border:1px solid #c8e6c9;border-radius:10px;padding:14px 16px">
+            <div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.05em;font-family:var(--font-mono);margin-bottom:8px">✓ Taken — ${oc.takenCount}</div>
+            <div style="font-size:20px;font-weight:700;color:var(--ink)">£${Math.round(oc.takenCost).toLocaleString()}</div>
+            <div style="font-size:11px;color:var(--ink3);margin-bottom:6px">truck cost saved</div>
+            <div style="font-size:12px;color:var(--ink2)">${Math.round(oc.takenMiles).toLocaleString()} mi · £${Math.round(oc.takenVpk).toLocaleString()} VPK 10%</div>
+          </div>
+          <div style="background:var(--red-l);border:1px solid #f5c6c0;border-radius:10px;padding:14px 16px">
+            <div style="font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.05em;font-family:var(--font-mono);margin-bottom:8px">✕ Not taken — ${oc.missedCount}</div>
+            <div style="font-size:20px;font-weight:700;color:var(--ink)">£${Math.round(oc.missedCost).toLocaleString()}</div>
+            <div style="font-size:11px;color:var(--ink3);margin-bottom:6px">truck cost left on the table</div>
+            <div style="font-size:12px;color:var(--ink2)">${Math.round(oc.missedMiles).toLocaleString()} mi · £${Math.round(oc.missedVpk).toLocaleString()} VPK 10% missed</div>
+          </div>
+        </div>`;
+    }
   }
   // ── Site breakdown — one calc, shared with the PDF export ──
   const siteRows = computeSiteBreakdownRows(dataSet);
@@ -8657,13 +8784,28 @@ async function renderMissedOpportunities() {
   const months = Object.keys(monthMap).sort().slice(-6);
   const maxMonthCost = Math.max(...months.map(m=>monthMap[m].cost), 1);
 
-  // "On the table right now" is deliberately always today's live data,
-  // regardless of the period selector above — clearly labelled "live" so
-  // that's obvious rather than looking like the page ignored your choice.
-  const todaysProposedPairs = new Set((_jobTransfers||[]).map(t => t.from_site+'|'+t.to_site));
-  const liveOpps = computeOpps(todayData).filter(o => !todaysProposedPairs.has(o.from+'|'+o.to));
-  const liveMiles = liveOpps.reduce((a,o)=>a+o.saving,0);
-  const liveCost  = liveOpps.reduce((a,o)=>a+Math.round(o.saving*TENANT_CONFIG.fuelCostPerMile),0);
+  // "On the table right now" — uses the EXACT SAME opportunity engine
+  // (computeEnhancedOpps) and the EXACT SAME ignore-filter (isOppIgnored)
+  // as the Load Sharing tab itself, so this count can never disagree with
+  // the sidebar's "Live opportunities" badge again — previously this used
+  // a simpler, separate calculation that could (and did) show a different
+  // number.
+  const { fullLoadOpps, relayOpps, lightLoadOpps } = computeEnhancedOpps(todayData);
+  window._currentFullLoadOpps  = fullLoadOpps;
+  window._currentRelayOpps     = relayOpps;
+  window._currentLightLoadOpps = lightLoadOpps;
+  const allLiveOpps = [...fullLoadOpps, ...relayOpps, ...lightLoadOpps];
+  const todaysProposedKeys = new Set((_jobTransfers||[]).map(t => `${t.from_site}|${t.to_site}|${t.district||''}`));
+  const liveOpps = allLiveOpps
+    .map((o, idx) => ({ o, idx }))
+    .filter(({o}) => !isOppIgnored(o))
+    .filter(({o}) => {
+      const from = o.saved || o.site;
+      const to   = o.selectedCarrier || o.carrier;
+      return !todaysProposedKeys.has(`${from}|${to}|${o.district||''}`);
+    });
+  const liveMiles = liveOpps.reduce((a,{o})=>a+(o.milesSaved||0),0);
+  const liveCost  = liveOpps.reduce((a,{o})=>a+(o.totalCostSaved||0),0);
 
   const setupWarning = (!sb || !isConfigured) ? `
     <div style="background:#fff8e1;border:1px solid #ffca28;border-radius:10px;padding:16px;margin-bottom:20px;font-size:13px">
@@ -8712,18 +8854,31 @@ async function renderMissedOpportunities() {
       <div class="kpi-section-header-line"></div>
     </div>
     <div style="background:#fff;border:1px solid var(--rule);border-radius:var(--r-lg);overflow:hidden;margin-bottom:6px">
-      ${liveOpps.slice(0,8).map(o=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--rule)">
-        <div>
-          <div style="font-weight:600;font-size:13px">${o.fromName} → ${o.toName}</div>
-          <div style="font-size:11px;color:var(--ink3);font-family:var(--font-mono)">${o.overlap.join(', ')}</div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-weight:700;font-size:13px">~${o.saving} mi</div>
-          <div style="font-size:11px;color:var(--ink3)">~£${Math.round(o.saving*TENANT_CONFIG.fuelCostPerMile)}</div>
-        </div>
-      </div>`).join('')}
+      ${liveOpps.slice(0,8).map(({o, idx})=>{
+        const fromSite = o.saved || o.site;
+        const toSite   = o.selectedCarrier || o.carrier;
+        const fromName = SITES_META[fromSite]?.name || fromSite || '—';
+        const toName   = toSite ? (SITES_META[toSite]?.name || toSite) : null;
+        const typeTag  = o.type==='light_load' ? 'light load' : o.type==='relay' ? 'relay' : null;
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--rule);gap:12px">
+          <div style="min-width:0">
+            <div style="font-weight:600;font-size:13px">${fromName}${toName?' → '+toName:''}${typeTag?` <span style="font-weight:400;color:var(--ink3);font-size:11px">· ${typeTag}</span>`:''}</div>
+            <div style="font-size:11px;color:var(--ink3);font-family:var(--font-mono)">${o.district||''}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;display:flex;align-items:center;gap:10px">
+            <div>
+              <div style="font-weight:700;font-size:13px">£${Math.round(o.totalCostSaved||0)}</div>
+              <div style="font-size:11px;color:var(--ink3)">${Math.round(o.milesSaved||0)} mi</div>
+            </div>
+            <button onclick="proposeJobTransferByIdx(${idx}, this); setTimeout(renderMissedOpportunities, 500)" title="Propose this transfer"
+              style="font-size:11px;color:#fff;background:var(--navy);border:none;border-radius:6px;padding:5px 9px;cursor:pointer;white-space:nowrap">Propose</button>
+            <button onclick="ignoreOppByIdx(${idx}); setTimeout(renderMissedOpportunities, 150)" title="Not actually achievable — dismiss it, with a real record kept"
+              style="font-size:11px;color:var(--ink3);background:none;border:1px solid var(--rule);border-radius:6px;padding:5px 9px;cursor:pointer;white-space:nowrap">Ignore</button>
+          </div>
+        </div>`;
+      }).join('')}
     </div>
-    <div style="font-size:11px;color:var(--ink3);margin-bottom:24px">~£${Math.round(liveCost).toLocaleString()} and ${Math.round(liveMiles).toLocaleString()} mi unactioned today — propose these from the Load sharing tab before they expire.</div>
+    <div style="font-size:11px;color:var(--ink3);margin-bottom:24px">£${Math.round(liveCost).toLocaleString()} and ${Math.round(liveMiles).toLocaleString()} mi unactioned today — propose or dismiss them above, or from the Load sharing tab.</div>
     ` : ''}
 
     <div class="kpi-section-header">
