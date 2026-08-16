@@ -3256,6 +3256,45 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
           2. Click a run to expand all stops<br>
           3. Click numbered stops for details
         </div>
+        <!-- Legend — explains the visual language of the map (line styles,
+             pill fill, marker meaning), collapsible so it doesn't permanently
+             eat map space once someone's learned it. -->
+        <div id="map-legend" style="position:absolute;bottom:16px;left:16px;background:white;border:1px solid var(--rule);
+          border-radius:10px;z-index:10;box-shadow:0 2px 12px rgba(0,0,0,0.1);font-family:'IBM Plex Sans',sans-serif;
+          overflow:hidden;max-width:230px">
+          <button onclick="_mapToggleLegend()" id="map-legend-toggle"
+            style="width:100%;padding:9px 12px;background:none;border:none;cursor:pointer;
+            display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:600;color:var(--ink)">
+            <span>Legend</span>
+            <svg id="map-legend-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" style="transition:transform .18s">
+              <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div id="map-legend-body" style="padding:0 12px 12px;font-size:11px;color:var(--ink2);line-height:1.5">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <svg width="24" height="8" style="flex-shrink:0"><line x1="0" y1="4" x2="24" y2="4" stroke="var(--navy)" stroke-width="2.5"/></svg>
+              <span>Delivery run today <span style="color:var(--ink3)">— colour = depot</span></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <span style="flex-shrink:0;width:24px;height:15px;border-radius:5px;border:1.5px solid var(--navy);display:inline-block"></span>
+              <span>Single-load run</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <span style="flex-shrink:0;width:24px;height:15px;border-radius:5px;background:var(--navy);display:inline-block"></span>
+              <span style="color:white;background:var(--navy);border-radius:4px;padding:0 4px;margin-right:2px;font-size:10px;font-weight:700">filled</span>
+              <span>Multi-load run</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <svg width="24" height="8" style="flex-shrink:0"><line x1="0" y1="4" x2="24" y2="4" stroke="var(--red)" stroke-width="2" stroke-dasharray="3 2"/></svg>
+              <span>Sharing opportunity <span style="color:var(--ink3)">— click to view</span></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding-left:2px">
+              <span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block"></span><span style="font-size:10px;color:var(--ink3)">High</span></span>
+              <span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:var(--amber);display:inline-block"></span><span style="font-size:10px;color:var(--ink3)">Med</span></span>
+              <span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block"></span><span style="font-size:10px;color:var(--ink3)">Low</span></span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <!-- ─── CHAT TAB ─── -->
@@ -8969,6 +9008,21 @@ function _initLeafletMap(opps) {
     if (m2 && PC_COORDS[m2[1]]) return PC_COORDS[m2[1]];
     return null;
   }
+  // Compass bearing from point 1 to point 2, in degrees (0-360).
+  function bearingDeg(lat1, lng1, lat2, lng2) {
+    const y = Math.sin((lng2-lng1)*Math.PI/180) * Math.cos(lat2*Math.PI/180);
+    const x = Math.cos(lat1*Math.PI/180)*Math.sin(lat2*Math.PI/180) - Math.sin(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.cos((lng2-lng1)*Math.PI/180);
+    return (Math.atan2(y,x)*180/Math.PI + 360) % 360;
+  }
+  // Offset a lat/lng point sideways (perpendicular to a bearing) by roughly
+  // offsetKm kilometres — used to fan out labels that would otherwise stack.
+  function perpendicularOffset(lat, lng, bearingDegrees, offsetKm) {
+    if (!offsetKm) return [lat, lng];
+    const perpRad = (bearingDegrees + 90) * Math.PI / 180;
+    const dLat = (offsetKm / 111) * Math.cos(perpRad);
+    const dLng = (offsetKm / (111 * Math.cos(lat*Math.PI/180) || 1)) * Math.sin(perpRad);
+    return [lat + dLat, lng + dLng];
+  }
   function arrowIcon(col) {
     return L.divIcon({
       className:'', iconSize:[14,14], iconAnchor:[7,7],
@@ -9036,11 +9090,42 @@ function _initLeafletMap(opps) {
     const meta  = SITES_META[siteId]||{color:'#888',name:siteId};
     const runs  = getRunGroups(e);
     siteRunLayers[siteId] = [];
-    runs.forEach(run => {
+    // Resolve first-drop coords + bearing for every run up front, so labels
+    // that would otherwise land on top of each other (several routes
+    // heading in roughly the same direction — very common) can be fanned
+    // out before anything gets drawn.
+    const resolved = runs.map(run => {
       const firstStop = run.stops.find(s => pcCoords(s.postal||s.postcode));
-      if (!firstStop) return;
-      const firstCoords = pcCoords(firstStop.postal||firstStop.postcode);
-      if (!firstCoords) return;
+      const firstCoords = firstStop ? pcCoords(firstStop.postal||firstStop.postcode) : null;
+      if (!firstCoords) return null;
+      const bearing = bearingDeg(depot.lat, depot.lng, firstCoords[0], firstCoords[1]);
+      return { run, firstCoords, bearing, labelDistPct:0.38, labelOffsetKm:0 };
+    }).filter(Boolean);
+    // Cluster runs whose bearing from the depot is within ~18° of each
+    // other — those are the ones whose labels would collide.
+    const sorted = [...resolved].sort((a,b) => a.bearing - b.bearing);
+    const clusters = [];
+    sorted.forEach(item => {
+      const last = clusters[clusters.length-1];
+      if (last) {
+        let diff = Math.abs(item.bearing - last[last.length-1].bearing);
+        if (diff > 180) diff = 360 - diff;
+        if (diff < 18) { last.push(item); return; }
+      }
+      clusters.push([item]);
+    });
+    // Within each cluster, stagger how far along the line the label sits
+    // AND fan it sideways, alternating left/right — turns a stack of
+    // overlapping pills into a spread-out arc.
+    clusters.forEach(cluster => {
+      if (cluster.length < 2) return;
+      const mid = (cluster.length-1)/2;
+      cluster.forEach((item, i) => {
+        item.labelDistPct = 0.28 + (i % 3) * 0.11; // 0.28, 0.39, 0.50 repeating
+        item.labelOffsetKm = (i - mid) * 3.4; // km, alternating sides of the line
+      });
+    });
+    resolved.forEach(({ run, firstCoords, bearing, labelDistPct, labelOffsetKm }) => {
       // Line from depot to first drop
       const line = L.polyline([[depot.lat, depot.lng], firstCoords], {
         color: meta.color, weight: 2.5, opacity: 0.9,
@@ -9057,9 +9142,11 @@ function _initLeafletMap(opps) {
         radius:7, fillColor:meta.color, fillOpacity:0.9,
         color:'#fff', weight:2,
       }).addTo(_leafletMap);
-      // Run label marker near midpoint
-      const lblLat = depot.lat + (firstCoords[0]-depot.lat)*0.38;
-      const lblLng = depot.lng + (firstCoords[1]-depot.lng)*0.38;
+      // Run label marker — position staggered/fanned per the clustering
+      // pass above so labels for routes heading the same way don't stack.
+      const lblLat0 = depot.lat + (firstCoords[0]-depot.lat)*labelDistPct;
+      const lblLng0 = depot.lng + (firstCoords[1]-depot.lng)*labelDistPct;
+      const [lblLat, lblLng] = perpendicularOffset(lblLat0, lblLng0, bearing, labelOffsetKm);
       const runLbl = run.runLabel.replace('(','').replace(')','');
       const shortLbl = runLbl.length > 14 ? runLbl.slice(0,12)+'…' : runLbl;
       const labelMarker = L.marker([lblLat, lblLng], {
@@ -13257,6 +13344,23 @@ window._mapTogglePanel = function() {
   if (restore) restore.style.display = hidden ? 'none' : 'block';
   if (_leafletMap) setTimeout(() => _leafletMap.invalidateSize(), 200);
 };
+window._mapToggleLegend = function(forceState) {
+  const body = document.getElementById('map-legend-body');
+  const chevron = document.getElementById('map-legend-chevron');
+  if (!body) return;
+  const expanded = forceState !== undefined ? forceState : body.style.display === 'none';
+  body.style.display = expanded ? '' : 'none';
+  if (chevron) chevron.style.transform = expanded ? '' : 'rotate(-90deg)';
+  try { localStorage.setItem('triad_map_legend_open', expanded ? '1' : '0'); } catch(e) {}
+};
+// Restore saved legend open/closed state — defaults to open (first-time
+// users need it most) unless they've explicitly collapsed it before.
+(function(){
+  try {
+    const saved = localStorage.getItem('triad_map_legend_open');
+    if (saved === '0') window._mapToggleLegend(false);
+  } catch(e) {}
+})();
 </script>
 </body>
 </html>
