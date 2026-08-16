@@ -314,6 +314,21 @@ button, input, select, textarea { font-family: var(--font-body); }
   opacity: 0.7;
 }
 .sb-link.active .sb-link-icon { opacity: 1; }
+.sb-group-header {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  border-radius: 8px; color: rgba(255,255,255,0.5); font-size: 13px; font-weight: 400;
+  cursor: pointer; border: none; background: none; width: 100%; text-align: left;
+  transition: all 0.15s;
+}
+.sb-group-header:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8); }
+.sb-group-header.has-active { color: rgba(255,255,255,0.85); font-weight: 500; }
+.sb-group-chevron { width:14px; height:14px; transition: transform .18s; flex-shrink:0; opacity:.6; }
+.sb-group-header.expanded .sb-group-chevron { transform: rotate(90deg); }
+.sb-group-items {
+  display:flex; flex-direction:column; gap:2px; overflow:hidden;
+  max-height:0; transition: max-height .2s ease; padding-left: 14px;
+}
+.sb-group-items.expanded { max-height: 260px; }
 .sb-badge {
   margin-left: auto;
   background: var(--red);
@@ -2395,36 +2410,48 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
         </svg>
         <span>Overview</span>
       </button>
-      <button class="sb-link" data-tab="sharing" onclick="showTab('sharing')">
+      <button class="sb-group-header" id="sb-group-sharing-header" onclick="toggleSbGroup('sharing')">
         <svg class="sb-link-icon" viewBox="0 0 18 18" fill="none">
           <path d="M3 9h12M10 5l5 4-5 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        <span>Load sharing</span>
-        <span class="sb-badge" id="opp-badge">0</span>
-      </button>
-      <button class="sb-link" data-tab="transfers" onclick="showTab('transfers')">
-        <svg class="sb-link-icon" viewBox="0 0 18 18" fill="none">
-          <path d="M3 9h12M11 5l4 4-4 4M7 5L3 9l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <span>Load Sharing</span>
+        <span class="sb-badge" id="sb-group-sharing-badge" style="display:none">0</span>
+        <svg class="sb-group-chevron" viewBox="0 0 18 18" fill="none">
+          <path d="M7 4l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        <span>Transfers</span>
-        <span class="sb-badge" id="transfers-badge" style="display:none">0</span>
       </button>
-      <button class="sb-link" data-tab="savings" onclick="showTab('savings')">
-        <svg class="sb-link-icon" viewBox="0 0 18 18" fill="none">
-          <path d="M9 2v14M5 5.5h6a2.5 2.5 0 010 5H7a2.5 2.5 0 000 5h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-        <span>Savings</span>
-        <span class="sb-badge" id="savings-badge" style="display:none">0</span>
-      </button>
-      <button class="sb-link" data-tab="missed" onclick="showTab('missed')">
-        <svg class="sb-link-icon" viewBox="0 0 18 18" fill="none">
-          <circle cx="9" cy="9" r="6.5" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M9 5.5v3.5l2.5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          <path d="M3 3l12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-        <span>Missed opportunities</span>
-        <span class="sb-badge" id="missed-badge" style="display:none">0</span>
-      </button>
+      <div class="sb-group-items" id="sb-group-sharing-items">
+        <button class="sb-link" data-tab="sharing" onclick="showTab('sharing')">
+          <svg class="sb-link-icon" viewBox="0 0 18 18" fill="none">
+            <path d="M3 9h12M10 5l5 4-5 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Live opportunities</span>
+          <span class="sb-badge" id="opp-badge">0</span>
+        </button>
+        <button class="sb-link" data-tab="transfers" onclick="showTab('transfers')">
+          <svg class="sb-link-icon" viewBox="0 0 18 18" fill="none">
+            <path d="M3 9h12M11 5l4 4-4 4M7 5L3 9l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Transfers</span>
+          <span class="sb-badge" id="transfers-badge" style="display:none">0</span>
+        </button>
+        <button class="sb-link" data-tab="missed" onclick="showTab('missed')">
+          <svg class="sb-link-icon" viewBox="0 0 18 18" fill="none">
+            <circle cx="9" cy="9" r="6.5" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M9 5.5v3.5l2.5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M3 3l12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <span>Missed opportunities</span>
+          <span class="sb-badge" id="missed-badge" style="display:none">0</span>
+        </button>
+        <button class="sb-link" data-tab="savings" onclick="showTab('savings')">
+          <svg class="sb-link-icon" viewBox="0 0 18 18" fill="none">
+            <path d="M9 2v14M5 5.5h6a2.5 2.5 0 010 5H7a2.5 2.5 0 000 5h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <span>Savings</span>
+          <span class="sb-badge" id="savings-badge" style="display:none">0</span>
+        </button>
+      </div>
       <button class="sb-link" data-tab="history" onclick="showTab('history')">
         <svg class="sb-link-icon" viewBox="0 0 18 18" fill="none">
           <circle cx="9" cy="9" r="6.5" stroke="currentColor" stroke-width="1.5"/>
@@ -5213,6 +5240,42 @@ async function renderHistory() {
 ══════════════════════════════════════════ */
 const PAGE_TITLES = { overview:'Overview', upload:'Upload data', sharing:'Load sharing', transfers:'Transfers',
     savings:'Savings tracker', history:'History', export:'Export & share', kpi:'KPIs & performance', admin:'User admin', loads:'All loads', mapview:'Network map', chat:'Live chat', vpkimport:'Import', planning:'Planning', missed:'Missed opportunities' };
+// Sidebar groups — which tabs live under which collapsible group header
+const SB_GROUPS = { sharing: ['sharing','transfers','missed','savings'] };
+let _sbGroupExpanded = {};
+function loadSbGroupState() {
+  try { _sbGroupExpanded = JSON.parse(localStorage.getItem('triad_sb_groups')||'{}'); } catch(e) { _sbGroupExpanded = {}; }
+}
+function saveSbGroupState() {
+  try { localStorage.setItem('triad_sb_groups', JSON.stringify(_sbGroupExpanded)); } catch(e) {}
+}
+loadSbGroupState(); // restore expand/collapse preference before the first showTab() call
+function toggleSbGroup(name, forceState) {
+  const expanded = forceState !== undefined ? forceState : !_sbGroupExpanded[name];
+  _sbGroupExpanded[name] = expanded;
+  saveSbGroupState();
+  const header = document.getElementById('sb-group-'+name+'-header');
+  const items  = document.getElementById('sb-group-'+name+'-items');
+  if (header) header.classList.toggle('expanded', expanded);
+  if (items)  items.classList.toggle('expanded', expanded);
+  updateSbGroupBadge(name);
+}
+// Collapsed groups show a combined badge summing every sub-item's count, so
+// nothing needing attention is hidden just because the group is collapsed.
+// Expanded groups hide it — the individual badges underneath are enough.
+function updateSbGroupBadge(name) {
+  const badge = document.getElementById('sb-group-'+name+'-badge');
+  if (!badge) return;
+  if (_sbGroupExpanded[name]) { badge.style.display = 'none'; return; }
+  const total = (SB_GROUPS[name]||[]).reduce((sum, tab) => {
+    const idMap = { sharing:'opp-badge', transfers:'transfers-badge', missed:'missed-badge', savings:'savings-badge' };
+    const el = document.getElementById(idMap[tab]);
+    if (!el || el.style.display === 'none') return sum;
+    return sum + (parseInt(el.textContent, 10) || 0);
+  }, 0);
+  badge.textContent = total;
+  badge.style.display = total > 0 ? '' : 'none';
+}
 function showTab(tab) {
   ['overview','upload','sharing','transfers','savings','history','export','kpi','admin','loads','mapview','chat','vpkimport','planning','missed'].forEach(t => {
     const el = document.getElementById('tab-'+t);
@@ -5220,6 +5283,13 @@ function showTab(tab) {
   });
   document.querySelectorAll('.sb-link').forEach(b => b.classList.toggle('active', b.dataset.tab===tab));
   document.getElementById('page-title').textContent = PAGE_TITLES[tab]||tab;
+  // Auto-expand (and keep expanded) whichever group contains the active tab
+  Object.entries(SB_GROUPS).forEach(([name, tabs]) => {
+    const header = document.getElementById('sb-group-'+name+'-header');
+    if (header) header.classList.toggle('has-active', tabs.includes(tab));
+    if (tabs.includes(tab) && !_sbGroupExpanded[name]) toggleSbGroup(name, true);
+    else updateSbGroupBadge(name);
+  });
   if (tab==='kpi')     { if(kpiPeriod==='today'&&kpiPeriodData.length===0){kpiPeriodData=[...todayData];} renderKPIs(); }
   if (tab==='admin')   renderAdmin();
   if (tab==='loads')   renderLoads();
@@ -5955,7 +6025,7 @@ async function exportKpiPdf(data, opts) {
           fmtShortDate(t.transfer_date),
           SITES_META[t.from_site]?.name||t.from_site, SITES_META[t.to_site]?.name||t.to_site,
           t.district||t.route_area||'—',
-          t.status==='declined'?'Declined':'Never actioned',
+          t.status==='declined'?'Declined':t.status==='ignored'?'Dismissed':'Never actioned',
           Math.round(t.miles_saved||0)+' mi',
           '£'+Math.round(t.cost_saving||0).toLocaleString(),
         ]),
@@ -7291,6 +7361,7 @@ async function renderTransfersTab() {
     accepted:  `<span style="padding:3px 10px;border-radius:20px;background:#e8f5e9;color:#2e7d32;font-size:11px;font-weight:700">ACCEPTED</span>`,
     declined:  `<span style="padding:3px 10px;border-radius:20px;background:#fdecea;color:#c0392b;font-size:11px;font-weight:700">DECLINED</span>`,
     completed: `<span style="padding:3px 10px;border-radius:20px;background:#e8f0fe;color:#3949ab;font-size:11px;font-weight:700">COMPLETED</span>`,
+    ignored:   `<span style="padding:3px 10px;border-radius:20px;background:#f0f0f0;color:#757575;font-size:11px;font-weight:700">DISMISSED</span>`,
   }[s] || s);
 
   const setupWarning = (!sb || !isConfigured) ? `
@@ -7480,6 +7551,29 @@ function ignoreOpp(opp) {
   const ignored = getIgnoredOpps();
   ignored[oppIgnoreKey(opp)] = { date: opp.date||viewDate||todayStr(), type: opp.type, ignoredAt: new Date().toISOString() };
   saveIgnoredOpps(ignored);
+  // Also persist a real record so this shows up in Missed Opportunities —
+  // previously "Ignore" left no trace anywhere, which is why Load Sharing
+  // and Missed Opportunities never agreed on what had actually been missed.
+  // Fire-and-forget: this is a one-click dismiss action, not worth blocking
+  // the UI on a network round trip, and a failed insert here (e.g. before
+  // the status value is recognised) shouldn't break the dismiss itself.
+  if (opp && typeof opp === 'object' && sb && isConfigured) {
+    const fromSite = opp.saved || opp.from;
+    const toSite   = opp.selectedCarrier || opp.carrier || opp.to;
+    const cost     = opp.totalCostSaved ?? opp.routeCost ?? 0;
+    const miles    = opp.milesSaved ?? opp.saving ?? 0;
+    if (fromSite && toSite && (cost || miles)) {
+      sb.from('job_transfers').insert({
+        transfer_date: opp.date || viewDate || todayStr(),
+        status: 'ignored',
+        from_site: fromSite, to_site: toSite,
+        district: opp.district || opp.route?.area || null,
+        pallets: opp.palletsSaved || 0,
+        miles_saved: miles, cost_saving: cost,
+        proposed_by: currentUser?.email || currentUser?.id || 'system',
+      }).then(({error}) => { if (error) console.warn('Could not log ignored opportunity:', error.message); });
+    }
+  }
   renderAllOppsEnhanced();
 }
 function unignoreOpp(key) {
@@ -8451,12 +8545,12 @@ async function loadMissedOpportunities() {
   if (!sb || !isConfigured) { _missedOpportunities = []; _excludedMissedOpportunities = []; return; }
   const { data, error } = await sb.from('job_transfers')
     .select('*')
-    .in('status', ['declined','proposed'])
+    .in('status', ['declined','ignored','proposed'])
     .order('transfer_date', { ascending: false })
     .limit(500);
   if (!error && data) {
     const today = todayStr();
-    const relevant = data.filter(t => t.status === 'declined' || (t.status === 'proposed' && t.transfer_date < today));
+    const relevant = data.filter(t => t.status === 'declined' || t.status === 'ignored' || (t.status === 'proposed' && t.transfer_date < today));
     _missedOpportunities         = relevant.filter(t => !t.excluded_from_missed);
     _excludedMissedOpportunities = relevant.filter(t => t.excluded_from_missed);
   } else {
@@ -8516,6 +8610,7 @@ async function renderMissedOpportunities() {
   const totalMiles = periodOpps.reduce((a,t)=>a+parseFloat(t.miles_saved||0),0);
   const totalVpk   = totalCost * 0.10;
   const declinedCount = periodOpps.filter(t=>t.status==='declined').length;
+  const ignoredCount  = periodOpps.filter(t=>t.status==='ignored').length;
   const expiredCount  = periodOpps.filter(t=>t.status==='proposed').length;
 
   // By depot pair
@@ -8569,7 +8664,7 @@ async function renderMissedOpportunities() {
       <div class="kpi-stat-tile" style="border-left:3px solid var(--red)">
         <div class="stat-val">${periodOpps.length}</div>
         <div class="stat-lbl">Missed opportunities — ${periodLabel}</div>
-        <div class="stat-sub">${declinedCount} declined · ${expiredCount} never actioned</div>
+        <div class="stat-sub">${declinedCount} declined · ${ignoredCount} dismissed · ${expiredCount} never actioned</div>
       </div>
       <div class="kpi-stat-tile">
         <div class="stat-val" style="font-size:22px">${Math.round(totalMiles).toLocaleString()} mi</div>
@@ -8655,7 +8750,7 @@ async function renderMissedOpportunities() {
       ${periodOpps.map(t=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--rule);gap:12px">
         <div style="min-width:0">
           <div style="font-weight:600;font-size:13px">${SITES_META[t.from_site]?.name||t.from_site} → ${SITES_META[t.to_site]?.name||t.to_site} <span style="font-weight:400;color:var(--ink3)">· ${t.district||t.route_area||''}</span></div>
-          <div style="font-size:11px;color:var(--ink3);font-family:var(--font-mono)">${fmtShortDate(t.transfer_date)} · ${t.status==='declined'?'Declined':'Never actioned'}${t.notes?' · '+t.notes:''}</div>
+          <div style="font-size:11px;color:var(--ink3);font-family:var(--font-mono)">${fmtShortDate(t.transfer_date)} · ${t.status==='declined'?'Declined':t.status==='ignored'?'Dismissed':'Never actioned'}${t.notes?' · '+t.notes:''}</div>
         </div>
         <div style="text-align:right;flex-shrink:0;display:flex;align-items:center;gap:14px">
           <div>
