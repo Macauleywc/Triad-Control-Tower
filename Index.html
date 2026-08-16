@@ -6145,7 +6145,7 @@ async function exportKpiPdf(data, opts) {
           fmtShortDate(t.transfer_date),
           SITES_META[t.from_site]?.name||t.from_site, SITES_META[t.to_site]?.name||t.to_site,
           t.district||t.route_area||'—',
-          t.status==='declined'?'Declined':t.status==='ignored'?'Dismissed':'Never actioned',
+          t.status==='declined'?'Declined':t.status==='ignored'?'Dismissed':t.status==='expired'?'Never proposed':'Abandoned',
           Math.round(t.miles_saved||0)+' mi',
           '£'+Math.round(t.cost_saving||0).toLocaleString(),
         ]),
@@ -7520,6 +7520,7 @@ async function renderTransfersTab() {
     declined:  `<span style="padding:3px 10px;border-radius:20px;background:#fdecea;color:#c0392b;font-size:11px;font-weight:700">DECLINED</span>`,
     completed: `<span style="padding:3px 10px;border-radius:20px;background:#e8f0fe;color:#3949ab;font-size:11px;font-weight:700">COMPLETED</span>`,
     ignored:   `<span style="padding:3px 10px;border-radius:20px;background:#f0f0f0;color:#757575;font-size:11px;font-weight:700">DISMISSED</span>`,
+    expired:   `<span style="padding:3px 10px;border-radius:20px;background:#f0f0f0;color:#757575;font-size:11px;font-weight:700">NEVER PROPOSED</span>`,
   }[s] || s);
 
   const setupWarning = (!sb || !isConfigured) ? `
@@ -8710,16 +8711,92 @@ function _toggleMissedOppDetail(idx) {
   el.style.display = open ? 'block' : 'none';
   if (chev) chev.style.transform = open ? 'rotate(90deg)' : '';
 }
+// Sweep past days' live opportunities that were never proposed AND never
+// ignored into a persistent 'expired' record — this is the gap that made
+// "missed opportunities" undercount: an opportunity that just sat there
+// unactioned, with nobody clicking Propose or Ignore, previously vanished
+// without a trace once its day passed, instead of counting as missed.
+// Checks the last 14 days (bounded, so this stays cheap to run on every
+// visit), fetches each day's opportunities the same way the Load Sharing
+// tab's date navigation already does, and is safe to re-run — it only
+// inserts records for gaps that don't already have a job_transfers entry,
+// so it can never create duplicates no matter how often it runs.
+const MISSED_OPP_SWEEP_DAYS = 14;
+async function sweepExpiredOpportunities() {
+  if (!sb || !isConfigured) return;
+  const today = todayStr();
+  const dates = [];
+  for (let i = 1; i <= MISSED_OPP_SWEEP_DAYS; i++) {
+    const d = new Date(today+'T12:00:00'); d.setDate(d.getDate() - i);
+    dates.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));
+  }
+  const windowStart = dates[dates.length-1], windowEnd = dates[0];
+
+  // One query for every existing job_transfers record in the window, so
+  // each day's sweep is a local lookup, not a fresh network round trip.
+  const { data: existing, error: exErr } = await sb.from('job_transfers')
+    .select('from_site,to_site,district,transfer_date')
+    .gte('transfer_date', windowStart).lte('transfer_date', windowEnd);
+  if (exErr) return;
+  const existingKeys = new Set((existing||[]).map(t => `${t.from_site}|${t.to_site}|${t.district||''}|${t.transfer_date}`));
+
+  // One query for every daily_plans row in the window too, instead of one
+  // fetch per date.
+  const { data: plans, error: planErr } = await sb.from('daily_plans')
+    .select('*, routes(*)').gte('plan_date', windowStart).lte('plan_date', windowEnd);
+  if (planErr) return;
+  const byDate = {};
+  (plans||[]).forEach(p => {
+    const entry = {
+      site: p.site_id, date: p.plan_date, capacity: p.capacity,
+      total_loads: p.total_loads, total_trailers: p.total_trailers,
+      routes: (p.routes||[]).map(r => ({
+        area:r.area, pc:r.postcodes||'', stops:r.stops, pallets:r.pallets,
+        stops_detail:r.stops_detail||[], runNum:r.run_num, runLabel:r.run_label||r.area,
+        multiLoad:r.multi_load||false, runShips:r.run_ships||[]
+      }))
+    };
+    (byDate[p.plan_date] = byDate[p.plan_date] || []).push(entry);
+  });
+
+  const toInsert = [];
+  dates.forEach(date => {
+    const dayData = (allData.filter(e => e.date === date)).length
+      ? allData.filter(e => e.date === date)
+      : (byDate[date] || []);
+    if (!dayData.length) return; // no plan uploaded for that day — nothing to sweep
+    const { fullLoadOpps, relayOpps, lightLoadOpps } = computeEnhancedOpps(dayData);
+    [...fullLoadOpps, ...relayOpps, ...lightLoadOpps].forEach(o => {
+      const fromSite = o.saved || o.site;
+      const toSite   = o.selectedCarrier || o.carrier;
+      if (!fromSite || !toSite) return;
+      const key = `${fromSite}|${toSite}|${o.district||''}|${date}`;
+      if (existingKeys.has(key)) return; // already proposed, declined, or ignored — don't duplicate
+      existingKeys.add(key); // guard against duplicates within this same sweep
+      toInsert.push({
+        transfer_date: date, status: 'expired',
+        from_site: fromSite, to_site: toSite, district: o.district || null,
+        pallets: o.palletsSaved || 0,
+        miles_saved: o.milesSaved || 0, cost_saving: o.totalCostSaved || 0,
+        proposed_by: 'system (auto-swept)',
+      });
+    });
+  });
+  if (toInsert.length) {
+    await sb.from('job_transfers').insert(toInsert);
+  }
+}
 async function loadMissedOpportunities() {
   if (!sb || !isConfigured) { _missedOpportunities = []; _excludedMissedOpportunities = []; return; }
+  await sweepExpiredOpportunities();
   const { data, error } = await sb.from('job_transfers')
     .select('*')
-    .in('status', ['declined','ignored','proposed'])
+    .in('status', ['declined','ignored','proposed','expired'])
     .order('transfer_date', { ascending: false })
     .limit(500);
   if (!error && data) {
     const today = todayStr();
-    const relevant = data.filter(t => t.status === 'declined' || t.status === 'ignored' || (t.status === 'proposed' && t.transfer_date < today));
+    const relevant = data.filter(t => t.status === 'declined' || t.status === 'ignored' || t.status === 'expired' || (t.status === 'proposed' && t.transfer_date < today));
     _missedOpportunities         = relevant.filter(t => !t.excluded_from_missed);
     _excludedMissedOpportunities = relevant.filter(t => t.excluded_from_missed);
   } else {
@@ -8780,7 +8857,8 @@ async function renderMissedOpportunities() {
   const totalVpk   = totalCost * TENANT_CONFIG.vpkCommissionRate;
   const declinedCount = periodOpps.filter(t=>t.status==='declined').length;
   const ignoredCount  = periodOpps.filter(t=>t.status==='ignored').length;
-  const expiredCount  = periodOpps.filter(t=>t.status==='proposed').length;
+  const staleCount    = periodOpps.filter(t=>t.status==='proposed').length; // proposed, then never followed up
+  const autoCount     = periodOpps.filter(t=>t.status==='expired').length;  // never proposed OR ignored — auto-swept
 
   // By depot pair
   const pairMap = {};
@@ -8848,7 +8926,7 @@ async function renderMissedOpportunities() {
       <div class="kpi-stat-tile" style="border-left:3px solid var(--red)">
         <div class="stat-val">${periodOpps.length}</div>
         <div class="stat-lbl">Missed opportunities — ${periodLabel}</div>
-        <div class="stat-sub">${declinedCount} declined · ${ignoredCount} dismissed · ${expiredCount} never actioned</div>
+        <div class="stat-sub">${declinedCount} declined · ${ignoredCount} dismissed · ${staleCount} abandoned · ${autoCount} never proposed</div>
       </div>
       <div class="kpi-stat-tile">
         <div class="stat-val" style="font-size:22px">${Math.round(totalMiles).toLocaleString()} mi</div>
@@ -8962,7 +9040,7 @@ async function renderMissedOpportunities() {
       ${periodOpps.map(t=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--rule);gap:12px">
         <div style="min-width:0">
           <div style="font-weight:600;font-size:13px">${SITES_META[t.from_site]?.name||t.from_site} → ${SITES_META[t.to_site]?.name||t.to_site} <span style="font-weight:400;color:var(--ink3)">· ${t.district||t.route_area||''}</span></div>
-          <div style="font-size:11px;color:var(--ink3);font-family:var(--font-mono)">${fmtShortDate(t.transfer_date)} · ${t.status==='declined'?'Declined':t.status==='ignored'?'Dismissed':'Never actioned'}${t.notes?' · '+t.notes:''}</div>
+          <div style="font-size:11px;color:var(--ink3);font-family:var(--font-mono)">${fmtShortDate(t.transfer_date)} · ${t.status==='declined'?'Declined':t.status==='ignored'?'Dismissed':t.status==='expired'?'Never proposed':'Abandoned'}${t.notes?' · '+t.notes:''}</div>
         </div>
         <div style="text-align:right;flex-shrink:0;display:flex;align-items:center;gap:14px">
           <div>
