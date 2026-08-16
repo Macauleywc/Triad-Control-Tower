@@ -9757,25 +9757,16 @@ function _initLeafletMap(opps) {
     const depot = DEPOTS[sid];
     const meta  = SITES_META[sid]||{color:'#888',name:sid,biz:''};
     const e     = todayData.find(d=>d.site===sid);
-    const s     = e?sumStops(e):0, p=e?sumPallets(e):0;
+    const s     = e?sumStops(e):0;
     const cap   = e?(e.capacity||80):80;
     const pct   = Math.round(s/cap*100);
-    const pillCol = pct>=90?'#C0392B':pct>=75?'#C27800':'#1A8A5A';
-    const size  = 48;
+    const size  = 32; // simple flat dot — no rings, no utilisation arc, per feedback
     const markerHtml = `
-      <div style="width:${size}px;height:${size}px;cursor:pointer;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.22))">
-        <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-          <circle cx="${size/2}" cy="${size/2}" r="${size/2-2}" fill="${meta.color}" opacity="0.15"/>
-          <circle cx="${size/2}" cy="${size/2}" r="${size/2-2}" fill="none" stroke="${meta.color}" stroke-width="2" opacity="0.4"/>
-          ${e?`<circle cx="${size/2}" cy="${size/2}" r="${size/2-5}"
-            fill="none" stroke="${pillCol}" stroke-width="3.5"
-            stroke-dasharray="${((pct/100)*(Math.PI*2*(size/2-5))).toFixed(1)} ${(Math.PI*2*(size/2-5)).toFixed(1)}"
-            stroke-dashoffset="${(Math.PI*2*(size/2-5)*0.25).toFixed(1)}"
-            stroke-linecap="round" transform="rotate(-90 ${size/2} ${size/2})"/>`:''}
-          <circle cx="${size/2}" cy="${size/2}" r="15" fill="${meta.color}"/>
-          <text x="${size/2}" y="${size/2+5}" text-anchor="middle" fill="white"
-            font-size="13" font-weight="800" font-family="Syne,sans-serif">${meta.name[0]}</text>
-        </svg>
+      <div title="${meta.name}${e?' — '+pct+'% utilisation':''}"
+        style="width:${size}px;height:${size}px;border-radius:50%;background:${meta.color};
+        display:flex;align-items:center;justify-content:center;cursor:pointer;
+        box-shadow:0 2px 8px rgba(0,0,0,0.25);border:2.5px solid white">
+        <span style="color:white;font-size:12px;font-weight:800;font-family:'Syne',sans-serif">${meta.name[0]}</span>
         <div style="position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);white-space:nowrap;
           font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:${meta.color};
           background:white;padding:1px 7px;border-radius:4px;border:1px solid ${meta.color}30;
