@@ -8976,7 +8976,7 @@ function _initLeafletMap(opps) {
   // the map's own lifecycle: it's recreated fresh every time the map is,
   // lives inside Leaflet's own managed DOM/stacking, and can't be silently
   // cleared by anything touching an external element by ID.
-  const legendControl = L.control({ position: 'bottomleft' });
+  const legendControl = L.control({ position: 'topright' });
   legendControl.onAdd = function() {
     const div = L.DomUtil.create('div', '');
     div.style.cssText = 'background:white;border:1px solid var(--rule);border-radius:10px;'+
@@ -8995,6 +8995,14 @@ function _initLeafletMap(opps) {
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <svg width="24" height="8" style="flex-shrink:0"><line x1="0" y1="4" x2="24" y2="4" stroke="var(--navy)" stroke-width="2.5"/></svg>
           <span>Delivery run today <span style="color:var(--ink3)">— colour = depot</span></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <svg width="24" height="14" style="flex-shrink:0" viewBox="0 0 24 14"><path d="M8 12L12 2L16 12L12 9L8 12Z" fill="var(--navy)"/></svg>
+          <span>Direction of travel</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <svg width="24" height="14" style="flex-shrink:0" viewBox="0 0 24 14"><circle cx="12" cy="7" r="5" fill="var(--navy)" stroke="white" stroke-width="1.5"/></svg>
+          <span>End of route <span style="color:var(--ink3)">— click for details</span></span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <span style="flex-shrink:0;width:24px;height:15px;border-radius:5px;border:1.5px solid var(--navy);display:inline-block"></span>
