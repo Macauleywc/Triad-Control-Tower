@@ -3251,45 +3251,6 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
           2. Click a run to expand all stops<br>
           3. Click numbered stops for details
         </div>
-        <!-- Legend — explains the visual language of the map (line styles,
-             pill fill, marker meaning), collapsible so it doesn't permanently
-             eat map space once someone's learned it. -->
-        <div id="map-legend" style="position:absolute;bottom:16px;left:16px;background:white;border:1px solid var(--rule);
-          border-radius:10px;z-index:10;box-shadow:0 2px 12px rgba(0,0,0,0.1);font-family:'IBM Plex Sans',sans-serif;
-          overflow:hidden;max-width:230px">
-          <button onclick="_mapToggleLegend()" id="map-legend-toggle"
-            style="width:100%;padding:9px 12px;background:none;border:none;cursor:pointer;
-            display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:600;color:var(--ink)">
-            <span>Legend</span>
-            <svg id="map-legend-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" style="transition:transform .18s">
-              <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-          <div id="map-legend-body" style="padding:0 12px 12px;font-size:11px;color:var(--ink2);line-height:1.5">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-              <svg width="24" height="8" style="flex-shrink:0"><line x1="0" y1="4" x2="24" y2="4" stroke="var(--navy)" stroke-width="2.5"/></svg>
-              <span>Delivery run today <span style="color:var(--ink3)">— colour = depot</span></span>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-              <span style="flex-shrink:0;width:24px;height:15px;border-radius:5px;border:1.5px solid var(--navy);display:inline-block"></span>
-              <span>Single-load run</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-              <span style="flex-shrink:0;width:24px;height:15px;border-radius:5px;background:var(--navy);display:inline-block"></span>
-              <span style="color:white;background:var(--navy);border-radius:4px;padding:0 4px;margin-right:2px;font-size:10px;font-weight:700">filled</span>
-              <span>Multi-load run</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-              <svg width="24" height="8" style="flex-shrink:0"><line x1="0" y1="4" x2="24" y2="4" stroke="var(--red)" stroke-width="2" stroke-dasharray="3 2"/></svg>
-              <span>Sharing opportunity <span style="color:var(--ink3)">— click to view</span></span>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px;padding-left:2px">
-              <span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block"></span><span style="font-size:10px;color:var(--ink3)">High</span></span>
-              <span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:var(--amber);display:inline-block"></span><span style="font-size:10px;color:var(--ink3)">Med</span></span>
-              <span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block"></span><span style="font-size:10px;color:var(--ink3)">Low</span></span>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
     <!-- ─── CHAT TAB ─── -->
@@ -8982,6 +8943,67 @@ function _initLeafletMap(opps) {
       attribution: '&copy; OpenStreetMap', subdomains: 'abc', maxZoom: 19,
     }).addTo(_leafletMap);
   });
+  // ── Legend — a genuine Leaflet control, not an external HTML overlay ──
+  // Deliberately built this way (not a static sibling div) so it's tied to
+  // the map's own lifecycle: it's recreated fresh every time the map is,
+  // lives inside Leaflet's own managed DOM/stacking, and can't be silently
+  // cleared by anything touching an external element by ID.
+  const legendControl = L.control({ position: 'bottomleft' });
+  legendControl.onAdd = function() {
+    const div = L.DomUtil.create('div', '');
+    div.style.cssText = 'background:white;border:1px solid var(--rule);border-radius:10px;'+
+      'box-shadow:0 2px 12px rgba(0,0,0,0.1);font-family:\'IBM Plex Sans\',sans-serif;overflow:hidden;max-width:230px';
+    let open = true;
+    try { open = localStorage.getItem('triad_map_legend_open') !== '0'; } catch(e) {}
+    div.innerHTML = `
+      <button class="_legend-toggle" style="width:100%;padding:9px 12px;background:none;border:none;cursor:pointer;
+        display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:600;color:var(--ink)">
+        <span>Legend</span>
+        <svg class="_legend-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" style="transition:transform .18s;transform:${open?'':'rotate(-90deg)'}">
+          <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <div class="_legend-body" style="display:${open?'':'none'};padding:0 12px 12px;font-size:11px;color:var(--ink2);line-height:1.5">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <svg width="24" height="8" style="flex-shrink:0"><line x1="0" y1="4" x2="24" y2="4" stroke="var(--navy)" stroke-width="2.5"/></svg>
+          <span>Delivery run today <span style="color:var(--ink3)">— colour = depot</span></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="flex-shrink:0;width:24px;height:15px;border-radius:5px;border:1.5px solid var(--navy);display:inline-block"></span>
+          <span>Single-load run</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="flex-shrink:0;width:24px;height:15px;border-radius:5px;background:var(--navy);display:inline-block"></span>
+          <span>Multi-load run</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <svg width="24" height="8" style="flex-shrink:0"><line x1="0" y1="4" x2="24" y2="4" stroke="var(--red)" stroke-width="2" stroke-dasharray="3 2"/></svg>
+          <span>Sharing opportunity <span style="color:var(--ink3)">— click to view</span></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding-left:2px">
+          <span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block"></span><span style="font-size:10px;color:var(--ink3)">High</span></span>
+          <span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:var(--amber);display:inline-block"></span><span style="font-size:10px;color:var(--ink3)">Med</span></span>
+          <span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block"></span><span style="font-size:10px;color:var(--ink3)">Low</span></span>
+        </div>
+      </div>`;
+    // Scoped to this control's own DOM — never touches anything by a
+    // global ID, so nothing elsewhere can accidentally clear it.
+    const toggleBtn = div.querySelector('._legend-toggle');
+    const body = div.querySelector('._legend-body');
+    const chevron = div.querySelector('._legend-chevron');
+    toggleBtn.onclick = () => {
+      const nowOpen = body.style.display === 'none';
+      body.style.display = nowOpen ? '' : 'none';
+      chevron.style.transform = nowOpen ? '' : 'rotate(-90deg)';
+      try { localStorage.setItem('triad_map_legend_open', nowOpen ? '1' : '0'); } catch(e) {}
+    };
+    // Stop map click/scroll/drag from firing through the control — without
+    // this, clicking the legend also clicks whatever's on the map beneath it.
+    L.DomEvent.disableClickPropagation(div);
+    L.DomEvent.disableScrollPropagation(div);
+    return div;
+  };
+  legendControl.addTo(_leafletMap);
   const urgColors = { high:'#C0392B', med:'#C27800', low:'#1A8A5A' };
   // ── State ──
   const activeSites   = new Set();  // which depots are "expanded" to show runs
@@ -13330,23 +13352,6 @@ window._mapTogglePanel = function() {
   if (restore) restore.style.display = hidden ? 'none' : 'block';
   if (_leafletMap) setTimeout(() => _leafletMap.invalidateSize(), 200);
 };
-window._mapToggleLegend = function(forceState) {
-  const body = document.getElementById('map-legend-body');
-  const chevron = document.getElementById('map-legend-chevron');
-  if (!body) return;
-  const expanded = forceState !== undefined ? forceState : body.style.display === 'none';
-  body.style.display = expanded ? '' : 'none';
-  if (chevron) chevron.style.transform = expanded ? '' : 'rotate(-90deg)';
-  try { localStorage.setItem('triad_map_legend_open', expanded ? '1' : '0'); } catch(e) {}
-};
-// Restore saved legend open/closed state — defaults to open (first-time
-// users need it most) unless they've explicitly collapsed it before.
-(function(){
-  try {
-    const saved = localStorage.getItem('triad_map_legend_open');
-    if (saved === '0') window._mapToggleLegend(false);
-  } catch(e) {}
-})();
 </script>
 </body>
 </html>
