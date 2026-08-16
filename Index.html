@@ -9354,12 +9354,20 @@ function _initLeafletMap(opps) {
     });
     // Within each cluster, stagger how far along the line the label sits
     // AND fan it sideways, alternating left/right — turns a stack of
-    // overlapping pills into a spread-out arc.
+    // overlapping pills into a spread-out arc. Distance is a fixed km
+    // figure (capped to the route's own leg length), not a percentage —
+    // routes clustered by similar bearing can have wildly different first-leg
+    // lengths (a nearby first drop vs. one 50km out), and a percentage-based
+    // position put those labels at inconsistent distances from the depot,
+    // which is what made a cluster look randomly scattered rather than a
+    // coherent arc.
     clusters.forEach(cluster => {
       if (cluster.length < 2) return;
       const mid = (cluster.length-1)/2;
       cluster.forEach((item, i) => {
-        item.labelDistPct = 0.28 + (i % 3) * 0.11; // 0.28, 0.39, 0.50 repeating
+        const targetKm = 8 + (i % 3) * 5; // 8, 13, 18km repeating
+        const legKm = haversineKm(depot.lat, depot.lng, item.firstCoords[0], item.firstCoords[1]);
+        item.labelDistPct = legKm > 0 ? Math.min(targetKm / legKm, 0.85) : 0.38;
         item.labelOffsetKm = (i - mid) * 3.4; // km, alternating sides of the line
       });
     });
