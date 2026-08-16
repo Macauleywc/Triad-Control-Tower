@@ -4317,7 +4317,15 @@ function renderAll() {
   renderAllOpps(opps);
   renderHistory();
   renderLoads();
-  const activeCount = opps.filter(o=>!ignoredOpps.has(o.from+'|'+o.to+'|'+o.route.area)).length;
+  // Badge specifically uses the same rich engine (computeEnhancedOpps) and
+  // ignore-tracking (isOppIgnored) as the Load Sharing tab and Missed
+  // Opportunities, so the sidebar count can't drift from what those pages
+  // actually show. This used to run on the older, simpler opportunity
+  // detection used elsewhere in this function — which could (and did)
+  // disagree with the real numbers, since it's a cruder algorithm.
+  const _enhancedForBadge = computeEnhancedOpps(todayData);
+  const activeCount = [...(_enhancedForBadge.fullLoadOpps||[]), ...(_enhancedForBadge.relayOpps||[]), ...(_enhancedForBadge.lightLoadOpps||[])]
+    .filter(o => !isOppIgnored(o)).length;
   document.getElementById('opp-badge').textContent = activeCount;
   document.getElementById('opp-panel-count').textContent = activeCount;
   } catch(err) {
@@ -8691,6 +8699,17 @@ function setMissedPeriod(p) {
   });
   renderMissedOpportunities();
 }
+// Expand/collapse the full stop-by-stop run detail under a live opportunity
+// row, so dismissing it can be an informed decision, not a guess from a
+// one-line district summary.
+function _toggleMissedOppDetail(idx) {
+  const el = document.getElementById('_missed-detail-'+idx);
+  const chev = document.getElementById('_missed-chevron-'+idx);
+  if (!el) return;
+  const open = el.style.display === 'none';
+  el.style.display = open ? 'block' : 'none';
+  if (chev) chev.style.transform = open ? 'rotate(90deg)' : '';
+}
 async function loadMissedOpportunities() {
   if (!sb || !isConfigured) { _missedOpportunities = []; _excludedMissedOpportunities = []; return; }
   const { data, error } = await sb.from('job_transfers')
@@ -8860,20 +8879,35 @@ async function renderMissedOpportunities() {
         const fromName = SITES_META[fromSite]?.name || fromSite || '—';
         const toName   = toSite ? (SITES_META[toSite]?.name || toSite) : null;
         const typeTag  = o.type==='light_load' ? 'light load' : o.type==='relay' ? 'relay' : null;
-        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--rule);gap:12px">
-          <div style="min-width:0">
-            <div style="font-weight:600;font-size:13px">${fromName}${toName?' → '+toName:''}${typeTag?` <span style="font-weight:400;color:var(--ink3);font-size:11px">· ${typeTag}</span>`:''}</div>
-            <div style="font-size:11px;color:var(--ink3);font-family:var(--font-mono)">${o.district||''}</div>
-          </div>
-          <div style="text-align:right;flex-shrink:0;display:flex;align-items:center;gap:10px">
-            <div>
-              <div style="font-weight:700;font-size:13px">£${Math.round(o.totalCostSaved||0)}</div>
-              <div style="font-size:11px;color:var(--ink3)">${Math.round(o.milesSaved||0)} mi</div>
+        // Full stop-by-stop detail for the run being considered — same
+        // data the opportunity's own cost/miles figures were built from,
+        // so you can actually judge whether dismissing it is right rather
+        // than deciding off a one-line district summary.
+        const stops = o.savedStops || (o.route?.stops_detail) || [];
+        return `<div style="border-bottom:1px solid var(--rule)">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;gap:12px;cursor:pointer" onclick="_toggleMissedOppDetail(${idx})">
+            <div style="min-width:0">
+              <div style="font-weight:600;font-size:13px">${fromName}${toName?' → '+toName:''}${typeTag?` <span style="font-weight:400;color:var(--ink3);font-size:11px">· ${typeTag}</span>`:''}</div>
+              <div style="font-size:11px;color:var(--ink3);font-family:var(--font-mono)">${o.district||''} · ${stops.length} stop${stops.length!==1?'s':''} <span id="_missed-chevron-${idx}" style="display:inline-block;transition:transform .15s;margin-left:2px">▸</span></div>
             </div>
-            <button onclick="proposeJobTransferByIdx(${idx}, this); setTimeout(renderMissedOpportunities, 500)" title="Propose this transfer"
-              style="font-size:11px;color:#fff;background:var(--navy);border:none;border-radius:6px;padding:5px 9px;cursor:pointer;white-space:nowrap">Propose</button>
-            <button onclick="ignoreOppByIdx(${idx}); setTimeout(renderMissedOpportunities, 150)" title="Not actually achievable — dismiss it, with a real record kept"
-              style="font-size:11px;color:var(--ink3);background:none;border:1px solid var(--rule);border-radius:6px;padding:5px 9px;cursor:pointer;white-space:nowrap">Ignore</button>
+            <div style="text-align:right;flex-shrink:0;display:flex;align-items:center;gap:10px">
+              <div>
+                <div style="font-weight:700;font-size:13px">£${Math.round(o.totalCostSaved||0)}</div>
+                <div style="font-size:11px;color:var(--ink3)">${Math.round(o.milesSaved||0)} mi</div>
+              </div>
+              <button onclick="event.stopPropagation();proposeJobTransferByIdx(${idx}, this); setTimeout(renderMissedOpportunities, 500)" title="Propose this transfer"
+                style="font-size:11px;color:#fff;background:var(--navy);border:none;border-radius:6px;padding:5px 9px;cursor:pointer;white-space:nowrap">Propose</button>
+              <button onclick="event.stopPropagation();ignoreOppByIdx(${idx}); setTimeout(renderMissedOpportunities, 150)" title="Not actually achievable — dismiss it, with a real record kept"
+                style="font-size:11px;color:var(--ink3);background:none;border:1px solid var(--rule);border-radius:6px;padding:5px 9px;cursor:pointer;white-space:nowrap">Ignore</button>
+            </div>
+          </div>
+          <div id="_missed-detail-${idx}" style="display:none;padding:0 20px 14px;background:var(--cream)">
+            ${stops.length ? `
+            <div style="font-size:10px;color:var(--ink3);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.05em;padding:10px 0 6px">Full run — ${stops.length} stop${stops.length!==1?'s':''}</div>
+            ${stops.map(s=>`<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;border-bottom:1px solid var(--rule)">
+              <span>${s.customer||s.name||'—'} <span style="color:var(--ink3);font-family:var(--font-mono);font-size:11px">${s.postal||s.postcode||''}</span></span>
+              <span style="font-family:var(--font-mono);color:var(--ink3)">${s.pallets||0}p</span>
+            </div>`).join('')}` : `<div style="padding:10px 0;color:var(--ink3);font-size:12px">No stop-level detail available for this opportunity.</div>`}
           </div>
         </div>`;
       }).join('')}
