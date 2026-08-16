@@ -9268,7 +9268,7 @@ function _initLeafletMap(opps) {
           <span>Direction of travel</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <svg width="24" height="14" style="flex-shrink:0" viewBox="0 0 24 14"><circle cx="12" cy="7" r="5" fill="var(--navy)" stroke="white" stroke-width="1.5"/></svg>
+          <svg width="24" height="14" style="flex-shrink:0" viewBox="0 0 24 14"><circle cx="12" cy="7" r="2.5" fill="var(--navy)" stroke="white" stroke-width="1"/></svg>
           <span>End of route <span style="color:var(--ink3)">— click for details</span></span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -9466,11 +9466,14 @@ function _initLeafletMap(opps) {
       const arrow = L.marker([arrowLat, arrowLng], {
         icon: arrowIcon(meta.color), interactive:false, zIndexOffset:-100,
       }).addTo(_leafletMap);
-      // End-of-route marker — sits at the LAST stop now, not the first, so
-      // it actually marks where this run finishes.
+      // End-of-route marker — sits at the LAST stop, marking where this run
+      // actually finishes. Deliberately small/subtle: it's redundant for
+      // interaction (same popup as the line and label pill), so its only
+      // real job is showing a long route's true reach — it shouldn't
+      // visually compete with the label pills that do the identifying work.
       const dot = L.circleMarker(lastCoords, {
-        radius:7, fillColor:meta.color, fillOpacity:0.9,
-        color:'#fff', weight:2,
+        radius:3.5, fillColor:meta.color, fillOpacity:0.75,
+        color:'#fff', weight:1.5,
       }).addTo(_leafletMap);
       // Run label marker — position staggered/fanned per the clustering
       // pass above so labels for routes heading the same way don't stack.
