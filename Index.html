@@ -9261,15 +9261,11 @@ function _initLeafletMap(opps) {
       <div class="_legend-body" style="display:${open?'':'none'};padding:0 12px 12px;font-size:11px;color:var(--ink2);line-height:1.5">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <svg width="24" height="8" style="flex-shrink:0"><line x1="0" y1="4" x2="24" y2="4" stroke="var(--navy)" stroke-width="2.5"/></svg>
-          <span>Delivery run today <span style="color:var(--ink3)">— colour = depot</span></span>
+          <span>Delivery run today <span style="color:var(--ink3)">— colour = depot, click for details</span></span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <svg width="24" height="14" style="flex-shrink:0" viewBox="0 0 24 14"><path d="M8 12L12 2L16 12L12 9L8 12Z" fill="var(--navy)"/></svg>
           <span>Direction of travel</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <svg width="24" height="14" style="flex-shrink:0" viewBox="0 0 24 14"><circle cx="12" cy="7" r="2.5" fill="var(--navy)" stroke="white" stroke-width="1"/></svg>
-          <span>End of route <span style="color:var(--ink3)">— click for details</span></span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <span style="flex-shrink:0;width:24px;height:15px;border-radius:5px;border:1.5px solid var(--navy);display:inline-block"></span>
@@ -9454,7 +9450,6 @@ function _initLeafletMap(opps) {
       // not just to the first drop. The first leg (depot → first stop) is
       // what the label/arrow positioning below is still based on, since
       // that's the part nearest the depot and least likely to be crowded.
-      const lastCoords = stopCoords[stopCoords.length-1];
       const line = L.polyline([[depot.lat, depot.lng], ...stopCoords], {
         color: meta.color, weight: 2.5, opacity: 0.9,
         dashArray: null, lineCap: 'round', lineJoin: 'round',
@@ -9465,15 +9460,6 @@ function _initLeafletMap(opps) {
       const arrowLng = depot.lng + (firstCoords[1]-depot.lng)*0.6;
       const arrow = L.marker([arrowLat, arrowLng], {
         icon: arrowIcon(meta.color), interactive:false, zIndexOffset:-100,
-      }).addTo(_leafletMap);
-      // End-of-route marker — sits at the LAST stop, marking where this run
-      // actually finishes. Deliberately small/subtle: it's redundant for
-      // interaction (same popup as the line and label pill), so its only
-      // real job is showing a long route's true reach — it shouldn't
-      // visually compete with the label pills that do the identifying work.
-      const dot = L.circleMarker(lastCoords, {
-        radius:3.5, fillColor:meta.color, fillOpacity:0.75,
-        color:'#fff', weight:1.5,
       }).addTo(_leafletMap);
       // Run label marker — position staggered/fanned per the clustering
       // pass above so labels for routes heading the same way don't stack.
@@ -9524,13 +9510,12 @@ function _initLeafletMap(opps) {
             Show all ${run.stops.length} drops on map →
           </button>
         </div>`;
-      dot.bindPopup(popupHtml, {maxWidth:260, closeButton:false});
       line.bindPopup(popupHtml, {maxWidth:260, closeButton:false});
       labelMarker.bindPopup(popupHtml, {maxWidth:260, closeButton:false});
       line.on('mouseover', function(){ this.setStyle({weight:4}); });
       line.on('mouseout',  function(){ this.setStyle({weight:2.5}); });
       siteRunLayers[siteId].push({
-        key: run.key, elements:[line, arrow, dot, labelMarker]
+        key: run.key, elements:[line, arrow, labelMarker]
       });
     });
   }
