@@ -3513,6 +3513,34 @@ const PC_PROXIMITY = {
 /* ══════════════════════════════════════════
    STATE
 ══════════════════════════════════════════ */
+/* ══════════════════════════════════════════
+   TENANT CONFIG — VPK Packaging / Triad Network
+   Every commercial rule specific to THIS customer lives here. When this
+   platform is adapted for another VPK Group business or a different
+   manufacturing customer, this block — and the four depot/haulier configs
+   below (SITES_META, DEPOTS, SITE_OWN_HAULIERS) — are what should change.
+   The calculation engine elsewhere reads from these values rather than
+   hardcoding its own copies, so a rate change (or a new customer) means
+   editing numbers in one place, not hunting through the whole file.
+   Existing named constants below (TRANSPORT_BASE, RING_FENCE_MILES, etc.)
+   are kept as thin aliases into this object — nothing that already reads
+   them needs to change, but there's now exactly one real source of truth
+   instead of the same figure typed out in several places.
+══════════════════════════════════════════ */
+const TENANT_CONFIG = {
+  vpkCommissionRate:      0.10,   // VPK's share of every confirmed transfer saving
+  sendingDepotShare:      0.20,   // % of a transferred route's value the sending depot retains
+  receivingDepotShare:    0.70,   // % the receiving depot earns for taking the load
+  transferBaseCost:       444.77, // £ base cost per transfer (Desborough/Banbury/Wellington)
+  transferPerMile:        0.50,   // £ per mile, round trip
+  roadFactor:             1.3,    // straight-line-to-road-miles conversion
+  ringFenceMiles:         30,     // max distance to flag a load-sharing opportunity
+  co2KgPerMile:           0.85,   // Euro 6 HGV emissions factor (DEFRA)
+  vehicleCapacityPallets: 40,     // pallets per vehicle target, used for utilisation %
+  lightLoadThreshold:     24,     // pallets below which a run is flagged "light"
+  fuelCostPerMile:        0.45,   // £ per mile, used for opportunity savings estimates
+};
+
 const isConfigured = SUPABASE_URL !== 'YOUR_SUPABASE_URL';
 const sb = isConfigured ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON) : null;
 let currentUser = null, currentSiteId = null, isSuperUser = false, todayData = [], allData = [];
@@ -3992,7 +4020,7 @@ function computeKpiTotals(data) {
   const totPallets = data.reduce((a,e)=>a+sumPallets(e), 0);
   const totWeight  = data.reduce((a,e)=>a+sumWeight(e), 0);
   // Vehicle capacity target: runs × 40 pallets (a "run" = one vehicle trip).
-  const totCap     = totRuns * 40;
+  const totCap     = totRuns * TENANT_CONFIG.vehicleCapacityPallets;
   const avgUtil    = totCap>0 ? Math.round(totPallets/totCap*100) : 0;
   let totCost=0, actualRuns=0, estimatedRuns=0;
   data.forEach(e => {
@@ -4002,7 +4030,7 @@ function computeKpiTotals(data) {
   const costSource = costSourceLabel(actualRuns, estimatedRuns);
   const cpp        = totPallets>0 && totCost>0 ? (totCost/totPallets).toFixed(2) : null;
   const totSites   = new Set(data.map(e=>e.site)).size;
-  const overCap    = data.filter(e=>sumPallets(e) > groupByShipment(e).length*40).length;
+  const overCap    = data.filter(e=>sumPallets(e) > groupByShipment(e).length*TENANT_CONFIG.vehicleCapacityPallets).length;
   const totDays    = new Set(data.map(e=>e.date)).size;
   return { totRuns, totLoads, totStops, totPallets, totWeight, totCap, avgUtil, totCost, cpp, totSites, overCap, totDays, costSource, actualRuns, estimatedRuns };
 }
@@ -4034,7 +4062,7 @@ function computeSavingsTrackerData(periodStart, periodEnd) {
     confCostPeriod:  sum(periodTransfers,'total_cost_saved'),
     confMilesPeriod: sum(periodTransfers,'miles_saved'),
     confCO2Period:   sum(periodTransfers,'co2_kg_saved'),
-    confVpkPeriod:   sum(periodTransfers,'total_cost_saved')*0.10,
+    confVpkPeriod:   sum(periodTransfers,'total_cost_saved')*TENANT_CONFIG.vpkCommissionRate,
     confCostYtd:     sum(ytdTransfers,'total_cost_saved'),
     confMilesYtd:    sum(ytdTransfers,'miles_saved'),
     confCO2Ytd:      sum(ytdTransfers,'co2_kg_saved'),
@@ -4114,7 +4142,7 @@ function haversineMiles(lat1, lng1, lat2, lng2) {
             Math.sin(dLng/2) * Math.sin(dLng/2);
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
-const RING_FENCE_MILES = 30;
+const RING_FENCE_MILES = TENANT_CONFIG.ringFenceMiles;
 function computeOpps(data) {
   const map = {};
   data.forEach(e => map[e.site] = e);
@@ -4319,7 +4347,7 @@ function renderStats(opps) {
       <div class="stat-number ${savings>0?'green':''}">${savings}<span style="font-size:20px;font-weight:400;color:var(--ink3)"> mi</span></div>
       <div class="stat-sub">${opps.length===0
         ? (todayData.length ? 'Routes well placed — no closer depot found' : 'Upload schedules to analyse')
-        : `${opps.length} opp${opps.length!==1?'s':''} · ~£${Math.round(savings*0.45)} est. saving`}</div>
+        : `${opps.length} opp${opps.length!==1?'s':''} · ~£${Math.round(savings*TENANT_CONFIG.fuelCostPerMile)} est. saving`}</div>
     </div>
     <div class="stat-item">
       <div class="stat-eyebrow">Sites uploaded</div>
@@ -4384,9 +4412,9 @@ function renderAlerts(opps) {
 /* ── SITE CARDS ── */
 // ── Transport cost calculator ──
 // Rate: £444.77 base + £0.50 per mile (round trip) for Banbury, Desborough, Wellington
-const TRANSPORT_BASE = 444.77;
-const TRANSPORT_PER_MILE = 0.50;
-const ROAD_FACTOR = 1.3; // straight-line to road miles factor
+const TRANSPORT_BASE = TENANT_CONFIG.transferBaseCost;
+const TRANSPORT_PER_MILE = TENANT_CONFIG.transferPerMile;
+const ROAD_FACTOR = TENANT_CONFIG.roadFactor; // straight-line to road miles factor
 const DEPOT_COORDS = {
   desborough: { lat: 52.4406, lon: -0.8187 },
   banbury:    { lat: 52.0607, lon: -1.3350 },
@@ -4986,18 +5014,18 @@ function renderAllOpps(opps) {
           <div class="opp-cost-split-bars">
             <div class="opp-cost-split-row">
               <div class="opp-cost-split-label" style="color:${fMeta.color}">${o.fromName} retains</div>
-              <div class="opp-cost-split-bar-wrap"><div class="opp-cost-split-bar" style="width:20%;background:${fMeta.color}20;border:1px solid ${fMeta.color}40"></div></div>
-              <div class="opp-cost-split-val">£${(o.routeCost*0.20).toFixed(2)} <span class="opp-split-pct">20%</span></div>
+              <div class="opp-cost-split-bar-wrap"><div class="opp-cost-split-bar" style="width:${TENANT_CONFIG.sendingDepotShare*100}%;background:${fMeta.color}20;border:1px solid ${fMeta.color}40"></div></div>
+              <div class="opp-cost-split-val">£${(o.routeCost*TENANT_CONFIG.sendingDepotShare).toFixed(2)} <span class="opp-split-pct">${Math.round(TENANT_CONFIG.sendingDepotShare*100)}%</span></div>
             </div>
             <div class="opp-cost-split-row">
               <div class="opp-cost-split-label" style="color:var(--ink3)">VPK</div>
-              <div class="opp-cost-split-bar-wrap"><div class="opp-cost-split-bar" style="width:10%;background:var(--ink3)20;border:1px solid var(--rule)"></div></div>
-              <div class="opp-cost-split-val">£${(o.routeCost*0.10).toFixed(2)} <span class="opp-split-pct">10%</span></div>
+              <div class="opp-cost-split-bar-wrap"><div class="opp-cost-split-bar" style="width:${TENANT_CONFIG.vpkCommissionRate*100}%;background:var(--ink3)20;border:1px solid var(--rule)"></div></div>
+              <div class="opp-cost-split-val">£${(o.routeCost*TENANT_CONFIG.vpkCommissionRate).toFixed(2)} <span class="opp-split-pct">${Math.round(TENANT_CONFIG.vpkCommissionRate*100)}%</span></div>
             </div>
             <div class="opp-cost-split-row">
               <div class="opp-cost-split-label" style="color:${tMeta.color}">${o.toName} earns</div>
-              <div class="opp-cost-split-bar-wrap"><div class="opp-cost-split-bar" style="width:70%;background:${tMeta.color}20;border:1px solid ${tMeta.color}40"></div></div>
-              <div class="opp-cost-split-val">£${(o.routeCost*0.70).toFixed(2)} <span class="opp-split-pct">70%</span></div>
+              <div class="opp-cost-split-bar-wrap"><div class="opp-cost-split-bar" style="width:${TENANT_CONFIG.receivingDepotShare*100}%;background:${tMeta.color}20;border:1px solid ${tMeta.color}40"></div></div>
+              <div class="opp-cost-split-val">£${(o.routeCost*TENANT_CONFIG.receivingDepotShare).toFixed(2)} <span class="opp-split-pct">${Math.round(TENANT_CONFIG.receivingDepotShare*100)}%</span></div>
             </div>
           </div>
         </div>` : ''}
@@ -5902,7 +5930,7 @@ async function exportKpiPdf(data, opts) {
         alternateRowStyles:{fillColor:CREAM},
         columnStyles:{3:{halign:'right'},4:{halign:'right',fontStyle:'bold'}},
         margin:{left:margin,right:margin},
-        foot:[['Total','','','',totalSavings+' mi (~£'+Math.round(totalSavings*0.45)+')']],
+        foot:[['Total','','','',totalSavings+' mi (~£'+Math.round(totalSavings*TENANT_CONFIG.fuelCostPerMile)+')']],
         showFoot:'lastPage',
         footStyles:{fillColor:CREAM,textColor:INK,fontStyle:'bold',fontSize:7.5,cellPadding:2.5},
       });
@@ -6012,7 +6040,7 @@ async function exportKpiPdf(data, opts) {
       doc.text('No declined or never-actioned opportunities in this period.', margin, y); y+=8;
     } else {
       const missedCost = missedInRange.reduce((a,t)=>a+parseFloat(t.cost_saving||0),0);
-      const missedVpk  = missedCost * 0.10;
+      const missedVpk  = missedCost * TENANT_CONFIG.vpkCommissionRate;
       doc.autoTable({
         startY:y,
         head:[['Date','From','To','District','Status','Miles','Cost']],
@@ -6087,7 +6115,7 @@ function renderKPIs() {
   const totalSavings = opps.reduce((a,o)=>a+o.saving,0);
   // Compliance: use todayData for today, count unique sites in period for range
   const uploadedSites = isMultiDay ? t.totSites : todayData.length;
-  const costPerMile = 0.45;
+  const costPerMile = TENANT_CONFIG.fuelCostPerMile;
   const daysLabel   = isMultiDay ? `${t.totDays} day${t.totDays!==1?'s':''}` : '1 day';
   const utilCol  = t.avgUtil>=90?'var(--red)':t.avgUtil>=75?'var(--amber)':'var(--green)';
   const compCol  = uploadedSites===4?'var(--green)':'var(--amber)';
@@ -7241,7 +7269,7 @@ async function updateTransferStatus(id, status, idx) {
     if (t.is_pull_request && !milesSaved && !costSaved) {
       const pcs = (t.stops_detail||[]).map(s => s.postal||s.postcode).filter(Boolean).join(',');
       const est = calcRunCost(t.from_site, pcs);
-      if (est) { milesSaved = est.miles; costSaved = Math.round(parseFloat(est.cost) * 0.10 * 100)/100; } // 10% VPK saving
+      if (est) { milesSaved = est.miles; costSaved = Math.round(parseFloat(est.cost) * TENANT_CONFIG.vpkCommissionRate * 100)/100; } // VPK saving share
     }
     const kpiRecord = {
       transfer_date: t.transfer_date || viewDate || todayStr(),
@@ -7628,9 +7656,9 @@ function getSharingData() {
   return todayData;
 }
 
-const TRANSFER_BASE_COST = 444.77;
-const TRANSFER_PENCE_PER_MILE = 0.50;
-const CO2_KG_PER_MILE = 0.85; // Euro 6 HGV (DEFRA emissions factor)
+const TRANSFER_BASE_COST = TENANT_CONFIG.transferBaseCost;
+const TRANSFER_PENCE_PER_MILE = TENANT_CONFIG.transferPerMile;
+const CO2_KG_PER_MILE = TENANT_CONFIG.co2KgPerMile; // Euro 6 HGV (DEFRA emissions factor)
 let _confirmedTransfers = []; // local cache
 let _savingsLoaded = false;
 
@@ -7754,7 +7782,7 @@ function computeEnhancedOpps(data) {
       const mileageCost    = roundTripMiles * TRANSFER_PENCE_PER_MILE;
       const totalCostSaved = TRANSFER_BASE_COST + mileageCost;
       const co2Saved = Math.round(roundTripMiles * CO2_KG_PER_MILE);
-      const vpkSaving = Math.round(totalCostSaved * 0.10 * 100)/100;
+      const vpkSaving = Math.round(totalCostSaved * TENANT_CONFIG.vpkCommissionRate * 100)/100;
       // Key by ROUTE (site + run), not by district — a single run can pass through
       // several postcode districts that each independently match a carrier, and
       // that must still produce only one card, not one per matching district.
@@ -7821,7 +7849,7 @@ function computeEnhancedOpps(data) {
   fullLoadOpps.sort((a,b)=>b.totalCostSaved-a.totalCostSaved);
 
   // ── Light load detection (< 24 pallets) ──
-  const LIGHT_LOAD_THRESHOLD = 24;
+  const LIGHT_LOAD_THRESHOLD = TENANT_CONFIG.lightLoadThreshold;
   const lightLoadOpps = [];
   const lightSeen = new Set();
 
@@ -8064,8 +8092,8 @@ function renderAllOppsEnhanced() {
   if (activeLight.length) {
     html += `<div style="display:flex;align-items:center;gap:8px;margin:${(activeFullLoad.length||activeRelay.length)?'24px':0} 0 10px;padding-top:${(activeFullLoad.length||activeRelay.length)?'20px':0};border-top:${(activeFullLoad.length||activeRelay.length)?'1px solid var(--rule)':'none'}">
       <span style="width:10px;height:10px;border-radius:50%;background:var(--red);display:inline-block"></span>
-      <span style="font-size:13px;font-weight:700;color:var(--ink)">Light loads — ${activeLight.length} run${activeLight.length!==1?'s':''} below 24 pallets</span>
-      <span style="font-size:12px;color:var(--ink3)">These should always be consolidated — running a truck under 24 pallets is not cost-effective</span>
+      <span style="font-size:13px;font-weight:700;color:var(--ink)">Light loads — ${activeLight.length} run${activeLight.length!==1?'s':''} below ${LIGHT_LOAD_THRESHOLD} pallets</span>
+      <span style="font-size:12px;color:var(--ink3)">These should always be consolidated — running a truck under ${LIGHT_LOAD_THRESHOLD} pallets is not cost-effective</span>
     </div>`;
     activeLight.forEach((opp, i) => {
       const siteColor = SITES_META[opp.site]?.color || 'var(--navy)';
@@ -8090,7 +8118,7 @@ function renderAllOppsEnhanced() {
           <!-- Fill bar -->
           <div style="background:var(--cream);border-radius:4px;height:8px;margin-bottom:12px;position:relative">
             <div style="height:100%;width:${fillPct}%;background:var(--red);border-radius:4px"></div>
-            <div style="position:absolute;top:0;left:${Math.round(24/40*100)}%;height:100%;width:2px;background:var(--ink3)" title="24 pallet threshold"></div>
+            <div style="position:absolute;top:0;left:${Math.round(TENANT_CONFIG.lightLoadThreshold/TENANT_CONFIG.vehicleCapacityPallets*100)}%;height:100%;width:2px;background:var(--ink3)" title="${TENANT_CONFIG.lightLoadThreshold} pallet threshold"></div>
           </div>
           <div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:6px">Potential carriers today:</div>
           ${carrierLines}
@@ -8279,7 +8307,7 @@ async function saveConfirmedTransfer() {
   const notes   = document.getElementById('ct-notes').value.trim();
   const mileage = Math.round(rtMiles * TRANSFER_PENCE_PER_MILE * 100)/100;
   const cost    = Math.round((TRANSFER_BASE_COST + mileage)*100)/100; // full avoided cost
-  const vpkSaved = Math.round(cost * 0.10 * 100)/100; // what VPK actually receives — 10% of the avoided cost
+  const vpkSaved = Math.round(cost * TENANT_CONFIG.vpkCommissionRate * 100)/100; // what VPK actually receives
   const co2     = Math.round(rtMiles * CO2_KG_PER_MILE);
 
   const record = {
@@ -8603,7 +8631,7 @@ async function renderMissedOpportunities() {
 
   const totalCost  = periodOpps.reduce((a,t)=>a+parseFloat(t.cost_saving||0),0);
   const totalMiles = periodOpps.reduce((a,t)=>a+parseFloat(t.miles_saved||0),0);
-  const totalVpk   = totalCost * 0.10;
+  const totalVpk   = totalCost * TENANT_CONFIG.vpkCommissionRate;
   const declinedCount = periodOpps.filter(t=>t.status==='declined').length;
   const ignoredCount  = periodOpps.filter(t=>t.status==='ignored').length;
   const expiredCount  = periodOpps.filter(t=>t.status==='proposed').length;
@@ -8635,7 +8663,7 @@ async function renderMissedOpportunities() {
   const todaysProposedPairs = new Set((_jobTransfers||[]).map(t => t.from_site+'|'+t.to_site));
   const liveOpps = computeOpps(todayData).filter(o => !todaysProposedPairs.has(o.from+'|'+o.to));
   const liveMiles = liveOpps.reduce((a,o)=>a+o.saving,0);
-  const liveCost  = liveOpps.reduce((a,o)=>a+Math.round(o.saving*0.45),0);
+  const liveCost  = liveOpps.reduce((a,o)=>a+Math.round(o.saving*TENANT_CONFIG.fuelCostPerMile),0);
 
   const setupWarning = (!sb || !isConfigured) ? `
     <div style="background:#fff8e1;border:1px solid #ffca28;border-radius:10px;padding:16px;margin-bottom:20px;font-size:13px">
@@ -8691,7 +8719,7 @@ async function renderMissedOpportunities() {
         </div>
         <div style="text-align:right">
           <div style="font-weight:700;font-size:13px">~${o.saving} mi</div>
-          <div style="font-size:11px;color:var(--ink3)">~£${Math.round(o.saving*0.45)}</div>
+          <div style="font-size:11px;color:var(--ink3)">~£${Math.round(o.saving*TENANT_CONFIG.fuelCostPerMile)}</div>
         </div>
       </div>`).join('')}
     </div>
@@ -9992,7 +10020,7 @@ function openManualTransferLog(idx) {
   const pcs = (data.stopsDetail||[]).map(s => s.postal||s.postcode).filter(Boolean).join(',');
   const est = calcRunCost(data.sid, pcs);
   const estMiles = est ? est.miles : 0;
-  const estCost  = est ? (parseFloat(est.cost) * 0.10).toFixed(2) : '0.00'; // 10% VPK saving, not full avoided cost
+  const estCost  = est ? (parseFloat(est.cost) * TENANT_CONFIG.vpkCommissionRate).toFixed(2) : '0.00'; // VPK saving share, not full avoided cost
   const modal = document.createElement('div');
   modal.id = 'manual-transfer-modal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center';
