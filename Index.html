@@ -9103,16 +9103,16 @@ function _initLeafletMap(opps) {
     const meta  = SITES_META[siteId]||{color:'#888',name:siteId};
     const runs  = getRunGroups(e);
     siteRunLayers[siteId] = [];
-    // Resolve first-drop coords + bearing for every run up front, so labels
-    // that would otherwise land on top of each other (several routes
-    // heading in roughly the same direction — very common) can be fanned
-    // out before anything gets drawn.
+    // Resolve every stop's coords for each run up front (not just the
+    // first), so labels that would otherwise land on top of each other
+    // (several routes heading in roughly the same direction — very
+    // common) can be fanned out before anything gets drawn.
     const resolved = runs.map(run => {
-      const firstStop = run.stops.find(s => pcCoords(s.postal||s.postcode));
-      const firstCoords = firstStop ? pcCoords(firstStop.postal||firstStop.postcode) : null;
-      if (!firstCoords) return null;
+      const stopCoords = run.stops.map(s => pcCoords(s.postal||s.postcode)).filter(Boolean);
+      if (!stopCoords.length) return null;
+      const firstCoords = stopCoords[0];
       const bearing = bearingDeg(depot.lat, depot.lng, firstCoords[0], firstCoords[1]);
-      return { run, firstCoords, bearing, labelDistPct:0.38, labelOffsetKm:0 };
+      return { run, stopCoords, firstCoords, bearing, labelDistPct:0.38, labelOffsetKm:0 };
     }).filter(Boolean);
     // Cluster runs whose bearing from the depot is within ~18° of each
     // other — those are the ones whose labels would collide.
@@ -9138,20 +9138,26 @@ function _initLeafletMap(opps) {
         item.labelOffsetKm = (i - mid) * 3.4; // km, alternating sides of the line
       });
     });
-    resolved.forEach(({ run, firstCoords, bearing, labelDistPct, labelOffsetKm }) => {
-      // Line from depot to first drop
-      const line = L.polyline([[depot.lat, depot.lng], firstCoords], {
+    resolved.forEach(({ run, stopCoords, firstCoords, bearing, labelDistPct, labelOffsetKm }) => {
+      // Line from depot through EVERY stop in the run, in delivery order —
+      // not just to the first drop. The first leg (depot → first stop) is
+      // what the label/arrow positioning below is still based on, since
+      // that's the part nearest the depot and least likely to be crowded.
+      const lastCoords = stopCoords[stopCoords.length-1];
+      const line = L.polyline([[depot.lat, depot.lng], ...stopCoords], {
         color: meta.color, weight: 2.5, opacity: 0.9,
-        dashArray: null, lineCap: 'round',
+        dashArray: null, lineCap: 'round', lineJoin: 'round',
       }).addTo(_leafletMap);
-      // Arrow at 60% along
+      // Arrow at 60% along the first leg (depot → first stop) — still a
+      // reasonable indicator of the route's initial direction.
       const arrowLat = depot.lat + (firstCoords[0]-depot.lat)*0.6;
       const arrowLng = depot.lng + (firstCoords[1]-depot.lng)*0.6;
       const arrow = L.marker([arrowLat, arrowLng], {
         icon: arrowIcon(meta.color), interactive:false, zIndexOffset:-100,
       }).addTo(_leafletMap);
-      // First drop marker
-      const dot = L.circleMarker(firstCoords, {
+      // End-of-route marker — sits at the LAST stop now, not the first, so
+      // it actually marks where this run finishes.
+      const dot = L.circleMarker(lastCoords, {
         radius:7, fillColor:meta.color, fillOpacity:0.9,
         color:'#fff', weight:2,
       }).addTo(_leafletMap);
@@ -9172,7 +9178,8 @@ function _initLeafletMap(opps) {
         }),
         interactive: true, zIndexOffset: 500,
       }).addTo(_leafletMap);
-      // Popup on first dot showing run summary
+      // Popup (bound to the line, the label, and the end-of-route dot)
+      // showing the run's full stop-by-stop summary
       const stopsHtml = run.stops.slice(0,5).map((s,i)=>`
         <div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f0ede7">
           <div style="width:18px;height:18px;border-radius:50%;background:${meta.color};color:white;
