@@ -12124,7 +12124,7 @@ function vpkLoadBanburyStops(stops, siteOverride) {
     runLabel:  s.loadRef,
     multiLoad: false,
     runShips:  [s.loadNum || s.loadRef],
-    checkIn:   s.time || '',
+    checkIn:   s.checkIn || '',
     collDate:  fileDate,
     customer:  s.name,
     postal:    s.postcode,
@@ -12144,8 +12144,14 @@ function vpkLoadBanburyStops(stops, siteOverride) {
   }
   document.getElementById('vpk-preview-count').textContent = `${rows.length} stops · ${totalPallets} pallets · ${loads} routes · ${fileDate}`;
   document.getElementById('vpk-preview-body').innerHTML = rows.slice(0,20).map(r=>`
-    <tr><td>${r.runLabel}</td><td>${r.customer}</td><td>${r.postal}</td><td>${r.pallets}</td><td>${r.delivTime||'—'}</td></tr>
-  `).join('');
+    <tr style="border-bottom:1px solid var(--rule)">
+      <td style="padding:8px 14px;font-family:var(--font-mono);font-size:11px;color:var(--navy2);font-weight:500">${r.runLabel||'—'}</td>
+      <td style="padding:8px 14px;font-family:var(--font-mono);font-size:11px">${r.checkIn||'—'}</td>
+      <td style="padding:8px 14px;font-size:12px;font-weight:500;color:var(--ink)">${r.customer}</td>
+      <td style="padding:8px 14px;font-family:var(--font-mono);font-size:11px;font-weight:500;color:var(--navy)">${r.postal}</td>
+      <td style="padding:8px 14px;font-family:var(--font-mono);font-size:11px">${r.delivTime||'—'}</td>
+      <td style="padding:8px 14px;font-family:var(--font-mono);font-weight:500;text-align:right">${r.pallets}</td>
+    </tr>`).join('') + (rows.length>20?`<tr><td colspan="6" style="padding:10px 14px;text-align:center;color:var(--ink3);font-size:12px">… and ${rows.length-20} more rows</td></tr>`:'');
   document.getElementById('vpk-preview-wrap').style.display = '';
   const siteForMsg = siteOverride || vpkTargetSite || currentSiteId;
   const siteNameForMsg = SITES_META[siteForMsg]?.name || siteForMsg;
