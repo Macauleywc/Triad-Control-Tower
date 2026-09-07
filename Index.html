@@ -11552,8 +11552,19 @@ function detectVpkFormat(wb, fname) {
   // Wellington: check first 12 rows AND all cells in first sheet for 'Wrings-' pattern
   const isWellington = firstRows.some(r => r && String(r[0]||'').toLowerCase().startsWith('wrings'))
     || Object.keys(ws).filter(k=>!k.startsWith('!')).some(k=>String(ws[k].v||'').toLowerCase().startsWith('wrings-'));
-  const firstCellKey = Object.keys(ws).filter(k=>!k.startsWith('!')).find(k=>ws[k].v&&String(ws[k].v).includes('Selby'));
-  const isCampeys    = !!firstCellKey;
+  // Only the sheet's TITLE identifies it as Selby's format — a bare
+  // substring search across every cell in the sheet was matching innocuous
+  // operational notes that happen to mention "Selby" (e.g. a real note:
+  // "CT35 swap with LPC208 at Selby" on a genuine Desborough file), which
+  // misclassified that file as Selby's and broke its import entirely —
+  // Selby's own parser found zero valid rows in a Desborough-shaped sheet,
+  // so every day got silently skipped. Genuine Selby/Campeys sheets carry
+  // a specific title, "Selby - Delivery Schedule", in one of the first few
+  // rows — check for that specific phrase instead of the word anywhere.
+  const isCampeys = firstRows.some(r => {
+    const v = String((r&&r[0])||'').toLowerCase();
+    return v.includes('selby') && v.includes('delivery schedule');
+  });
   // Banbury: has Route-X pattern — do NOT include isMultiDay alone (would misdetect VPK)
   const isBanbury    = !isWellington && !isCampeys && firstRows.some(r => r && String(r[0]||'').match(/^route/i));
   // VPK multi-day: has day sheets but NOT Campeys/Banbury/Wellington format
