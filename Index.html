@@ -4487,10 +4487,14 @@ const TRANSPORT_BASE = TENANT_CONFIG.transferBaseCost;
 const TRANSPORT_PER_MILE = TENANT_CONFIG.transferPerMile;
 const ROAD_FACTOR = TENANT_CONFIG.roadFactor; // straight-line to road miles factor
 const DEPOT_COORDS = {
-  desborough: { lat: 52.4406, lon: -0.8187 },
-  banbury:    { lat: 52.0607, lon: -1.3350 },
-  wellington: { lat: 50.9756, lon: -3.2247 },
-  selby:      { lat: 53.7820, lon: -1.0700 },
+  // Corrected to the actual depot address (previously a rough town-centre
+  // estimate, 1-3km off for every site) — verified against each site's
+  // real "VPK [Town]" facility listing, except Selby which is run by
+  // Campeys rather than carrying the VPK name itself.
+  desborough: { lat: 52.452990, lon: -0.827278 }, // VPK Packaging Ltd, Stoke Albany Rd
+  banbury:    { lat: 52.075183, lon: -1.344928 }, // VPK Packaging, Beaumont Rd
+  wellington: { lat: 50.986213, lon: -3.203072 }, // VPK Wellington, Chelston Business Park
+  selby:      { lat: 53.777072, lon: -1.119194 }, // Campeys of Selby, Southlands Farm
 };
 // Each site's own fleet appears under its own group brand in that site's
 // schedule, not always "Premier" — used to tell own-fleet runs apart from
@@ -6762,10 +6766,13 @@ function deleteUser(uid, email) {
    Real UK coordinates for each site
 ══════════════════════════════════════════ */
 const DEPOTS = {
-  desborough: { lat: 52.440, lng: -0.817, name:'Desborough', label:'NN14' },
-  selby:      { lat: 53.782, lng: -1.070, name:'Selby',      label:'YO8'  },
-  banbury:    { lat: 52.060, lng: -1.340, name:'Banbury',     label:'OX16' },
-  wellington: { lat: 50.977, lng: -3.227, name:'Wellington',  label:'TA21' },
+  // Corrected to the actual depot address (previously a rough town-centre
+  // estimate, 1-3km off for every site) — same source as DEPOT_COORDS
+  // above, kept in sync with it.
+  desborough: { lat: 52.452990, lng: -0.827278, name:'Desborough', label:'NN14' },
+  selby:      { lat: 53.777072, lng: -1.119194, name:'Selby',      label:'YO8'  },
+  banbury:    { lat: 52.075183, lng: -1.344928, name:'Banbury',     label:'OX16' },
+  wellington: { lat: 50.986213, lng: -3.203072, name:'Wellington',  label:'TA21' },
 };
 /* ══════════════════════════════════════════
    POSTCODE AREA CENTROIDS
@@ -9810,7 +9817,10 @@ function _initLeafletMap(opps) {
         box-shadow:0 2px 8px rgba(0,0,0,0.18)">${meta.name}</div>`;
     const marker = L.marker([depot.lat,depot.lng], {
       icon: L.divIcon({className:'', html:markerHtml, iconSize:[0,0], iconAnchor:[0,0]}),
-      zIndexOffset: 1000,
+      // Below live vehicle markers (zIndexOffset 800) — now that depot
+      // coordinates are accurate, a truck parked at the depot sits right
+      // where this label does, and the label shouldn't be able to cover it.
+      zIndexOffset: 400,
     }).addTo(_leafletMap);
     marker.on('click', () => _mapToggleSite(sid));
   });
