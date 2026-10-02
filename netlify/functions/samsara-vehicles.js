@@ -18,7 +18,7 @@
 //   4. If your Samsara account is on the EU cluster rather than the default
 //      US one, change SAMSARA_BASE_URL below to https://api.eu.samsara.com
 
-const SAMSARA_BASE_URL = 'https://api.samsara.com';
+const SAMSARA_BASE_URL = 'https://api.eu.samsara.com'; // EU cluster — confirmed from the org's cloud.eu.samsara.com URL
 
 exports.handler = async function (event) {
   const token = process.env.SAMSARA_API_TOKEN;
