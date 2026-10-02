@@ -9237,6 +9237,63 @@ function showVpkView() {
 /* ══════════════════════════════════════════
    MAP RENDER — Canvas-based UK map
 ══════════════════════════════════════════ */
+/* ══════════════════════════════════════════
+   VEHICLE-TO-RUN ASSIGNMENT
+   Links a Samsara vehicle to a specific planned run for today, so the map
+   (and eventually Samsara's own route/ETA tracking) knows which truck is
+   running which route. Scoped to today only, matching the rest of the map.
+══════════════════════════════════════════ */
+let _vehicleAssignments = {};     // keyed by `${site}|${runKey}` -> {samsara_vehicle_id, samsara_vehicle_name}
+let _samsaraVehicleOptions = [];  // [{id, name}] — the tracked (tagged) fleet, for the assignment dropdown
+async function loadVehicleAssignments() {
+  if (!sb || !isConfigured) { _vehicleAssignments = {}; return; }
+  const today = todayStr();
+  const { data, error } = await sb.from('vehicle_assignments')
+    .select('site,run_key,samsara_vehicle_id,samsara_vehicle_name')
+    .eq('assignment_date', today);
+  if (error || !data) { _vehicleAssignments = {}; return; }
+  _vehicleAssignments = {};
+  data.forEach(a => {
+    _vehicleAssignments[`${a.site}|${a.run_key}`] = { samsara_vehicle_id: a.samsara_vehicle_id, samsara_vehicle_name: a.samsara_vehicle_name };
+  });
+}
+async function loadSamsaraVehicleOptionsForAssignment() {
+  try {
+    const res = await fetch('/.netlify/functions/samsara-vehicles');
+    if (!res.ok) { _samsaraVehicleOptions = []; return; }
+    const { vehicles } = await res.json();
+    _samsaraVehicleOptions = (vehicles||[]).map(v => ({ id: v.id, name: v.name || v.id }));
+  } catch (err) {
+    _samsaraVehicleOptions = [];
+  }
+}
+async function _assignVehicleToRun(site, runKey, runLabel, vehicleId, vehicleName) {
+  if (!sb || !isConfigured) { showToast('⚠ Supabase not configured — nothing to save', 3000); return; }
+  // Defensive: window.updatePanel is only set once the map has actually
+  // initialised (inside _initLeafletMap). It always will have by the time
+  // someone's looking at an assignment dropdown in practice, but this
+  // guards against ever throwing if called in some unexpected sequence.
+  const refreshPanel = () => { if (typeof window.updatePanel === 'function') window.updatePanel(); };
+  if (!vehicleId) {
+    // Blank option chosen — clear any existing assignment for this run.
+    const { error } = await sb.from('vehicle_assignments').delete()
+      .eq('site', site).eq('assignment_date', todayStr()).eq('run_key', runKey);
+    if (!error) { delete _vehicleAssignments[`${site}|${runKey}`]; refreshPanel(); }
+    return;
+  }
+  const { error } = await sb.from('vehicle_assignments').upsert({
+    site, assignment_date: todayStr(), run_key: runKey, run_label: runLabel,
+    samsara_vehicle_id: vehicleId, samsara_vehicle_name: vehicleName,
+    assigned_by: currentUser?.email || currentUser?.id || 'unknown',
+    assigned_at: new Date().toISOString(),
+  }, { onConflict: 'site,assignment_date,run_key' });
+  if (error) {
+    showToast('⚠ Could not save — run the setup SQL for vehicle_assignments first', 4000);
+    return;
+  }
+  _vehicleAssignments[`${site}|${runKey}`] = { samsara_vehicle_id: vehicleId, samsara_vehicle_name: vehicleName };
+  refreshPanel();
+}
 function renderMap() {
   // If no data — destroy map and show empty state immediately
   if (!todayData.length) {
@@ -9256,6 +9313,12 @@ function renderMap() {
   const opps = computeOpps(todayData);
   // Small defer so the tab div is visible and has layout before Leaflet sizes itself
   setTimeout(() => _initLeafletMap(opps), 80);
+  // Non-blocking — the map itself shouldn't wait on these. Once they
+  // resolve, re-render the run panel so the assignment dropdowns pick up
+  // the current assignments and the available tracked vehicles.
+  Promise.all([loadVehicleAssignments(), loadSamsaraVehicleOptionsForAssignment()]).then(() => {
+    if (typeof window.updatePanel === 'function') window.updatePanel();
+  });
 }
 let _leafletMap = null;
 function _initLeafletMap(opps) {
@@ -9605,6 +9668,14 @@ function _initLeafletMap(opps) {
   };
   // ── Update the left panel ──
   function updatePanel() {
+    _doUpdatePanel();
+  }
+  // Exposed globally (re-assigned fresh each time _initLeafletMap runs) so
+  // code outside this closure — like _assignVehicleToRun, which needs to
+  // refresh the panel after saving an assignment — can safely trigger a
+  // re-render without needing to be nested inside this same closure.
+  window.updatePanel = updatePanel;
+  function _doUpdatePanel() {
     // Depot buttons
     const depotBtns = document.getElementById('map-depot-btns');
     if (depotBtns) {
@@ -9684,6 +9755,18 @@ function _initLeafletMap(opps) {
               First: ${firstStop.name||firstStop.customer||'—'} (${firstStop.postal||'—'})
             </div>`:''}
             ${run.checkIn?`<div style="font-size:10px;color:var(--amber);font-family:'IBM Plex Mono',monospace">Check-in: ${run.checkIn}</div>`:''}
+            ${(() => {
+              const assignment = _vehicleAssignments[`${sid}|${run.key}`];
+              const runLabelEsc = (run.runLabel||'').replace(/'/g,"\\'");
+              return `<div onclick="event.stopPropagation()" style="margin-top:6px;padding-top:6px;border-top:1px solid ${meta.color}30">
+                <select onchange="_assignVehicleToRun('${sid}','${run.key}','${runLabelEsc}', this.value, this.options[this.selectedIndex].text)"
+                  style="width:100%;font-size:10px;padding:3px 5px;border-radius:5px;border:1px solid var(--rule);
+                  background:white;font-family:'IBM Plex Mono',monospace;color:${assignment?meta.color:'var(--ink3)'}">
+                  <option value="">${_samsaraVehicleOptions.length ? '— Assign vehicle —' : '(no tracked vehicles loaded)'}</option>
+                  ${_samsaraVehicleOptions.map(v => `<option value="${v.id}" ${assignment?.samsara_vehicle_id===v.id?'selected':''}>${v.name}</option>`).join('')}
+                </select>
+              </div>`;
+            })()}
           </div>`;
         }).join('')}
       </div>`;
@@ -13633,20 +13716,34 @@ window._mapTogglePanel = function() {
    Off by default; the person has to explicitly turn it on.
 ══════════════════════════════════════════ */
 let _liveVehicleMarkers = {};   // keyed by Samsara vehicle id
+let _liveVehicleTrails  = {};   // keyed by vehicle id — recent position history, for the breadcrumb line
+let _liveVehicleTrailLines = {}; // keyed by vehicle id — the drawn breadcrumb polyline itself
 let _liveVehiclePollTimer = null;
 let _liveVehiclesOn = false;
-function _liveVehicleIcon(heading) {
+const LIVE_VEHICLE_STATIONARY_MPH = 2; // below this, GPS jitter alone can look like movement — treat as parked
+const LIVE_VEHICLE_TRAIL_POINTS = 6;   // ~2 minutes of history at the 20s poll interval
+function _liveVehicleIcon(heading, speedMph) {
   const rot = typeof heading === 'number' ? heading : 0;
+  const moving = typeof speedMph === 'number' && speedMph > LIVE_VEHICLE_STATIONARY_MPH;
+  // Stationary vehicles are shown muted/grey with a plain dot — no
+  // directional arrow, since heading is meaningless (and often noisy)
+  // when a vehicle isn't actually moving. Moving vehicles keep the
+  // original green arrow so "who's actually working right now" reads at
+  // a glance across a map full of trucks.
+  const bg = moving ? '#1A8A5A' : '#9AA0A6';
+  const inner = moving
+    ? `<svg width="11" height="11" viewBox="0 0 18 18" fill="none"><path d="M9 2L15 14H3L9 2Z" fill="white"/></svg>`
+    : `<span style="width:6px;height:6px;border-radius:50%;background:white;display:block"></span>`;
   return L.divIcon({
     // The 'live-vehicle-marker' class is what the CSS position transition
     // (below, near .leaflet-tile-pane) targets — Leaflet positions this
     // outer element via a CSS transform, and a transition on that same
     // property makes it glide smoothly between updates instead of jumping.
     className: 'live-vehicle-marker', iconSize: [22,22], iconAnchor: [11,11],
-    html: `<div style="width:22px;height:22px;border-radius:50%;background:#1A8A5A;border:2px solid white;
+    html: `<div style="width:22px;height:22px;border-radius:50%;background:${bg};border:2px solid white;
       box-shadow:0 1px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;
-      transform:rotate(${rot}deg);transition:transform 18s linear">
-      <svg width="11" height="11" viewBox="0 0 18 18" fill="none"><path d="M9 2L15 14H3L9 2Z" fill="white"/></svg>
+      opacity:${moving?1:0.75};transform:rotate(${moving?rot:0}deg);transition:transform 18s linear">
+      ${inner}
     </div>`,
   });
 }
@@ -13684,25 +13781,51 @@ async function _pollLiveVehicles() {
     vehicles.forEach(v => {
       if (v.lat == null || v.lng == null) return;
       seenIds.add(v.id);
+      const moving = typeof v.speedMph === 'number' && v.speedMph > LIVE_VEHICLE_STATIONARY_MPH;
       const popupHtml = `<div style="font-family:'IBM Plex Sans',sans-serif;font-size:12px">
         <div style="font-weight:700;margin-bottom:4px">${v.name||v.id}</div>
-        ${v.speedMph!=null?`<div>${Math.round(v.speedMph)} mph</div>`:''}
+        <div>${moving ? Math.round(v.speedMph)+' mph' : 'Stationary'}</div>
         ${v.updatedAtTime?`<div style="color:var(--ink3);font-size:11px">Updated ${new Date(v.updatedAtTime).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>`:''}
       </div>`;
       if (_liveVehicleMarkers[v.id]) {
         _liveVehicleMarkers[v.id].setLatLng([v.lat, v.lng]);
-        _liveVehicleMarkers[v.id].setIcon(_liveVehicleIcon(v.heading));
+        _liveVehicleMarkers[v.id].setIcon(_liveVehicleIcon(v.heading, v.speedMph));
         _liveVehicleMarkers[v.id].getPopup()?.setContent(popupHtml);
       } else {
-        _liveVehicleMarkers[v.id] = L.marker([v.lat, v.lng], { icon: _liveVehicleIcon(v.heading), zIndexOffset: 800 })
+        _liveVehicleMarkers[v.id] = L.marker([v.lat, v.lng], { icon: _liveVehicleIcon(v.heading, v.speedMph), zIndexOffset: 800 })
           .bindPopup(popupHtml, { maxWidth:220, closeButton:false })
           .addTo(_leafletMap);
       }
+      // Breadcrumb trail — a short fading line of recent positions, so the
+      // direction a vehicle has actually been heading is visible without
+      // waiting for the next poll or clicking in. Capped at
+      // LIVE_VEHICLE_TRAIL_POINTS so it stays a short "recent path," not a
+      // growing line across the whole day.
+      const trail = _liveVehicleTrails[v.id] || (_liveVehicleTrails[v.id] = []);
+      const last = trail[trail.length - 1];
+      if (!last || last[0] !== v.lat || last[1] !== v.lng) {
+        trail.push([v.lat, v.lng]);
+        if (trail.length > LIVE_VEHICLE_TRAIL_POINTS) trail.shift();
+      }
+      if (trail.length > 1) {
+        if (_liveVehicleTrailLines[v.id]) {
+          _liveVehicleTrailLines[v.id].setLatLngs(trail);
+        } else {
+          _liveVehicleTrailLines[v.id] = L.polyline(trail, {
+            color: '#1A8A5A', weight: 2.5, opacity: 0.35, lineCap: 'round', interactive: false,
+          }).addTo(_leafletMap);
+        }
+      }
     });
-    // Drop markers for vehicles no longer in the feed (gone offline, out
-    // of range, etc.) rather than leaving stale positions on the map.
+    // Drop markers (and their breadcrumb trails) for vehicles no longer in
+    // the feed (gone offline, out of range, etc.) rather than leaving stale
+    // positions on the map.
     Object.keys(_liveVehicleMarkers).forEach(id => {
-      if (!seenIds.has(id)) { _leafletMap.removeLayer(_liveVehicleMarkers[id]); delete _liveVehicleMarkers[id]; }
+      if (!seenIds.has(id)) {
+        _leafletMap.removeLayer(_liveVehicleMarkers[id]); delete _liveVehicleMarkers[id];
+        if (_liveVehicleTrailLines[id]) { _leafletMap.removeLayer(_liveVehicleTrailLines[id]); delete _liveVehicleTrailLines[id]; }
+        delete _liveVehicleTrails[id];
+      }
     });
   } catch (err) {
     _liveVehicleStatus('⚠ Could not reach the tracking service.', true);
@@ -13728,8 +13851,13 @@ window._mapToggleLiveVehicles = async function() {
 function _mapStopLiveVehicles(forceButtonReset) {
   _liveVehiclesOn = false;
   if (_liveVehiclePollTimer) { clearInterval(_liveVehiclePollTimer); _liveVehiclePollTimer = null; }
-  if (_leafletMap) Object.values(_liveVehicleMarkers).forEach(m => _leafletMap.removeLayer(m));
+  if (_leafletMap) {
+    Object.values(_liveVehicleMarkers).forEach(m => _leafletMap.removeLayer(m));
+    Object.values(_liveVehicleTrailLines).forEach(l => _leafletMap.removeLayer(l));
+  }
   _liveVehicleMarkers = {};
+  _liveVehicleTrailLines = {};
+  _liveVehicleTrails = {};
   const statusEl = document.getElementById('map-live-vehicles-status');
   if (statusEl) statusEl.style.display = 'none';
   if (forceButtonReset) {
