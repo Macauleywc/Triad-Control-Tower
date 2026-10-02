@@ -3238,6 +3238,21 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
           <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink3);margin-bottom:10px">Depots</div>
           <div id="map-depot-btns" style="display:flex;flex-direction:column;gap:8px"></div>
         </div>
+        <!-- Live vehicle tracking (Samsara) — off by default; requires the
+             samsara-vehicles Netlify Function to be deployed and configured
+             with a Samsara API token before this does anything. -->
+        <div style="padding:14px 20px;border-bottom:1px solid var(--rule)">
+          <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink3);margin-bottom:10px">Live tracking</div>
+          <button id="map-live-vehicles-btn" onclick="_mapToggleLiveVehicles()"
+            style="width:100%;padding:10px;border-radius:9px;border:1.5px solid var(--rule);
+            background:white;color:var(--ink2);font-size:13px;font-weight:600;
+            cursor:pointer;font-family:'IBM Plex Sans',sans-serif;transition:all .2s;
+            display:flex;align-items:center;justify-content:center;gap:8px">
+            <svg width="14" height="14" viewBox="0 0 18 18" fill="none"><rect x="2" y="7" width="9" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><path d="M11 9h3l2 2v2h-5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="5" cy="14" r="1.3" fill="currentColor"/><circle cx="13" cy="14" r="1.3" fill="currentColor"/></svg>
+            <span class="live-veh-label">Show live vehicles</span>
+          </button>
+          <div id="map-live-vehicles-status" style="font-size:11px;color:var(--ink3);margin-top:8px;display:none"></div>
+        </div>
         <!-- Run list (shown when depot selected) -->
         <div id="map-run-list" style="padding:14px 20px;flex:1">
           <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink3);margin-bottom:10px">Runs</div>
@@ -5362,6 +5377,9 @@ function showTab(tab) {
     const el = document.getElementById('tab-'+t);
     if (el) el.style.display = t===tab ? (t==='chat'||t==='mapview'?'flex':'') : 'none';
   });
+  // Stop polling live vehicle positions when leaving the map — no point
+  // hitting the tracking endpoint for a map nobody's looking at.
+  if (tab !== 'mapview' && typeof _mapStopLiveVehicles === 'function') _mapStopLiveVehicles();
   document.querySelectorAll('.sb-link').forEach(b => b.classList.toggle('active', b.dataset.tab===tab));
   document.getElementById('page-title').textContent = PAGE_TITLES[tab]||tab;
   // Auto-expand (and keep expanded) whichever group contains the active tab
@@ -13597,6 +13615,112 @@ window._mapTogglePanel = function() {
   if (restore) restore.style.display = hidden ? 'none' : 'block';
   if (_leafletMap) setTimeout(() => _leafletMap.invalidateSize(), 200);
 };
+
+/* ══════════════════════════════════════════
+   LIVE VEHICLE TRACKING (Samsara)
+   Calls the samsara-vehicles Netlify Function (see
+   /netlify/functions/samsara-vehicles.js) rather than Samsara directly —
+   that function holds the Samsara API token server-side as an environment
+   variable, which keeps it out of this public client-side file entirely.
+   Off by default; the person has to explicitly turn it on.
+══════════════════════════════════════════ */
+let _liveVehicleMarkers = {};   // keyed by Samsara vehicle id
+let _liveVehiclePollTimer = null;
+let _liveVehiclesOn = false;
+function _liveVehicleIcon(heading) {
+  const rot = typeof heading === 'number' ? heading : 0;
+  return L.divIcon({
+    className: '', iconSize: [22,22], iconAnchor: [11,11],
+    html: `<div style="width:22px;height:22px;border-radius:50%;background:#1A8A5A;border:2px solid white;
+      box-shadow:0 1px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;
+      transform:rotate(${rot}deg)">
+      <svg width="11" height="11" viewBox="0 0 18 18" fill="none"><path d="M9 2L15 14H3L9 2Z" fill="white"/></svg>
+    </div>`,
+  });
+}
+function _liveVehicleStatus(msg, isError) {
+  const el = document.getElementById('map-live-vehicles-status');
+  if (!el) return;
+  el.style.display = 'block';
+  el.style.color = isError ? 'var(--red)' : 'var(--ink3)';
+  el.textContent = msg;
+}
+async function _pollLiveVehicles() {
+  if (!_leafletMap) return;
+  try {
+    const res = await fetch('/.netlify/functions/samsara-vehicles');
+    if (!res.ok) {
+      const body = await res.json().catch(()=>({}));
+      _liveVehicleStatus(
+        body.error === 'Samsara API token not configured'
+          ? '⚠ Not set up yet — add SAMSARA_API_TOKEN in Netlify environment variables.'
+          : `⚠ Couldn't load vehicles (${res.status})`,
+        true
+      );
+      return;
+    }
+    const { vehicles } = await res.json();
+    _liveVehicleStatus(`${vehicles.length} vehicle${vehicles.length!==1?'s':''} · updated ${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`, false);
+    const seenIds = new Set();
+    vehicles.forEach(v => {
+      if (v.lat == null || v.lng == null) return;
+      seenIds.add(v.id);
+      const popupHtml = `<div style="font-family:'IBM Plex Sans',sans-serif;font-size:12px">
+        <div style="font-weight:700;margin-bottom:4px">${v.name||v.id}</div>
+        ${v.speedMph!=null?`<div>${Math.round(v.speedMph)} mph</div>`:''}
+        ${v.updatedAtTime?`<div style="color:var(--ink3);font-size:11px">Updated ${new Date(v.updatedAtTime).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>`:''}
+      </div>`;
+      if (_liveVehicleMarkers[v.id]) {
+        _liveVehicleMarkers[v.id].setLatLng([v.lat, v.lng]);
+        _liveVehicleMarkers[v.id].setIcon(_liveVehicleIcon(v.heading));
+        _liveVehicleMarkers[v.id].getPopup()?.setContent(popupHtml);
+      } else {
+        _liveVehicleMarkers[v.id] = L.marker([v.lat, v.lng], { icon: _liveVehicleIcon(v.heading), zIndexOffset: 800 })
+          .bindPopup(popupHtml, { maxWidth:220, closeButton:false })
+          .addTo(_leafletMap);
+      }
+    });
+    // Drop markers for vehicles no longer in the feed (gone offline, out
+    // of range, etc.) rather than leaving stale positions on the map.
+    Object.keys(_liveVehicleMarkers).forEach(id => {
+      if (!seenIds.has(id)) { _leafletMap.removeLayer(_liveVehicleMarkers[id]); delete _liveVehicleMarkers[id]; }
+    });
+  } catch (err) {
+    _liveVehicleStatus('⚠ Could not reach the tracking service.', true);
+  }
+}
+window._mapToggleLiveVehicles = async function() {
+  _liveVehiclesOn = !_liveVehiclesOn;
+  const btn = document.getElementById('map-live-vehicles-btn');
+  if (_liveVehiclesOn) {
+    if (btn) {
+      btn.style.background = 'var(--navy)'; btn.style.color = 'white'; btn.style.borderColor = 'var(--navy)';
+      const label = btn.querySelector('.live-veh-label'); if (label) label.textContent = 'Hide live vehicles';
+    }
+    await _pollLiveVehicles();
+    _liveVehiclePollTimer = setInterval(_pollLiveVehicles, 20000); // every 20s — near-real-time without hammering the API
+  } else {
+    _mapStopLiveVehicles(true);
+  }
+};
+// forceButtonReset keeps the toggle button's own visual state in sync when
+// called from the button itself; showTab's cleanup call doesn't need that,
+// since the whole map tab is being hidden anyway.
+function _mapStopLiveVehicles(forceButtonReset) {
+  _liveVehiclesOn = false;
+  if (_liveVehiclePollTimer) { clearInterval(_liveVehiclePollTimer); _liveVehiclePollTimer = null; }
+  if (_leafletMap) Object.values(_liveVehicleMarkers).forEach(m => _leafletMap.removeLayer(m));
+  _liveVehicleMarkers = {};
+  const statusEl = document.getElementById('map-live-vehicles-status');
+  if (statusEl) statusEl.style.display = 'none';
+  if (forceButtonReset) {
+    const btn = document.getElementById('map-live-vehicles-btn');
+    if (btn) {
+      btn.style.background = 'white'; btn.style.color = 'var(--ink2)'; btn.style.borderColor = 'var(--rule)';
+      const label = btn.querySelector('.live-veh-label'); if (label) label.textContent = 'Show live vehicles';
+    }
+  }
+}
 </script>
 </body>
 </html>
