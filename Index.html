@@ -1895,6 +1895,13 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
 .depot-marker { border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Syne', sans-serif; font-weight: 800; color: white; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); border: 3px solid white; cursor: pointer; transition: transform .15s; }
 .depot-marker:hover { transform: scale(1.15); }
 .opp-line-label { background: white; border: 1px solid #D8D5CC; border-radius: 6px; padding: 3px 7px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.1); white-space: nowrap; }
+/* Desaturate/lighten the raw OpenStreetMap tiles toward the clean, minimal
+   look the app used to get from a styled tile provider (CARTO) — without
+   depending on a third-party styling service that can start requiring an
+   API key with no warning, the way CARTO just did. Only the tile pane is
+   filtered; markers, routes, and labels sit in separate Leaflet panes and
+   are untouched by this. Applies to every Leaflet map in the app. */
+.leaflet-tile-pane { filter: grayscale(0.7) brightness(1.12) contrast(0.85) saturate(0.5); }
 .leaflet-control-zoom { border: 1px solid #D8D5CC !important; border-radius: 8px !important; overflow: hidden; box-shadow: none !important; }
 .leaflet-control-zoom a { background: #fff !important; color: #0F1923 !important; border-bottom: 1px solid #EFEDE7 !important; }
 .leaflet-control-zoom a:hover { background: #F7F6F2 !important; }
