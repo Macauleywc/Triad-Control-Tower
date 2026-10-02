@@ -17,6 +17,22 @@
 //      config needed for a standard site.
 //   4. If your Samsara account is on the EU cluster rather than the default
 //      US one, change SAMSARA_BASE_URL below to https://api.eu.samsara.com
+//
+// Optional — limit to specific vehicles only:
+//   By default this returns EVERY vehicle in the Samsara account. To show
+//   only certain trucks on the map:
+//     1. In Samsara, create a tag (e.g. "Triad") and apply it to just the
+//        vehicles that should appear on this map.
+//     2. Find that tag's numeric ID: in Samsara, go to the tag's own page
+//        (Settings → Tags, click into it) and look at the number in the
+//        URL — e.g. .../tags/1478411 means the ID is 1478411. Or call
+//        GET /tags with this same token to list every tag and its ID.
+//     3. In Netlify, add another environment variable: SAMSARA_TAG_ID,
+//        value 1478411 (or several, comma-separated, e.g. 1478411,1047212
+//        to include more than one tag).
+//     4. Redeploy. No code change needed for this step or ever again —
+//        adding/removing a vehicle from tracking is just adding/removing
+//        that tag on the vehicle in Samsara.
 
 const SAMSARA_BASE_URL = 'https://api.eu.samsara.com'; // EU cluster — confirmed from the org's cloud.eu.samsara.com URL
 
@@ -31,7 +47,11 @@ exports.handler = async function (event) {
   }
 
   try {
-    const res = await fetch(`${SAMSARA_BASE_URL}/fleet/vehicles/stats?types=gps`, {
+    let url = `${SAMSARA_BASE_URL}/fleet/vehicles/stats?types=gps`;
+    const tagId = process.env.SAMSARA_TAG_ID;
+    if (tagId) url += `&tagIds=${encodeURIComponent(tagId)}`;
+
+    const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
