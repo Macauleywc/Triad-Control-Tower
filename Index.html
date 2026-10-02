@@ -1902,6 +1902,14 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
    filtered; markers, routes, and labels sit in separate Leaflet panes and
    are untouched by this. Applies to every Leaflet map in the app. */
 .leaflet-tile-pane { filter: grayscale(0.7) brightness(1.12) contrast(0.85) saturate(0.5); }
+/* Smooth gliding movement for live vehicle markers between polling updates
+   (every 20s) rather than snapping straight to the new position. Leaflet
+   repositions a marker's icon element via the CSS 'transform' property
+   (translate3d) — this transition fires on any change to that value,
+   including ones set by Leaflet's own JS, so .setLatLng() now animates
+   instead of jumping. Scoped to only live-vehicle markers (via this class,
+   set in _liveVehicleIcon) so normal map markers/labels are unaffected. */
+.live-vehicle-marker { transition: transform 18s linear; }
 .leaflet-control-zoom { border: 1px solid #D8D5CC !important; border-radius: 8px !important; overflow: hidden; box-shadow: none !important; }
 .leaflet-control-zoom a { background: #fff !important; color: #0F1923 !important; border-bottom: 1px solid #EFEDE7 !important; }
 .leaflet-control-zoom a:hover { background: #F7F6F2 !important; }
@@ -13630,10 +13638,14 @@ let _liveVehiclesOn = false;
 function _liveVehicleIcon(heading) {
   const rot = typeof heading === 'number' ? heading : 0;
   return L.divIcon({
-    className: '', iconSize: [22,22], iconAnchor: [11,11],
+    // The 'live-vehicle-marker' class is what the CSS position transition
+    // (below, near .leaflet-tile-pane) targets — Leaflet positions this
+    // outer element via a CSS transform, and a transition on that same
+    // property makes it glide smoothly between updates instead of jumping.
+    className: 'live-vehicle-marker', iconSize: [22,22], iconAnchor: [11,11],
     html: `<div style="width:22px;height:22px;border-radius:50%;background:#1A8A5A;border:2px solid white;
       box-shadow:0 1px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;
-      transform:rotate(${rot}deg)">
+      transform:rotate(${rot}deg);transition:transform 18s linear">
       <svg width="11" height="11" viewBox="0 0 18 18" fill="none"><path d="M9 2L15 14H3L9 2Z" fill="white"/></svg>
     </div>`,
   });
@@ -13659,8 +13671,15 @@ async function _pollLiveVehicles() {
       );
       return;
     }
-    const { vehicles } = await res.json();
-    _liveVehicleStatus(`${vehicles.length} vehicle${vehicles.length!==1?'s':''} · updated ${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`, false);
+    const { vehicles, totalTagged } = await res.json();
+    // When some tagged vehicles aren't reporting a current GPS fix (ignition
+    // off, connectivity gap), show that gap explicitly rather than just a
+    // lower count — so a widening gap is visible as something worth
+    // checking, not indistinguishable from "that's just how many there are."
+    const countLabel = (typeof totalTagged === 'number' && totalTagged !== vehicles.length)
+      ? `${vehicles.length} of ${totalTagged} tagged vehicles reporting`
+      : `${vehicles.length} vehicle${vehicles.length!==1?'s':''}`;
+    _liveVehicleStatus(`${countLabel} · updated ${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`, false);
     const seenIds = new Set();
     vehicles.forEach(v => {
       if (v.lat == null || v.lng == null) return;
