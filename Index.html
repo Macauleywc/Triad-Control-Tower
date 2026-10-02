@@ -1902,14 +1902,6 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
    filtered; markers, routes, and labels sit in separate Leaflet panes and
    are untouched by this. Applies to every Leaflet map in the app. */
 .leaflet-tile-pane { filter: grayscale(0.7) brightness(1.12) contrast(0.85) saturate(0.5); }
-/* Smooth gliding movement for live vehicle markers between polling updates
-   (every 20s) rather than snapping straight to the new position. Leaflet
-   repositions a marker's icon element via the CSS 'transform' property
-   (translate3d) — this transition fires on any change to that value,
-   including ones set by Leaflet's own JS, so .setLatLng() now animates
-   instead of jumping. Scoped to only live-vehicle markers (via this class,
-   set in _liveVehicleIcon) so normal map markers/labels are unaffected. */
-.live-vehicle-marker { transition: transform 18s linear; }
 .leaflet-control-zoom { border: 1px solid #D8D5CC !important; border-radius: 8px !important; overflow: hidden; box-shadow: none !important; }
 .leaflet-control-zoom a { background: #fff !important; color: #0F1923 !important; border-bottom: 1px solid #EFEDE7 !important; }
 .leaflet-control-zoom a:hover { background: #F7F6F2 !important; }
@@ -13717,6 +13709,24 @@ window._mapTogglePanel = function() {
 ══════════════════════════════════════════ */
 let _liveVehicleMarkers = {};   // keyed by Samsara vehicle id
 let _liveVehicleTrails  = {};   // keyed by vehicle id — recent position history, for the breadcrumb line
+let _liveVehicleAnimations = {}; // keyed by vehicle id — cancel token for an in-flight glide, so a new poll arriving mid-animation doesn't leave two competing animations fighting over the same marker
+// Glides a marker from one lat/lng to another over durationMs via repeated
+// setLatLng() calls — deliberately NOT a CSS transition (see the call site
+// for why: a CSS transition on position would also catch Leaflet's own
+// pan/zoom repositioning, not just genuine GPS updates).
+function _animateMarkerTo(vehicleId, marker, from, to, durationMs) {
+  if (_liveVehicleAnimations[vehicleId]) _liveVehicleAnimations[vehicleId].cancelled = true;
+  const token = { cancelled: false };
+  _liveVehicleAnimations[vehicleId] = token;
+  const start = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+  function step(now) {
+    if (token.cancelled) return;
+    const t = Math.min((now - start) / durationMs, 1);
+    marker.setLatLng([from.lat + (to.lat - from.lat) * t, from.lng + (to.lng - from.lng) * t]);
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
 let _liveVehicleTrailLines = {}; // keyed by vehicle id — the drawn breadcrumb polyline itself
 let _liveVehiclePollTimer = null;
 let _liveVehiclesOn = false;
@@ -13735,14 +13745,15 @@ function _liveVehicleIcon(heading, speedMph) {
     ? `<svg width="11" height="11" viewBox="0 0 18 18" fill="none"><path d="M9 2L15 14H3L9 2Z" fill="white"/></svg>`
     : `<span style="width:6px;height:6px;border-radius:50%;background:white;display:block"></span>`;
   return L.divIcon({
-    // The 'live-vehicle-marker' class is what the CSS position transition
-    // (below, near .leaflet-tile-pane) targets — Leaflet positions this
-    // outer element via a CSS transform, and a transition on that same
-    // property makes it glide smoothly between updates instead of jumping.
+    // Position (the outer wrapper Leaflet moves via translate3d) is
+    // animated in JS by _animateMarkerTo, not CSS — see that function for
+    // why. The inner div's rotation transition below is unrelated to
+    // position/panning and stays CSS-driven, for a smooth turn when
+    // heading changes.
     className: 'live-vehicle-marker', iconSize: [22,22], iconAnchor: [11,11],
     html: `<div style="width:22px;height:22px;border-radius:50%;background:${bg};border:2px solid white;
       box-shadow:0 1px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;
-      opacity:${moving?1:0.75};transform:rotate(${moving?rot:0}deg);transition:transform 18s linear">
+      opacity:${moving?1:0.75};transform:rotate(${moving?rot:0}deg);transition:transform 1s linear">
       ${inner}
     </div>`,
   });
@@ -13788,12 +13799,24 @@ async function _pollLiveVehicles() {
         ${v.updatedAtTime?`<div style="color:var(--ink3);font-size:11px">Updated ${new Date(v.updatedAtTime).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>`:''}
       </div>`;
       if (_liveVehicleMarkers[v.id]) {
-        _liveVehicleMarkers[v.id].setLatLng([v.lat, v.lng]);
+        // Animate via JS (see _animateMarkerTo), not a CSS transition — a
+        // CSS transition on the marker's position would also catch
+        // Leaflet's OWN repositioning during a pan/zoom (including the
+        // auto-pan a popup click can trigger), making every marker visibly
+        // lag/drift whenever the map moves for any reason, not just on a
+        // genuine new GPS reading. Animating explicitly, only here, keeps
+        // Leaflet's native panning completely untouched and instant.
+        const from = _liveVehicleMarkers[v.id].getLatLng();
+        _animateMarkerTo(v.id, _liveVehicleMarkers[v.id], from, L.latLng(v.lat, v.lng), 15000);
         _liveVehicleMarkers[v.id].setIcon(_liveVehicleIcon(v.heading, v.speedMph));
         _liveVehicleMarkers[v.id].getPopup()?.setContent(popupHtml);
       } else {
         _liveVehicleMarkers[v.id] = L.marker([v.lat, v.lng], { icon: _liveVehicleIcon(v.heading, v.speedMph), zIndexOffset: 800 })
-          .bindPopup(popupHtml, { maxWidth:220, closeButton:false })
+          // autoPan:false — without this, clicking a marker near the edge
+          // of the map pans the whole view to fit the popup, which reads
+          // as "pressing a location moves the screen" rather than simply
+          // showing that vehicle's info.
+          .bindPopup(popupHtml, { maxWidth:220, closeButton:false, autoPan:false })
           .addTo(_leafletMap);
       }
       // Breadcrumb trail — a short fading line of recent positions, so the
