@@ -69,7 +69,8 @@ exports.handler = async function (event) {
     // Pass through only what the map needs — never forward Samsara's raw
     // response wholesale. Keeps the payload small for frequent polling and
     // avoids exposing fields (VIN, odometer, etc.) the map doesn't use.
-    const vehicles = (data.data || [])
+    const allMatched = data.data || [];
+    const vehicles = allMatched
       .map((v) => ({
         id: v.id,
         name: v.name,
@@ -84,7 +85,11 @@ exports.handler = async function (event) {
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-      body: JSON.stringify({ vehicles }),
+      // totalTagged lets the map show "8 of 10 reporting" rather than just
+      // "8 vehicles" — so a gap between tagged and reporting is visible
+      // (a truck with ignition off, a GPS unit with a connectivity issue)
+      // instead of silently dropping vehicles with no current fix.
+      body: JSON.stringify({ vehicles, totalTagged: allMatched.length }),
     };
   } catch (err) {
     return {
