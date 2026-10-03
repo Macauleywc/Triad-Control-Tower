@@ -13742,7 +13742,7 @@ let _liveVehiclePollTimer = null;
 let _liveVehiclesOn = false;
 const LIVE_VEHICLE_STATIONARY_MPH = 2; // below this, GPS jitter alone can look like movement — treat as parked
 const LIVE_VEHICLE_TRAIL_POINTS = 6;   // ~2 minutes of history at the 20s poll interval
-function _liveVehicleIcon(heading, speedMph) {
+function _liveVehicleIcon(heading, speedMph, name) {
   const rot = typeof heading === 'number' ? heading : 0;
   const moving = typeof speedMph === 'number' && speedMph > LIVE_VEHICLE_STATIONARY_MPH;
   // Stationary vehicles are shown muted/grey with a plain dot — no
@@ -13754,17 +13754,32 @@ function _liveVehicleIcon(heading, speedMph) {
   const inner = moving
     ? `<svg width="11" height="11" viewBox="0 0 18 18" fill="none"><path d="M9 2L15 14H3L9 2Z" fill="white"/></svg>`
     : `<span style="width:6px;height:6px;border-radius:50%;background:white;display:block"></span>`;
+  // Name label — several stationary vehicles are otherwise visually
+  // identical (same grey dot, no direction arrow), so a cluster of parked
+  // trucks at a depot was impossible to tell apart without clicking into
+  // each one. Outlined text (no solid background pill) keeps several of
+  // these sitting close together from becoming the same label clutter the
+  // route-identifier pills caused earlier — it reads over the map either
+  // way without needing its own box.
+  const label = name ? `<div style="font-size:10px;font-weight:700;color:${moving?'#0F1923':'#5A6268'};
+    text-shadow:0 0 3px white,0 0 3px white,0 0 3px white,0 0 3px white;white-space:nowrap;margin-top:2px;
+    font-family:'IBM Plex Mono',monospace">${name}</div>` : '';
   return L.divIcon({
     // Position (the outer wrapper Leaflet moves via translate3d) is
     // animated in JS by _animateMarkerTo, not CSS — see that function for
-    // why. The inner div's rotation transition below is unrelated to
+    // why. The inner dot's rotation transition below is unrelated to
     // position/panning and stays CSS-driven, for a smooth turn when
-    // heading changes.
-    className: 'live-vehicle-marker', iconSize: [22,22], iconAnchor: [11,11],
-    html: `<div style="width:22px;height:22px;border-radius:50%;background:${bg};border:2px solid white;
-      box-shadow:0 1px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;
-      opacity:${moving?1:0.75};transform:rotate(${moving?rot:0}deg);transition:transform 1s linear">
-      ${inner}
+    // heading changes. iconAnchor stays pinned to the DOT's centre, not
+    // the whole icon+label block, so the label hanging below doesn't
+    // shift where the dot itself sits on the vehicle's real coordinate.
+    className: 'live-vehicle-marker', iconSize: [70,38], iconAnchor: [35,11],
+    html: `<div style="display:flex;flex-direction:column;align-items:center">
+      <div style="width:22px;height:22px;border-radius:50%;background:${bg};border:2px solid white;
+        box-shadow:0 1px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;
+        opacity:${moving?1:0.75};transform:rotate(${moving?rot:0}deg);transition:transform 1s linear">
+        ${inner}
+      </div>
+      ${label}
     </div>`,
   });
 }
@@ -13818,10 +13833,10 @@ async function _pollLiveVehicles() {
         // Leaflet's native panning completely untouched and instant.
         const from = _liveVehicleMarkers[v.id].getLatLng();
         _animateMarkerTo(v.id, _liveVehicleMarkers[v.id], from, L.latLng(v.lat, v.lng), 15000);
-        _liveVehicleMarkers[v.id].setIcon(_liveVehicleIcon(v.heading, v.speedMph));
+        _liveVehicleMarkers[v.id].setIcon(_liveVehicleIcon(v.heading, v.speedMph, v.name||v.id));
         _liveVehicleMarkers[v.id].getPopup()?.setContent(popupHtml);
       } else {
-        _liveVehicleMarkers[v.id] = L.marker([v.lat, v.lng], { icon: _liveVehicleIcon(v.heading, v.speedMph), zIndexOffset: 800 })
+        _liveVehicleMarkers[v.id] = L.marker([v.lat, v.lng], { icon: _liveVehicleIcon(v.heading, v.speedMph, v.name||v.id), zIndexOffset: 800 })
           // autoPan:false — without this, clicking a marker near the edge
           // of the map pans the whole view to fit the popup, which reads
           // as "pressing a location moves the screen" rather than simply
