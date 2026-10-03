@@ -54,12 +54,16 @@ exports.handler = async function (event) {
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
-    // gps for position; the rest are Samsara's documented engine/fuel stat
-    // types (confirmed against their own API docs) — fuelPercents,
-    // defLevelMilliPercent, engineRpm, engineStates. Fault codes aren't
-    // included here: that field has a much more complex nested structure
-    // and deserves its own careful handling rather than guessing at it.
-    let res = await fetchStats('gps,fuelPercents,defLevelMilliPercent,engineRpm,engineStates');
+    // Samsara caps a single stats request at 4 types total — confirmed
+    // directly from their own rejection: "Vehicle stats are currently
+    // restricted to 4 types." gps is essential (the whole point of this
+    // feature), which leaves room for exactly 3 more. Chose fuelPercents,
+    // defLevelMilliPercent, and engineStates over engineRpm — fuel and DEF
+    // both affect whether a vehicle can keep running, and engine state
+    // (On/Off/Idle) tells a dispatcher more than raw RPM does. Swap
+    // engineRpm back in for one of these if that's more useful in
+    // practice — just keep the total at 4.
+    let res = await fetchStats('gps,fuelPercents,defLevelMilliPercent,engineStates');
     let extendedStatsFailedDetail = null;
     let extendedStatsAvailable = true;
 
