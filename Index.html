@@ -13724,7 +13724,26 @@ window._mapTogglePanel = function() {
    variable, which keeps it out of this public client-side file entirely.
    Off by default; the person has to explicitly turn it on.
 ══════════════════════════════════════════ */
-let _liveVehicleMarkers = {};   // keyed by Samsara vehicle id
+// One entry per depot's own tracking source. Each endpoint is expected to
+// return the same shape regardless of which telematics provider is behind
+// it (Samsara for Desborough; others to be added once each site's own
+// provider is known) — see vehicles-selby.js etc. for what a new site's
+// function needs to return. A site with no real integration yet still
+// returns a valid response (notConfigured: true), so the panel can show
+// it as "not connected" rather than erroring.
+const LIVE_VEHICLE_SITES = [
+  { site: 'desborough', label: 'Desborough', url: '/.netlify/functions/samsara-vehicles' },
+  { site: 'selby', label: 'Selby', url: '/.netlify/functions/vehicles-selby' },
+  { site: 'banbury', label: 'Banbury', url: '/.netlify/functions/vehicles-banbury' },
+  { site: 'wellington', label: 'Wellington', url: '/.netlify/functions/vehicles-wellington' },
+];
+// Vehicle IDs are only guaranteed unique WITHIN one provider — two
+// different sites on two different telematics systems could in principle
+// reuse the same id. Keying everything by site+id instead of id alone
+// avoids one site's vehicle ever silently overwriting another's.
+function _vehicleKey(site, id) { return `${site}:${id}`; }
+let _siteStatus = {}; // keyed by site id -> { label, vehicleCount, totalTagged, notConfigured, error, extendedStatsAvailable, extendedStatsFailedDetail }
+let _liveVehicleMarkers = {};   // keyed by site+vehicle id (see _vehicleKey)
 let _liveVehicleTrails  = {};   // keyed by vehicle id — recent position history, for the breadcrumb line
 let _liveVehicleData    = {};   // keyed by vehicle id -> full last-known vehicle object, for the vehicle list panel
 // Reverse-geocoded location per vehicle: { location, lat, lng, fetchedAt }.
@@ -13740,16 +13759,16 @@ let _geocodeLastError = null; // most recent reverse-geocode failure reason, or 
 const GEOCODE_MIN_MOVE_KM = 0.3;     // re-geocode once a vehicle has moved ~300m
 const GEOCODE_MAX_AGE_MS  = 3*60000; // or every 3 minutes, whichever comes first
 const GEOCODE_MIN_GAP_MS  = 1100;    // spacing between queued requests — stays under Nominatim's 1/sec limit
-function _maybeQueueGeocode(v) {
+function _maybeQueueGeocode(key, v) {
   if (v.lat == null || v.lng == null) return;
-  const cached = _vehicleLocationCache[v.id];
+  const cached = _vehicleLocationCache[key];
   if (cached) {
     const movedKm = haversineKm(cached.lat, cached.lng, v.lat, v.lng);
     const age = Date.now() - cached.fetchedAt;
     if (movedKm < GEOCODE_MIN_MOVE_KM && age < GEOCODE_MAX_AGE_MS) return; // cache is still good enough
   }
-  if (_geocodeQueue.some(q => q.id === v.id)) return; // already queued
-  _geocodeQueue.push({ id: v.id, lat: v.lat, lng: v.lng });
+  if (_geocodeQueue.some(q => q.id === key)) return; // already queued
+  _geocodeQueue.push({ id: key, lat: v.lat, lng: v.lng });
   _runGeocodeQueue();
 }
 async function _runGeocodeQueue() {
@@ -13863,6 +13882,44 @@ function _liveVehicleStatus(msg, isError, warningDetail) {
 // results — so the fleet can be browsed at a glance, same as the Samsara
 // dashboard this is modelled on. The search box filters this same list in
 // place rather than opening a separate dropdown.
+// One vehicle's card — identical regardless of which site/provider it
+// came from. key is the composite site+id key used everywhere else.
+function _vehicleCardHtml(key, v) {
+  const moving = typeof v.speedMph === 'number' && v.speedMph > LIVE_VEHICLE_STATIONARY_MPH;
+  const badgeBg = moving ? '#E8F5E9' : '#F1F2F4';
+  const badgeColor = moving ? '#1A8A5A' : '#6B7280';
+  const badgeText = moving ? `${Math.round(v.speedMph)} MPH` : 'Stationary';
+  // Shows once the (throttled, queued) reverse-geocode for this vehicle
+  // resolves — absent until then rather than a placeholder, since a
+  // guessed location would be worse than no location.
+  const cachedLoc = _vehicleLocationCache[key]?.location;
+  const locationLine = cachedLoc ? `<div style="font-size:11px;color:var(--ink2);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cachedLoc}</div>` : '';
+  const stat = (label, val, warn) => val!=null ? `<span style="color:${warn?'var(--red)':'var(--ink3)'}">${label} ${val}${label==='Fuel'||label==='DEF'?'%':''}</span>` : '';
+  const stats = [
+    stat('Fuel', v.fuelPercent, v.fuelPercent!=null && v.fuelPercent<20),
+    stat('DEF', v.defPercent, v.defPercent!=null && v.defPercent<20),
+    v.engineState ? `<span style="color:var(--ink3)">${v.engineState}</span>` : '',
+  ].filter(Boolean).join('<span style="color:var(--rule)"> · </span>');
+  return `<div onclick="_flyToLiveVehicle('${key}')"
+    style="padding:9px 10px;border:1px solid var(--rule);border-radius:8px;margin-bottom:6px;cursor:pointer;background:white;transition:border-color .15s"
+    onmouseover="this.style.borderColor='var(--navy)'" onmouseout="this.style.borderColor='var(--rule)'">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div style="display:flex;align-items:center;gap:6px;min-width:0">
+        <svg width="13" height="13" viewBox="0 0 18 18" fill="none" style="flex-shrink:0;color:var(--ink3)"><rect x="1" y="6" width="10" height="7" rx="1" stroke="currentColor" stroke-width="1.4"/><path d="M11 9h3.5l2 2.5V13H11" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><circle cx="4.5" cy="14.5" r="1.3" fill="currentColor"/><circle cx="13" cy="14.5" r="1.3" fill="currentColor"/></svg>
+        <span style="font-size:13px;font-weight:700;font-family:'IBM Plex Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v.name||v.id}</span>
+      </div>
+      <span style="flex-shrink:0;padding:2px 8px;border-radius:10px;background:${badgeBg};color:${badgeColor};font-size:10px;font-weight:700;font-family:'IBM Plex Mono',monospace">${badgeText}</span>
+    </div>
+    ${locationLine ? `<div style="padding-left:19px">${locationLine}</div>` : ''}
+    ${stats ? `<div style="margin-top:3px;font-size:11px;padding-left:19px">${stats}</div>` : ''}
+  </div>`;
+}
+// Grouped by site — matching how the Runs list below is already grouped
+// by depot — rather than one flat list across every site's trucks mixed
+// together. Each site shows its own connection state (connected with a
+// count, not configured yet, or a genuine error) independently, so one
+// site's problem is clearly scoped to that site rather than reading as
+// "tracking is broken" for the whole fleet.
 function _renderVehicleList(filterQuery) {
   const listEl = document.getElementById('map-vehicle-list');
   if (!listEl) return;
@@ -13872,52 +13929,49 @@ function _renderVehicleList(filterQuery) {
   }
   // Previously a failed location lookup just showed nothing, which looked
   // identical to "not deployed yet" or "hasn't resolved yet" — this makes
-  // an actual, persistent failure visible with the real reason, rather
-  // than leaving it to be silently indistinguishable from those.
+  // an actual, persistent failure visible with the real reason. Shown
+  // directly as text, not behind a hover tooltip — a hover-only detail is
+  // simply unreachable on a touchscreen, which is likely how this panel
+  // is actually being used day-to-day.
   const geocodeWarning = _geocodeLastError
-    ? `<div title="${_geocodeLastError.replace(/"/g,'&quot;')}" style="font-size:10px;color:var(--red);padding:4px 2px 6px;cursor:help">⚠ Location lookups failing — hover for detail</div>`
+    ? `<div style="font-size:10px;color:var(--red);padding:4px 2px 6px;line-height:1.4;word-break:break-word">⚠ Location lookups failing: ${_geocodeLastError.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>`
     : '';
   const q = (filterQuery||'').trim().toLowerCase();
-  const all = Object.values(_liveVehicleData).sort((a,b) => (a.name||'').localeCompare(b.name||''));
-  const filtered = q ? all.filter(v => (v.name||'').toLowerCase().includes(q)) : all;
-  if (!filtered.length) {
-    listEl.innerHTML = geocodeWarning + `<div style="font-size:11px;color:var(--ink3);padding:6px 2px">${q ? 'No match' : 'No vehicles reporting yet'}</div>`;
-    return;
-  }
-  // Full cards rather than thin rows — plate + speed badge up top, a
-  // readable location, then stats — modelled on Samsara's own fleet list
-  // layout. Driver name is still left out: that needs a driver-assignment
-  // lookup this doesn't have data for, rather than something to fake here.
-  listEl.innerHTML = geocodeWarning + filtered.map(v => {
-    const moving = typeof v.speedMph === 'number' && v.speedMph > LIVE_VEHICLE_STATIONARY_MPH;
-    const badgeBg = moving ? '#E8F5E9' : '#F1F2F4';
-    const badgeColor = moving ? '#1A8A5A' : '#6B7280';
-    const badgeText = moving ? `${Math.round(v.speedMph)} MPH` : 'Stationary';
-    // Shows once the (throttled, queued) reverse-geocode for this vehicle
-    // resolves — absent until then rather than a placeholder, since a
-    // guessed location would be worse than no location.
-    const cachedLoc = _vehicleLocationCache[v.id]?.location;
-    const locationLine = cachedLoc ? `<div style="font-size:11px;color:var(--ink2);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cachedLoc}</div>` : '';
-    const stat = (label, val, warn) => val!=null ? `<span style="color:${warn?'var(--red)':'var(--ink3)'}">${label} ${val}${label==='Fuel'||label==='DEF'?'%':''}</span>` : '';
-    const stats = [
-      stat('Fuel', v.fuelPercent, v.fuelPercent!=null && v.fuelPercent<20),
-      stat('DEF', v.defPercent, v.defPercent!=null && v.defPercent<20),
-      v.engineState ? `<span style="color:var(--ink3)">${v.engineState}</span>` : '',
-    ].filter(Boolean).join('<span style="color:var(--rule)"> · </span>');
-    return `<div onclick="_flyToLiveVehicle('${v.id}')"
-      style="padding:9px 10px;border:1px solid var(--rule);border-radius:8px;margin-bottom:6px;cursor:pointer;background:white;transition:border-color .15s"
-      onmouseover="this.style.borderColor='var(--navy)'" onmouseout="this.style.borderColor='var(--rule)'">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-        <div style="display:flex;align-items:center;gap:6px;min-width:0">
-          <svg width="13" height="13" viewBox="0 0 18 18" fill="none" style="flex-shrink:0;color:var(--ink3)"><rect x="1" y="6" width="10" height="7" rx="1" stroke="currentColor" stroke-width="1.4"/><path d="M11 9h3.5l2 2.5V13H11" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><circle cx="4.5" cy="14.5" r="1.3" fill="currentColor"/><circle cx="13" cy="14.5" r="1.3" fill="currentColor"/></svg>
-          <span style="font-size:13px;font-weight:700;font-family:'IBM Plex Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v.name||v.id}</span>
-        </div>
-        <span style="flex-shrink:0;padding:2px 8px;border-radius:10px;background:${badgeBg};color:${badgeColor};font-size:10px;font-weight:700;font-family:'IBM Plex Mono',monospace">${badgeText}</span>
+
+  const sections = LIVE_VEHICLE_SITES.map(cfg => {
+    const status = _siteStatus[cfg.site];
+    const siteVehicles = Object.entries(_liveVehicleData)
+      .filter(([key, v]) => v.site === cfg.site)
+      .sort((a,b) => (a[1].name||'').localeCompare(b[1].name||''));
+    const filtered = q ? siteVehicles.filter(([key,v]) => (v.name||'').toLowerCase().includes(q)) : siteVehicles;
+
+    let headerRight, body;
+    if (!status) {
+      // Hasn't reported back yet this session (first poll still in flight).
+      headerRight = `<span style="font-size:10px;color:var(--ink3)">loading…</span>`;
+      body = '';
+    } else if (status.error) {
+      headerRight = `<span style="font-size:10px;color:var(--red)">error</span>`;
+      body = `<div style="font-size:10px;color:var(--red);padding:2px 2px 8px;line-height:1.4">${status.error.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>`;
+    } else if (status.notConfigured) {
+      headerRight = `<span style="font-size:10px;color:var(--ink3)">not connected</span>`;
+      body = `<div style="font-size:10px;color:var(--ink3);padding:2px 2px 8px">This site's tracking isn't set up yet.</div>`;
+    } else {
+      headerRight = `<span style="font-size:10px;color:var(--ink3)">${siteVehicles.length} vehicle${siteVehicles.length!==1?'s':''}</span>`;
+      body = filtered.length
+        ? filtered.map(([key, v]) => _vehicleCardHtml(key, v)).join('')
+        : `<div style="font-size:10px;color:var(--ink3);padding:2px 2px 8px">${q ? 'No match' : 'No vehicles reporting'}</div>`;
+    }
+    return `<div style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0 2px 4px">
+        <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink2)">${cfg.label}</span>
+        ${headerRight}
       </div>
-      ${locationLine ? `<div style="padding-left:19px">${locationLine}</div>` : ''}
-      ${stats ? `<div style="margin-top:3px;font-size:11px;padding-left:19px">${stats}</div>` : ''}
+      ${body}
     </div>`;
   }).join('');
+
+  listEl.innerHTML = geocodeWarning + sections;
 }
 function _flyToLiveVehicle(id) {
   const marker = _liveVehicleMarkers[id];
@@ -13925,123 +13979,130 @@ function _flyToLiveVehicle(id) {
   _leafletMap.flyTo(marker.getLatLng(), Math.max(_leafletMap.getZoom(), 12), { duration: 0.8 });
   setTimeout(() => marker.openPopup(), 850);
 }
+// Builds the marker, popup and breadcrumb trail for one vehicle — called
+// once per vehicle regardless of which site/provider it came from, so
+// every site gets identical on-map treatment. key is the composite
+// site+id key (see _vehicleKey); everything is stored under that key, not
+// the bare provider id, so vehicles from different sites can never
+// collide even if two providers happen to reuse the same id scheme.
+function _applyLiveVehicleUpdate(key, v) {
+  _liveVehicleData[key] = v;
+  _maybeQueueGeocode(key, v);
+  const moving = typeof v.speedMph === 'number' && v.speedMph > LIVE_VEHICLE_STATIONARY_MPH;
+  const statRow = (label, val) => val!=null ? `<div style="display:flex;justify-content:space-between">
+    <span style="color:var(--ink3)">${label}</span><span style="font-weight:600">${val}</span></div>` : '';
+  const statRows = statRow('Fuel', v.fuelPercent!=null?v.fuelPercent+'%':null)
+    + statRow('DEF', v.defPercent!=null?v.defPercent+'%':null)
+    + statRow('Engine', v.engineRpm!=null?v.engineRpm+' RPM':null);
+  const popupHtml = `<div style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;min-width:140px">
+    <div style="font-weight:700;margin-bottom:4px">${v.name||v.id}</div>
+    <div>${moving ? Math.round(v.speedMph)+' mph' : 'Stationary'}${v.engineState?' · '+v.engineState:''}</div>
+    ${statRows?`<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--rule);display:flex;flex-direction:column;gap:2px">${statRows}</div>`:''}
+    ${v.updatedAtTime?`<div style="color:var(--ink3);font-size:11px;margin-top:6px">Updated ${new Date(v.updatedAtTime).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>`:''}
+  </div>`;
+  if (_liveVehicleMarkers[key]) {
+    const from = _liveVehicleMarkers[key].getLatLng();
+    _animateMarkerTo(key, _liveVehicleMarkers[key], from, L.latLng(v.lat, v.lng), 15000);
+    _liveVehicleMarkers[key].setIcon(_liveVehicleIcon(v.heading, v.speedMph, v.name||v.id));
+    _liveVehicleMarkers[key].getPopup()?.setContent(popupHtml);
+  } else {
+    _liveVehicleMarkers[key] = L.marker([v.lat, v.lng], { icon: _liveVehicleIcon(v.heading, v.speedMph, v.name||v.id), zIndexOffset: 800 })
+      .bindPopup(popupHtml, { maxWidth:220, closeButton:false, autoPan:false })
+      .addTo(_leafletMap);
+  }
+  const trail = _liveVehicleTrails[key] || (_liveVehicleTrails[key] = []);
+  const last = trail[trail.length - 1];
+  if (!last || last[0] !== v.lat || last[1] !== v.lng) {
+    trail.push([v.lat, v.lng]);
+    if (trail.length > LIVE_VEHICLE_TRAIL_POINTS) trail.shift();
+  }
+  if (trail.length > 1) {
+    if (_liveVehicleTrailLines[key]) {
+      _liveVehicleTrailLines[key].setLatLngs(trail);
+    } else {
+      _liveVehicleTrailLines[key] = L.polyline(trail, {
+        color: '#1A8A5A', weight: 2.5, opacity: 0.35, lineCap: 'round', interactive: false,
+      }).addTo(_leafletMap);
+    }
+  }
+}
 async function _pollLiveVehicles() {
   if (!_leafletMap) return;
-  try {
-    const res = await fetch('/.netlify/functions/samsara-vehicles');
-    if (!res.ok) {
-      const body = await res.json().catch(()=>({}));
-      // Show Samsara's actual error text, not just the bare status code —
-      // a status code alone ("Couldn't load vehicles (400)") says
-      // something's wrong but not what, which makes it impossible to
-      // diagnose without guessing. The detail text usually says exactly
-      // which part of the request Samsara rejected.
-      _liveVehicleStatus(
-        body.error === 'Samsara API token not configured'
-          ? '⚠ Not set up yet — add SAMSARA_API_TOKEN in Netlify environment variables.'
-          : `⚠ Couldn't load vehicles (${res.status})${body.detail ? ': '+String(body.detail).slice(0,200) : ''}`,
-        true
-      );
+  // Every configured site is fetched independently and in parallel, via
+  // allSettled rather than all — one site's telematics provider being
+  // down, misconfigured, or not yet built shouldn't stop the other three
+  // sites' trucks from showing. Each site's own result (success, a clean
+  // "not configured", or a genuine error) is tracked separately in
+  // _siteStatus so the panel can report accurately per site rather than
+  // one combined pass/fail for the whole fleet.
+  const results = await Promise.allSettled(
+    LIVE_VEHICLE_SITES.map(cfg => fetch(cfg.url).then(async res => {
+      const body = await res.json().catch(() => ({}));
+      return { cfg, res, body };
+    }))
+  );
+
+  const seenKeys = new Set();
+  let totalVehicleCount = 0;
+
+  results.forEach((result, i) => {
+    const cfg = LIVE_VEHICLE_SITES[i];
+    if (result.status !== 'fulfilled') {
+      _siteStatus[cfg.site] = { label: cfg.label, error: 'Could not reach the tracking service.' };
       return;
     }
-    const { vehicles, totalTagged, extendedStatsAvailable, extendedStatsFailedDetail } = await res.json();
-    // When some tagged vehicles aren't reporting a current GPS fix (ignition
-    // off, connectivity gap), show that gap explicitly rather than just a
-    // lower count — so a widening gap is visible as something worth
-    // checking, not indistinguishable from "that's just how many there are."
-    const countLabel = (typeof totalTagged === 'number' && totalTagged !== vehicles.length)
-      ? `${vehicles.length} of ${totalTagged} tagged vehicles reporting`
-      : `${vehicles.length} vehicle${vehicles.length!==1?'s':''}`;
-    // Position tracking still works even when fuel/DEF/engine data
-    // doesn't — the server falls back to a GPS-only request rather than
-    // breaking tracking entirely. Surfaced via the small warning icon
-    // (hover for the actual reason) rather than appended to this line, so
-    // the main status stays a short, glanceable summary either way.
-    _liveVehicleStatus(
-      `${countLabel} · updated ${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`,
-      extendedStatsAvailable === false,
-      extendedStatsAvailable === false ? `Fuel/DEF/engine data unavailable: ${extendedStatsFailedDetail || 'unknown reason'}` : null
-    );
-    const seenIds = new Set();
-    vehicles.forEach(v => {
+    const { res, body } = result.value;
+    if (!res.ok) {
+      _siteStatus[cfg.site] = {
+        label: cfg.label,
+        error: body.error === 'Samsara API token not configured'
+          ? 'Not set up yet — add SAMSARA_API_TOKEN in Netlify environment variables.'
+          : `Couldn't load vehicles (${res.status})${body.detail ? ': '+String(body.detail).slice(0,200) : ''}`,
+      };
+      return;
+    }
+    const { vehicles, totalTagged, notConfigured, extendedStatsAvailable, extendedStatsFailedDetail } = body;
+    _siteStatus[cfg.site] = {
+      label: cfg.label,
+      vehicleCount: (vehicles||[]).length,
+      totalTagged,
+      notConfigured: !!notConfigured,
+      extendedStatsAvailable,
+      extendedStatsFailedDetail,
+    };
+    (vehicles||[]).forEach(v => {
       if (v.lat == null || v.lng == null) return;
-      seenIds.add(v.id);
-      _liveVehicleData[v.id] = v;
-      _maybeQueueGeocode(v);
-      const moving = typeof v.speedMph === 'number' && v.speedMph > LIVE_VEHICLE_STATIONARY_MPH;
-      // Fuel/DEF/engine rows only appear when Samsara actually reports
-      // them for this vehicle — gracefully absent rather than showing a
-      // "0%" that might just mean the data wasn't available.
-      const statRow = (label, val) => val!=null ? `<div style="display:flex;justify-content:space-between">
-        <span style="color:var(--ink3)">${label}</span><span style="font-weight:600">${val}</span></div>` : '';
-      const statRows = statRow('Fuel', v.fuelPercent!=null?v.fuelPercent+'%':null)
-        + statRow('DEF', v.defPercent!=null?v.defPercent+'%':null)
-        + statRow('Engine', v.engineRpm!=null?v.engineRpm+' RPM':null);
-      const popupHtml = `<div style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;min-width:140px">
-        <div style="font-weight:700;margin-bottom:4px">${v.name||v.id}</div>
-        <div>${moving ? Math.round(v.speedMph)+' mph' : 'Stationary'}${v.engineState?' · '+v.engineState:''}</div>
-        ${statRows?`<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--rule);display:flex;flex-direction:column;gap:2px">${statRows}</div>`:''}
-        ${v.updatedAtTime?`<div style="color:var(--ink3);font-size:11px;margin-top:6px">Updated ${new Date(v.updatedAtTime).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>`:''}
-      </div>`;
-      if (_liveVehicleMarkers[v.id]) {
-        // Animate via JS (see _animateMarkerTo), not a CSS transition — a
-        // CSS transition on the marker's position would also catch
-        // Leaflet's OWN repositioning during a pan/zoom (including the
-        // auto-pan a popup click can trigger), making every marker visibly
-        // lag/drift whenever the map moves for any reason, not just on a
-        // genuine new GPS reading. Animating explicitly, only here, keeps
-        // Leaflet's native panning completely untouched and instant.
-        const from = _liveVehicleMarkers[v.id].getLatLng();
-        _animateMarkerTo(v.id, _liveVehicleMarkers[v.id], from, L.latLng(v.lat, v.lng), 15000);
-        _liveVehicleMarkers[v.id].setIcon(_liveVehicleIcon(v.heading, v.speedMph, v.name||v.id));
-        _liveVehicleMarkers[v.id].getPopup()?.setContent(popupHtml);
-      } else {
-        _liveVehicleMarkers[v.id] = L.marker([v.lat, v.lng], { icon: _liveVehicleIcon(v.heading, v.speedMph, v.name||v.id), zIndexOffset: 800 })
-          // autoPan:false — without this, clicking a marker near the edge
-          // of the map pans the whole view to fit the popup, which reads
-          // as "pressing a location moves the screen" rather than simply
-          // showing that vehicle's info.
-          .bindPopup(popupHtml, { maxWidth:220, closeButton:false, autoPan:false })
-          .addTo(_leafletMap);
-      }
-      // Breadcrumb trail — a short fading line of recent positions, so the
-      // direction a vehicle has actually been heading is visible without
-      // waiting for the next poll or clicking in. Capped at
-      // LIVE_VEHICLE_TRAIL_POINTS so it stays a short "recent path," not a
-      // growing line across the whole day.
-      const trail = _liveVehicleTrails[v.id] || (_liveVehicleTrails[v.id] = []);
-      const last = trail[trail.length - 1];
-      if (!last || last[0] !== v.lat || last[1] !== v.lng) {
-        trail.push([v.lat, v.lng]);
-        if (trail.length > LIVE_VEHICLE_TRAIL_POINTS) trail.shift();
-      }
-      if (trail.length > 1) {
-        if (_liveVehicleTrailLines[v.id]) {
-          _liveVehicleTrailLines[v.id].setLatLngs(trail);
-        } else {
-          _liveVehicleTrailLines[v.id] = L.polyline(trail, {
-            color: '#1A8A5A', weight: 2.5, opacity: 0.35, lineCap: 'round', interactive: false,
-          }).addTo(_leafletMap);
-        }
-      }
+      v.site = v.site || cfg.site; // defensive — every real site function already sets this itself
+      const key = _vehicleKey(v.site, v.id);
+      seenKeys.add(key);
+      totalVehicleCount++;
+      _applyLiveVehicleUpdate(key, v);
     });
-    // Drop markers (and their breadcrumb trails) for vehicles no longer in
-    // the feed (gone offline, out of range, etc.) rather than leaving stale
-    // positions on the map.
-    Object.keys(_liveVehicleMarkers).forEach(id => {
-      if (!seenIds.has(id)) {
-        _leafletMap.removeLayer(_liveVehicleMarkers[id]); delete _liveVehicleMarkers[id];
-        if (_liveVehicleTrailLines[id]) { _leafletMap.removeLayer(_liveVehicleTrailLines[id]); delete _liveVehicleTrailLines[id]; }
-        delete _liveVehicleTrails[id];
-        delete _liveVehicleData[id];
-      }
-    });
-    // Preserve whatever's currently typed in the search box as a filter
-    // across this refresh, rather than clearing it on every poll.
-    _renderVehicleList(document.getElementById('map-vehicle-search')?.value);
-  } catch (err) {
-    _liveVehicleStatus('⚠ Could not reach the tracking service.', true);
-  }
+  });
+
+  // Drop markers (and their breadcrumb trails) for vehicles no longer in
+  // any site's feed (gone offline, out of range, etc.) rather than
+  // leaving stale positions on the map.
+  Object.keys(_liveVehicleMarkers).forEach(key => {
+    if (!seenKeys.has(key)) {
+      _leafletMap.removeLayer(_liveVehicleMarkers[key]); delete _liveVehicleMarkers[key];
+      if (_liveVehicleTrailLines[key]) { _leafletMap.removeLayer(_liveVehicleTrailLines[key]); delete _liveVehicleTrailLines[key]; }
+      delete _liveVehicleTrails[key];
+      delete _liveVehicleData[key];
+    }
+  });
+
+  // Top status line stays a simple fleet-wide total; per-site detail
+  // (not connected, an error, fuel/DEF/engine unavailable) lives in each
+  // site's own section of the list instead of being crammed in here.
+  const connectedSites = Object.values(_siteStatus).filter(s => !s.error && !s.notConfigured).length;
+  _liveVehicleStatus(
+    `${totalVehicleCount} vehicle${totalVehicleCount!==1?'s':''} across ${connectedSites} site${connectedSites!==1?'s':''} · updated ${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`,
+    false
+  );
+  // Preserve whatever's currently typed in the search box as a filter
+  // across this refresh, rather than clearing it on every poll.
+  _renderVehicleList(document.getElementById('map-vehicle-search')?.value);
 }
 window._mapToggleLiveVehicles = async function() {
   _liveVehiclesOn = !_liveVehiclesOn;
@@ -14072,6 +14133,7 @@ function _mapStopLiveVehicles(forceButtonReset) {
   _liveVehicleTrails = {};
   _liveVehicleData = {};
   _vehicleLocationCache = {};
+  _siteStatus = {};
   _geocodeQueue = [];
   _geocodeLastError = null;
   const statusRow = document.getElementById('map-live-vehicles-status-row');
