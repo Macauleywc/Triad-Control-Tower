@@ -13836,15 +13836,20 @@ async function _pollLiveVehicles() {
     const res = await fetch('/.netlify/functions/samsara-vehicles');
     if (!res.ok) {
       const body = await res.json().catch(()=>({}));
+      // Show Samsara's actual error text, not just the bare status code —
+      // a status code alone ("Couldn't load vehicles (400)") says
+      // something's wrong but not what, which makes it impossible to
+      // diagnose without guessing. The detail text usually says exactly
+      // which part of the request Samsara rejected.
       _liveVehicleStatus(
         body.error === 'Samsara API token not configured'
           ? '⚠ Not set up yet — add SAMSARA_API_TOKEN in Netlify environment variables.'
-          : `⚠ Couldn't load vehicles (${res.status})`,
+          : `⚠ Couldn't load vehicles (${res.status})${body.detail ? ': '+String(body.detail).slice(0,200) : ''}`,
         true
       );
       return;
     }
-    const { vehicles, totalTagged } = await res.json();
+    const { vehicles, totalTagged, extendedStatsAvailable, extendedStatsFailedDetail } = await res.json();
     // When some tagged vehicles aren't reporting a current GPS fix (ignition
     // off, connectivity gap), show that gap explicitly rather than just a
     // lower count — so a widening gap is visible as something worth
@@ -13852,7 +13857,17 @@ async function _pollLiveVehicles() {
     const countLabel = (typeof totalTagged === 'number' && totalTagged !== vehicles.length)
       ? `${vehicles.length} of ${totalTagged} tagged vehicles reporting`
       : `${vehicles.length} vehicle${vehicles.length!==1?'s':''}`;
-    _liveVehicleStatus(`${countLabel} · updated ${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`, false);
+    let statusMsg = `${countLabel} · updated ${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`;
+    // Position tracking still works even when fuel/DEF/engine data
+    // doesn't — the server falls back to a GPS-only request rather than
+    // breaking tracking entirely. Surface that plainly, with the actual
+    // reason visible (not hidden in a console only a developer would
+    // check), so it can be reported rather than silently living with
+    // missing data forever.
+    if (extendedStatsAvailable === false) {
+      statusMsg += ` · fuel/DEF/engine data unavailable${extendedStatsFailedDetail ? ' ('+String(extendedStatsFailedDetail).slice(0,150)+')' : ''}`;
+    }
+    _liveVehicleStatus(statusMsg, extendedStatsAvailable === false);
     const seenIds = new Set();
     vehicles.forEach(v => {
       if (v.lat == null || v.lng == null) return;
