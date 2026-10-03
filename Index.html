@@ -3251,13 +3251,14 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
             <svg width="14" height="14" viewBox="0 0 18 18" fill="none"><rect x="2" y="7" width="9" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><path d="M11 9h3l2 2v2h-5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="5" cy="14" r="1.3" fill="currentColor"/><circle cx="13" cy="14" r="1.3" fill="currentColor"/></svg>
             <span class="live-veh-label">Show live vehicles</span>
           </button>
-          <div id="map-live-vehicles-status" style="font-size:11px;color:var(--ink3);margin-top:8px;display:none"></div>
-          <div style="margin-top:8px">
-            <input type="text" id="map-vehicle-search" placeholder="Find a vehicle…" oninput="_searchLiveVehicle(this.value)"
-              style="width:100%;padding:6px 9px;border-radius:7px;border:1.5px solid var(--rule);font-size:12px;
-              font-family:'IBM Plex Mono',monospace;box-sizing:border-box">
-            <div id="map-vehicle-search-results" style="margin-top:4px"></div>
+          <div id="map-live-vehicles-status-row" style="display:none;align-items:center;gap:6px;margin-top:8px">
+            <span id="map-live-vehicles-status" style="font-size:11px;color:var(--ink3);flex:1"></span>
+            <span id="map-live-vehicles-warning" title="" style="display:none;cursor:help;font-size:13px">⚠</span>
           </div>
+          <input type="text" id="map-vehicle-search" placeholder="Find a vehicle…" oninput="_renderVehicleList(this.value)"
+            style="width:100%;padding:6px 9px;border-radius:7px;border:1.5px solid var(--rule);font-size:12px;
+            font-family:'IBM Plex Mono',monospace;box-sizing:border-box;margin-top:8px">
+          <div id="map-vehicle-list" style="margin-top:6px;max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:1px"></div>
         </div>
         <!-- Run list (shown when depot selected) -->
         <div id="map-run-list" style="padding:14px 20px;flex:1">
@@ -13725,7 +13726,7 @@ window._mapTogglePanel = function() {
 ══════════════════════════════════════════ */
 let _liveVehicleMarkers = {};   // keyed by Samsara vehicle id
 let _liveVehicleTrails  = {};   // keyed by vehicle id — recent position history, for the breadcrumb line
-let _liveVehicleNames   = {};   // keyed by vehicle id -> display name, for the search box
+let _liveVehicleData    = {};   // keyed by vehicle id -> full last-known vehicle object, for the vehicle list panel
 let _liveVehicleAnimations = {}; // keyed by vehicle id — cancel token for an in-flight glide, so a new poll arriving mid-animation doesn't leave two competing animations fighting over the same marker
 // Glides a marker from one lat/lng to another over durationMs via repeated
 // setLatLng() calls — deliberately NOT a CSS transition (see the call site
@@ -13790,45 +13791,58 @@ function _liveVehicleIcon(heading, speedMph, name) {
     </div>`,
   });
 }
-function _liveVehicleStatus(msg, isError) {
+// Main status text stays short (count + updated time); anything that needs
+// more room — like a diagnostic detail when fuel/DEF/engine data couldn't
+// load — goes in the warning icon's tooltip instead of being crammed into
+// the same line, so the panel doesn't turn into a wall of text.
+function _liveVehicleStatus(msg, isError, warningDetail) {
+  const row = document.getElementById('map-live-vehicles-status-row');
   const el = document.getElementById('map-live-vehicles-status');
-  if (!el) return;
-  el.style.display = 'block';
+  const warn = document.getElementById('map-live-vehicles-warning');
+  if (!row || !el) return;
+  row.style.display = 'flex';
   el.style.color = isError ? 'var(--red)' : 'var(--ink3)';
   el.textContent = msg;
+  if (warn) {
+    warn.style.display = warningDetail ? 'inline' : 'none';
+    warn.title = warningDetail || '';
+  }
 }
-// Finds a tracked vehicle by name as you type and lists matches — clicking
-// one flies the map to it and opens its detail popup, rather than having
-// to visually hunt through a cluster of identical-looking dots.
-function _searchLiveVehicle(query) {
-  const resultsEl = document.getElementById('map-vehicle-search-results');
-  if (!resultsEl) return;
-  const q = (query||'').trim().toLowerCase();
-  if (!q) { resultsEl.innerHTML = ''; return; }
+// Full, always-visible list of every tracked vehicle — not just search
+// results — so the fleet can be browsed at a glance, same as the Samsara
+// dashboard this is modelled on. The search box filters this same list in
+// place rather than opening a separate dropdown.
+function _renderVehicleList(filterQuery) {
+  const listEl = document.getElementById('map-vehicle-list');
+  if (!listEl) return;
   if (!_liveVehiclesOn) {
-    resultsEl.innerHTML = `<div style="font-size:11px;color:var(--ink3);padding:4px 2px">Turn on live vehicles first</div>`;
+    listEl.innerHTML = `<div style="font-size:11px;color:var(--ink3);padding:6px 2px">Turn on live vehicles to see the fleet</div>`;
     return;
   }
-  const matches = Object.entries(_liveVehicleNames).filter(([id, name]) => name.toLowerCase().includes(q)).slice(0, 6);
-  if (!matches.length) {
-    resultsEl.innerHTML = `<div style="font-size:11px;color:var(--ink3);padding:4px 2px">No match</div>`;
+  const q = (filterQuery||'').trim().toLowerCase();
+  const all = Object.values(_liveVehicleData).sort((a,b) => (a.name||'').localeCompare(b.name||''));
+  const filtered = q ? all.filter(v => (v.name||'').toLowerCase().includes(q)) : all;
+  if (!filtered.length) {
+    listEl.innerHTML = `<div style="font-size:11px;color:var(--ink3);padding:6px 2px">${q ? 'No match' : 'No vehicles reporting yet'}</div>`;
     return;
   }
-  resultsEl.innerHTML = matches.map(([id, name]) => `
-    <div onclick="_flyToLiveVehicle('${id}')"
-      style="padding:5px 8px;font-size:12px;cursor:pointer;border-radius:5px;font-family:'IBM Plex Mono',monospace"
-      onmouseover="this.style.background='var(--cream)'" onmouseout="this.style.background='none'">${name}</div>
-  `).join('');
+  listEl.innerHTML = filtered.map(v => {
+    const moving = typeof v.speedMph === 'number' && v.speedMph > LIVE_VEHICLE_STATIONARY_MPH;
+    const fuelBadge = v.fuelPercent!=null ? `<span style="font-size:10px;color:${v.fuelPercent<20?'var(--red)':'var(--ink3)'};font-family:'IBM Plex Mono',monospace;flex-shrink:0">${v.fuelPercent}%</span>` : '';
+    return `<div onclick="_flyToLiveVehicle('${v.id}')"
+      style="display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;border-radius:6px"
+      onmouseover="this.style.background='var(--cream)'" onmouseout="this.style.background='none'">
+      <span style="width:7px;height:7px;border-radius:50%;background:${moving?'#1A8A5A':'#9AA0A6'};flex-shrink:0"></span>
+      <span style="font-size:12px;font-weight:600;font-family:'IBM Plex Mono',monospace;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v.name||v.id}</span>
+      ${fuelBadge}
+    </div>`;
+  }).join('');
 }
 function _flyToLiveVehicle(id) {
   const marker = _liveVehicleMarkers[id];
   if (!marker || !_leafletMap) return;
   _leafletMap.flyTo(marker.getLatLng(), Math.max(_leafletMap.getZoom(), 12), { duration: 0.8 });
   setTimeout(() => marker.openPopup(), 850);
-  const resultsEl = document.getElementById('map-vehicle-search-results');
-  const searchEl = document.getElementById('map-vehicle-search');
-  if (resultsEl) resultsEl.innerHTML = '';
-  if (searchEl) searchEl.value = '';
 }
 async function _pollLiveVehicles() {
   if (!_leafletMap) return;
@@ -13857,22 +13871,21 @@ async function _pollLiveVehicles() {
     const countLabel = (typeof totalTagged === 'number' && totalTagged !== vehicles.length)
       ? `${vehicles.length} of ${totalTagged} tagged vehicles reporting`
       : `${vehicles.length} vehicle${vehicles.length!==1?'s':''}`;
-    let statusMsg = `${countLabel} · updated ${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`;
     // Position tracking still works even when fuel/DEF/engine data
     // doesn't — the server falls back to a GPS-only request rather than
-    // breaking tracking entirely. Surface that plainly, with the actual
-    // reason visible (not hidden in a console only a developer would
-    // check), so it can be reported rather than silently living with
-    // missing data forever.
-    if (extendedStatsAvailable === false) {
-      statusMsg += ` · fuel/DEF/engine data unavailable${extendedStatsFailedDetail ? ' ('+String(extendedStatsFailedDetail).slice(0,150)+')' : ''}`;
-    }
-    _liveVehicleStatus(statusMsg, extendedStatsAvailable === false);
+    // breaking tracking entirely. Surfaced via the small warning icon
+    // (hover for the actual reason) rather than appended to this line, so
+    // the main status stays a short, glanceable summary either way.
+    _liveVehicleStatus(
+      `${countLabel} · updated ${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`,
+      extendedStatsAvailable === false,
+      extendedStatsAvailable === false ? `Fuel/DEF/engine data unavailable: ${extendedStatsFailedDetail || 'unknown reason'}` : null
+    );
     const seenIds = new Set();
     vehicles.forEach(v => {
       if (v.lat == null || v.lng == null) return;
       seenIds.add(v.id);
-      _liveVehicleNames[v.id] = v.name || v.id;
+      _liveVehicleData[v.id] = v;
       const moving = typeof v.speedMph === 'number' && v.speedMph > LIVE_VEHICLE_STATIONARY_MPH;
       // Fuel/DEF/engine rows only appear when Samsara actually reports
       // them for this vehicle — gracefully absent rather than showing a
@@ -13938,8 +13951,12 @@ async function _pollLiveVehicles() {
         _leafletMap.removeLayer(_liveVehicleMarkers[id]); delete _liveVehicleMarkers[id];
         if (_liveVehicleTrailLines[id]) { _leafletMap.removeLayer(_liveVehicleTrailLines[id]); delete _liveVehicleTrailLines[id]; }
         delete _liveVehicleTrails[id];
+        delete _liveVehicleData[id];
       }
     });
+    // Preserve whatever's currently typed in the search box as a filter
+    // across this refresh, rather than clearing it on every poll.
+    _renderVehicleList(document.getElementById('map-vehicle-search')?.value);
   } catch (err) {
     _liveVehicleStatus('⚠ Could not reach the tracking service.', true);
   }
@@ -13971,9 +13988,12 @@ function _mapStopLiveVehicles(forceButtonReset) {
   _liveVehicleMarkers = {};
   _liveVehicleTrailLines = {};
   _liveVehicleTrails = {};
-  _liveVehicleNames = {};
-  const statusEl = document.getElementById('map-live-vehicles-status');
-  if (statusEl) statusEl.style.display = 'none';
+  _liveVehicleData = {};
+  const statusRow = document.getElementById('map-live-vehicles-status-row');
+  if (statusRow) statusRow.style.display = 'none';
+  const searchEl = document.getElementById('map-vehicle-search');
+  if (searchEl) searchEl.value = '';
+  _renderVehicleList('');
   if (forceButtonReset) {
     const btn = document.getElementById('map-live-vehicles-btn');
     if (btn) {
