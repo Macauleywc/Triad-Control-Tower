@@ -13727,6 +13727,49 @@ window._mapTogglePanel = function() {
 let _liveVehicleMarkers = {};   // keyed by Samsara vehicle id
 let _liveVehicleTrails  = {};   // keyed by vehicle id — recent position history, for the breadcrumb line
 let _liveVehicleData    = {};   // keyed by vehicle id -> full last-known vehicle object, for the vehicle list panel
+// Reverse-geocoded location per vehicle: { location, lat, lng, fetchedAt }.
+// Deliberately NOT re-fetched on every 20s poll — Nominatim (the free
+// geocoding service behind this) allows at most 1 request/second, so this
+// only re-geocodes a vehicle when it's actually moved a meaningful
+// distance or enough time has passed, and even then only one request goes
+// out at a time via a small queue rather than all vehicles firing at once.
+let _vehicleLocationCache = {};
+let _geocodeQueue = [];
+let _geocodeQueueRunning = false;
+const GEOCODE_MIN_MOVE_KM = 0.3;     // re-geocode once a vehicle has moved ~300m
+const GEOCODE_MAX_AGE_MS  = 3*60000; // or every 3 minutes, whichever comes first
+const GEOCODE_MIN_GAP_MS  = 1100;    // spacing between queued requests — stays under Nominatim's 1/sec limit
+function _maybeQueueGeocode(v) {
+  if (v.lat == null || v.lng == null) return;
+  const cached = _vehicleLocationCache[v.id];
+  if (cached) {
+    const movedKm = haversineKm(cached.lat, cached.lng, v.lat, v.lng);
+    const age = Date.now() - cached.fetchedAt;
+    if (movedKm < GEOCODE_MIN_MOVE_KM && age < GEOCODE_MAX_AGE_MS) return; // cache is still good enough
+  }
+  if (_geocodeQueue.some(q => q.id === v.id)) return; // already queued
+  _geocodeQueue.push({ id: v.id, lat: v.lat, lng: v.lng });
+  _runGeocodeQueue();
+}
+async function _runGeocodeQueue() {
+  if (_geocodeQueueRunning) return;
+  _geocodeQueueRunning = true;
+  while (_geocodeQueue.length) {
+    const job = _geocodeQueue.shift();
+    try {
+      const res = await fetch(`/.netlify/functions/reverse-geocode?lat=${job.lat}&lng=${job.lng}`);
+      if (res.ok) {
+        const { location } = await res.json();
+        _vehicleLocationCache[job.id] = { location, lat: job.lat, lng: job.lng, fetchedAt: Date.now() };
+        // Refresh the list so this vehicle's location appears as soon as
+        // it's known, rather than waiting for everything in the queue.
+        _renderVehicleList(document.getElementById('map-vehicle-search')?.value);
+      }
+    } catch (err) { /* a failed geocode just leaves that vehicle without a location this round — not fatal */ }
+    if (_geocodeQueue.length) await new Promise(r => setTimeout(r, GEOCODE_MIN_GAP_MS));
+  }
+  _geocodeQueueRunning = false;
+}
 let _liveVehicleAnimations = {}; // keyed by vehicle id — cancel token for an in-flight glide, so a new poll arriving mid-animation doesn't leave two competing animations fighting over the same marker
 // Glides a marker from one lat/lng to another over durationMs via repeated
 // setLatLng() calls — deliberately NOT a CSS transition (see the call site
@@ -13757,37 +13800,33 @@ function _liveVehicleIcon(heading, speedMph, name) {
   // directional arrow, since heading is meaningless (and often noisy)
   // when a vehicle isn't actually moving. Moving vehicles keep the
   // original green arrow so "who's actually working right now" reads at
-  // a glance across a map full of trucks.
-  const bg = moving ? '#1A8A5A' : '#9AA0A6';
+  // a glance across a map full of trucks. Stationary grey is deliberately
+  // DARK (not a light grey) — a light grey dot was blending into the
+  // map's own desaturated colour scheme, making parked vehicles genuinely
+  // hard to spot rather than just visually quiet.
+  const bg = moving ? '#1A8A5A' : '#374151';
   const inner = moving
     ? `<svg width="11" height="11" viewBox="0 0 18 18" fill="none"><path d="M9 2L15 14H3L9 2Z" fill="white"/></svg>`
     : `<span style="width:6px;height:6px;border-radius:50%;background:white;display:block"></span>`;
-  // Name label — several stationary vehicles are otherwise visually
-  // identical (same grey dot, no direction arrow), so a cluster of parked
-  // trucks at a depot was impossible to tell apart without clicking into
-  // each one. Outlined text (no solid background pill) keeps several of
-  // these sitting close together from becoming the same label clutter the
-  // route-identifier pills caused earlier — it reads over the map either
-  // way without needing its own box.
-  const label = name ? `<div style="font-size:10px;font-weight:700;color:${moving?'#0F1923':'#5A6268'};
-    text-shadow:0 0 3px white,0 0 3px white,0 0 3px white,0 0 3px white;white-space:nowrap;margin-top:2px;
-    font-family:'IBM Plex Mono',monospace">${name}</div>` : '';
+  // No always-visible name label on the map any more — with several
+  // vehicles parked close together at a depot (now sitting at the depot's
+  // real coordinate, not an approximate one), every vehicle's label plus
+  // the depot's own name tag turned into overlapping text clutter right
+  // where it mattered most. The name is still available two ways: the
+  // vehicle list in the side panel, and the popup on clicking this dot —
+  // just not permanently floating on the map itself, same reasoning as
+  // removing the always-visible route-code pills earlier.
   return L.divIcon({
     // Position (the outer wrapper Leaflet moves via translate3d) is
     // animated in JS by _animateMarkerTo, not CSS — see that function for
     // why. The inner dot's rotation transition below is unrelated to
     // position/panning and stays CSS-driven, for a smooth turn when
-    // heading changes. iconAnchor stays pinned to the DOT's centre, not
-    // the whole icon+label block, so the label hanging below doesn't
-    // shift where the dot itself sits on the vehicle's real coordinate.
-    className: 'live-vehicle-marker', iconSize: [70,38], iconAnchor: [35,11],
-    html: `<div style="display:flex;flex-direction:column;align-items:center">
-      <div style="width:22px;height:22px;border-radius:50%;background:${bg};border:2px solid white;
-        box-shadow:0 1px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;
-        opacity:${moving?1:0.75};transform:rotate(${moving?rot:0}deg);transition:transform 1s linear">
-        ${inner}
-      </div>
-      ${label}
+    // heading changes.
+    className: 'live-vehicle-marker', iconSize: [22,22], iconAnchor: [11,11],
+    html: `<div style="width:22px;height:22px;border-radius:50%;background:${bg};border:2px solid white;
+      box-shadow:0 1px 4px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;
+      opacity:1;transform:rotate(${moving?rot:0}deg);transition:transform 1s linear">
+      ${inner}
     </div>`,
   });
 }
@@ -13826,16 +13865,20 @@ function _renderVehicleList(filterQuery) {
     listEl.innerHTML = `<div style="font-size:11px;color:var(--ink3);padding:6px 2px">${q ? 'No match' : 'No vehicles reporting yet'}</div>`;
     return;
   }
-  // Full cards rather than thin rows — plate + speed badge up top, stats
-  // below — modelled on Samsara's own fleet list layout. Driver name and a
-  // readable location ("A47, EYE, GB") are deliberately left out for now:
-  // that needs a driver-assignment lookup and reverse geocoding this
-  // doesn't have data for yet, rather than something to fake here.
+  // Full cards rather than thin rows — plate + speed badge up top, a
+  // readable location, then stats — modelled on Samsara's own fleet list
+  // layout. Driver name is still left out: that needs a driver-assignment
+  // lookup this doesn't have data for, rather than something to fake here.
   listEl.innerHTML = filtered.map(v => {
     const moving = typeof v.speedMph === 'number' && v.speedMph > LIVE_VEHICLE_STATIONARY_MPH;
     const badgeBg = moving ? '#E8F5E9' : '#F1F2F4';
     const badgeColor = moving ? '#1A8A5A' : '#6B7280';
     const badgeText = moving ? `${Math.round(v.speedMph)} MPH` : 'Stationary';
+    // Shows once the (throttled, queued) reverse-geocode for this vehicle
+    // resolves — absent until then rather than a placeholder, since a
+    // guessed location would be worse than no location.
+    const cachedLoc = _vehicleLocationCache[v.id]?.location;
+    const locationLine = cachedLoc ? `<div style="font-size:11px;color:var(--ink2);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cachedLoc}</div>` : '';
     const stat = (label, val, warn) => val!=null ? `<span style="color:${warn?'var(--red)':'var(--ink3)'}">${label} ${val}${label==='Fuel'||label==='DEF'?'%':''}</span>` : '';
     const stats = [
       stat('Fuel', v.fuelPercent, v.fuelPercent!=null && v.fuelPercent<20),
@@ -13852,7 +13895,8 @@ function _renderVehicleList(filterQuery) {
         </div>
         <span style="flex-shrink:0;padding:2px 8px;border-radius:10px;background:${badgeBg};color:${badgeColor};font-size:10px;font-weight:700;font-family:'IBM Plex Mono',monospace">${badgeText}</span>
       </div>
-      ${stats ? `<div style="margin-top:5px;font-size:11px;padding-left:19px">${stats}</div>` : ''}
+      ${locationLine ? `<div style="padding-left:19px">${locationLine}</div>` : ''}
+      ${stats ? `<div style="margin-top:3px;font-size:11px;padding-left:19px">${stats}</div>` : ''}
     </div>`;
   }).join('');
 }
@@ -13904,6 +13948,7 @@ async function _pollLiveVehicles() {
       if (v.lat == null || v.lng == null) return;
       seenIds.add(v.id);
       _liveVehicleData[v.id] = v;
+      _maybeQueueGeocode(v);
       const moving = typeof v.speedMph === 'number' && v.speedMph > LIVE_VEHICLE_STATIONARY_MPH;
       // Fuel/DEF/engine rows only appear when Samsara actually reports
       // them for this vehicle — gracefully absent rather than showing a
@@ -14007,6 +14052,8 @@ function _mapStopLiveVehicles(forceButtonReset) {
   _liveVehicleTrailLines = {};
   _liveVehicleTrails = {};
   _liveVehicleData = {};
+  _vehicleLocationCache = {};
+  _geocodeQueue = [];
   const statusRow = document.getElementById('map-live-vehicles-status-row');
   if (statusRow) statusRow.style.display = 'none';
   const searchEl = document.getElementById('map-vehicle-search');
