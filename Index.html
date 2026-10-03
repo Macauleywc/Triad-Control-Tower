@@ -13736,6 +13736,7 @@ let _liveVehicleData    = {};   // keyed by vehicle id -> full last-known vehicl
 let _vehicleLocationCache = {};
 let _geocodeQueue = [];
 let _geocodeQueueRunning = false;
+let _geocodeLastError = null; // most recent reverse-geocode failure reason, or null once a request succeeds
 const GEOCODE_MIN_MOVE_KM = 0.3;     // re-geocode once a vehicle has moved ~300m
 const GEOCODE_MAX_AGE_MS  = 3*60000; // or every 3 minutes, whichever comes first
 const GEOCODE_MIN_GAP_MS  = 1100;    // spacing between queued requests — stays under Nominatim's 1/sec limit
@@ -13761,11 +13762,22 @@ async function _runGeocodeQueue() {
       if (res.ok) {
         const { location } = await res.json();
         _vehicleLocationCache[job.id] = { location, lat: job.lat, lng: job.lng, fetchedAt: Date.now() };
-        // Refresh the list so this vehicle's location appears as soon as
-        // it's known, rather than waiting for everything in the queue.
-        _renderVehicleList(document.getElementById('map-vehicle-search')?.value);
+        _geocodeLastError = null; // a success clears any earlier failure — it's working now
+      } else {
+        // Previously swallowed silently, which made "not deployed yet",
+        // "deployed but failing", and "working but slow" indistinguishable
+        // from the outside. Captured here and shown via the panel's
+        // warning icon instead, same pattern as the Samsara stats failure.
+        const detail = await res.text().catch(() => '');
+        _geocodeLastError = `HTTP ${res.status}${detail ? ': '+detail.slice(0,150) : ''}`;
       }
-    } catch (err) { /* a failed geocode just leaves that vehicle without a location this round — not fatal */ }
+    } catch (err) {
+      _geocodeLastError = String(err).slice(0, 150);
+    }
+    // Refresh after every job (success or failure) so a location fills in
+    // as soon as it's known, and a failure's warning icon appears promptly
+    // rather than only once the whole queue finishes.
+    _renderVehicleList(document.getElementById('map-vehicle-search')?.value);
     if (_geocodeQueue.length) await new Promise(r => setTimeout(r, GEOCODE_MIN_GAP_MS));
   }
   _geocodeQueueRunning = false;
@@ -13858,18 +13870,25 @@ function _renderVehicleList(filterQuery) {
     listEl.innerHTML = `<div style="font-size:11px;color:var(--ink3);padding:6px 2px">Turn on live vehicles to see the fleet</div>`;
     return;
   }
+  // Previously a failed location lookup just showed nothing, which looked
+  // identical to "not deployed yet" or "hasn't resolved yet" — this makes
+  // an actual, persistent failure visible with the real reason, rather
+  // than leaving it to be silently indistinguishable from those.
+  const geocodeWarning = _geocodeLastError
+    ? `<div title="${_geocodeLastError.replace(/"/g,'&quot;')}" style="font-size:10px;color:var(--red);padding:4px 2px 6px;cursor:help">⚠ Location lookups failing — hover for detail</div>`
+    : '';
   const q = (filterQuery||'').trim().toLowerCase();
   const all = Object.values(_liveVehicleData).sort((a,b) => (a.name||'').localeCompare(b.name||''));
   const filtered = q ? all.filter(v => (v.name||'').toLowerCase().includes(q)) : all;
   if (!filtered.length) {
-    listEl.innerHTML = `<div style="font-size:11px;color:var(--ink3);padding:6px 2px">${q ? 'No match' : 'No vehicles reporting yet'}</div>`;
+    listEl.innerHTML = geocodeWarning + `<div style="font-size:11px;color:var(--ink3);padding:6px 2px">${q ? 'No match' : 'No vehicles reporting yet'}</div>`;
     return;
   }
   // Full cards rather than thin rows — plate + speed badge up top, a
   // readable location, then stats — modelled on Samsara's own fleet list
   // layout. Driver name is still left out: that needs a driver-assignment
   // lookup this doesn't have data for, rather than something to fake here.
-  listEl.innerHTML = filtered.map(v => {
+  listEl.innerHTML = geocodeWarning + filtered.map(v => {
     const moving = typeof v.speedMph === 'number' && v.speedMph > LIVE_VEHICLE_STATIONARY_MPH;
     const badgeBg = moving ? '#E8F5E9' : '#F1F2F4';
     const badgeColor = moving ? '#1A8A5A' : '#6B7280';
@@ -14054,6 +14073,7 @@ function _mapStopLiveVehicles(forceButtonReset) {
   _liveVehicleData = {};
   _vehicleLocationCache = {};
   _geocodeQueue = [];
+  _geocodeLastError = null;
   const statusRow = document.getElementById('map-live-vehicles-status-row');
   if (statusRow) statusRow.style.display = 'none';
   const searchEl = document.getElementById('map-vehicle-search');
