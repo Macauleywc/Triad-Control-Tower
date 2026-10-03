@@ -13891,15 +13891,23 @@ function _vehicleCardHtml(key, v) {
   const badgeText = moving ? `${Math.round(v.speedMph)} MPH` : 'Stationary';
   // Shows once the (throttled, queued) reverse-geocode for this vehicle
   // resolves — absent until then rather than a placeholder, since a
-  // guessed location would be worse than no location.
+  // guessed location would be worse than no location. Now the card's main
+  // secondary line — fuel/DEF no longer compete with it here. They're
+  // still real, useful numbers, just not ones that need to be visible for
+  // every truck at a glance; they're still in the popup on click, same as
+  // engine state.
   const cachedLoc = _vehicleLocationCache[key]?.location;
   const locationLine = cachedLoc ? `<div style="font-size:11px;color:var(--ink2);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cachedLoc}</div>` : '';
-  const stat = (label, val, warn) => val!=null ? `<span style="color:${warn?'var(--red)':'var(--ink3)'}">${label} ${val}${label==='Fuel'||label==='DEF'?'%':''}</span>` : '';
-  const stats = [
-    stat('Fuel', v.fuelPercent, v.fuelPercent!=null && v.fuelPercent<20),
-    stat('DEF', v.defPercent, v.defPercent!=null && v.defPercent<20),
-    v.engineState ? `<span style="color:var(--ink3)">${v.engineState}</span>` : '',
-  ].filter(Boolean).join('<span style="color:var(--rule)"> · </span>');
+  // The one thing worth still flagging directly on the card (not just in
+  // the popup) is a low fuel or DEF level specifically — that's the kind
+  // of thing worth catching without clicking in.
+  const lowWarnings = [
+    (v.fuelPercent!=null && v.fuelPercent<20) ? `Fuel ${v.fuelPercent}%` : null,
+    (v.defPercent!=null && v.defPercent<20) ? `DEF ${v.defPercent}%` : null,
+  ].filter(Boolean);
+  const warningLine = lowWarnings.length
+    ? `<div style="font-size:11px;color:var(--red);margin-top:3px">⚠ Low ${lowWarnings.join(' · ')}</div>`
+    : '';
   return `<div onclick="_flyToLiveVehicle('${key}')"
     style="padding:9px 10px;border:1px solid var(--rule);border-radius:8px;margin-bottom:6px;cursor:pointer;background:white;transition:border-color .15s"
     onmouseover="this.style.borderColor='var(--navy)'" onmouseout="this.style.borderColor='var(--rule)'">
@@ -13911,7 +13919,7 @@ function _vehicleCardHtml(key, v) {
       <span style="flex-shrink:0;padding:2px 8px;border-radius:10px;background:${badgeBg};color:${badgeColor};font-size:10px;font-weight:700;font-family:'IBM Plex Mono',monospace">${badgeText}</span>
     </div>
     ${locationLine ? `<div style="padding-left:19px">${locationLine}</div>` : ''}
-    ${stats ? `<div style="margin-top:3px;font-size:11px;padding-left:19px">${stats}</div>` : ''}
+    ${warningLine ? `<div style="padding-left:19px">${warningLine}</div>` : ''}
   </div>`;
 }
 // Grouped by site — matching how the Runs list below is already grouped
