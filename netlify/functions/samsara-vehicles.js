@@ -58,13 +58,11 @@ exports.handler = async function (event) {
     // Samsara caps a single stats request at 4 types total — confirmed
     // directly from their own rejection: "Vehicle stats are currently
     // restricted to 4 types." gps is essential (the whole point of this
-    // feature), which leaves room for exactly 3 more. Chose fuelPercents,
-    // defLevelMilliPercent, and engineStates over engineRpm — fuel and DEF
-    // both affect whether a vehicle can keep running, and engine state
-    // (On/Off/Idle) tells a dispatcher more than raw RPM does. Swap
-    // engineRpm back in for one of these if that's more useful in
-    // practice — just keep the total at 4.
-    let res = await fetchStats('gps,fuelPercents,defLevelMilliPercent,engineStates');
+    // feature). DEF level was dropped at the user's explicit request —
+    // fuelPercents and engineStates (On/Off/Idle) are the two kept. There's
+    // a free 4th slot now (e.g. engineRpm) if something else becomes more
+    // useful later.
+    let res = await fetchStats('gps,fuelPercents,engineStates');
     let extendedStatsFailedDetail = null;
     let extendedStatsAvailable = true;
 
@@ -174,32 +172,25 @@ exports.handler = async function (event) {
     // avoids exposing fields (VIN, odometer, etc.) the map doesn't use.
     const allMatched = data.data || [];
     const vehicles = allMatched
-      .map((v) => {
-        const defMilliPct = statValue(v.defLevelMilliPercent);
-        return {
-          id: v.id,
-          name: v.name,
-          // Which depot this feed represents, for sectioning the vehicle
-          // list by site on the client. Defaults to Desborough — that's
-          // where this Samsara account's tracked vehicles were confirmed
-          // clustering — but set SAMSARA_SITE_ID in Netlify if that's
-          // wrong, rather than needing a code change to correct it.
-          site: SITE_ID,
-          lat: v.gps?.latitude ?? null,
-          lng: v.gps?.longitude ?? null,
-          heading: v.gps?.headingDegrees ?? null,
-          speedMph: v.gps?.speedMilesPerHour ?? null,
-          updatedAtTime: v.gps?.time ?? null,
-          fuelPercent: statValue(v.fuelPercents),
-          // defLevelMilliPercent is in THOUSANDTHS of a percent per
-          // Samsara's own docs (e.g. 54000 = 54%) — convert to a plain
-          // percentage here so the client never has to know that.
-          defPercent: defMilliPct != null ? Math.round(defMilliPct / 1000) : null,
-          engineRpm: statValue(v.engineRpm),
-          engineState: statValue(v.engineStates),
-          driverName: driverNameByVehicleId[v.id] || null,
-        };
-      })
+      .map((v) => ({
+        id: v.id,
+        name: v.name,
+        // Which depot this feed represents, for sectioning the vehicle
+        // list by site on the client. Defaults to Desborough — that's
+        // where this Samsara account's tracked vehicles were confirmed
+        // clustering — but set SAMSARA_SITE_ID in Netlify if that's
+        // wrong, rather than needing a code change to correct it.
+        site: SITE_ID,
+        lat: v.gps?.latitude ?? null,
+        lng: v.gps?.longitude ?? null,
+        heading: v.gps?.headingDegrees ?? null,
+        speedMph: v.gps?.speedMilesPerHour ?? null,
+        updatedAtTime: v.gps?.time ?? null,
+        fuelPercent: statValue(v.fuelPercents),
+        engineRpm: statValue(v.engineRpm),
+        engineState: statValue(v.engineStates),
+        driverName: driverNameByVehicleId[v.id] || null,
+      }))
       .filter((v) => v.lat != null && v.lng != null);
 
     return {
