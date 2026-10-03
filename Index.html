@@ -13782,6 +13782,13 @@ async function _runGeocodeQueue() {
         const { location } = await res.json();
         _vehicleLocationCache[job.id] = { location, lat: job.lat, lng: job.lng, fetchedAt: Date.now() };
         _geocodeLastError = null; // a success clears any earlier failure — it's working now
+        // job.id is the same composite key used everywhere else — refresh
+        // this vehicle's popup immediately too, not just the sidebar card,
+        // so clicking it right after a geocode resolves doesn't show a
+        // popup that's missing the location the card already has.
+        const marker = _liveVehicleMarkers[job.id];
+        const vehicleData = _liveVehicleData[job.id];
+        if (marker && vehicleData) marker.getPopup()?.setContent(_vehiclePopupHtml(job.id, vehicleData));
       } else {
         // Previously swallowed silently, which made "not deployed yet",
         // "deployed but failing", and "working but slow" indistinguishable
@@ -14006,22 +14013,43 @@ function _flyToLiveVehicle(id) {
 // site+id key (see _vehicleKey); everything is stored under that key, not
 // the bare provider id, so vehicles from different sites can never
 // collide even if two providers happen to reuse the same id scheme.
-function _applyLiveVehicleUpdate(key, v) {
-  _liveVehicleData[key] = v;
-  _maybeQueueGeocode(key, v);
+// The on-map popup's full content — a standalone function (not inlined
+// into _applyLiveVehicleUpdate) specifically so _runGeocodeQueue can also
+// call it. Location resolves asynchronously, on its own throttled
+// schedule, independent of the ~20s GPS poll cycle — without this being
+// its own function, a geocode finishing mid-cycle would update the
+// sidebar card (which re-renders immediately) but leave the popup
+// showing stale content until the next poll happened to come around.
+function _vehiclePopupHtml(key, v) {
   const moving = typeof v.speedMph === 'number' && v.speedMph > LIVE_VEHICLE_STATIONARY_MPH;
-  const statRow = (label, val) => val!=null ? `<div style="display:flex;justify-content:space-between">
+  const badgeBg = moving ? '#E8F5E9' : '#F1F2F4';
+  const badgeColor = moving ? '#1A8A5A' : '#6B7280';
+  const badgeText = moving ? `${Math.round(v.speedMph)} MPH` : 'Stationary';
+  // The on-map popup is the "drill into this one vehicle" view (unlike
+  // the card, which deliberately hides fuel/DEF unless low) — so it shows
+  // every stat Samsara actually reports, full detail rather than just
+  // what needs flagging.
+  const statRow = (label, val) => val!=null ? `<div style="display:flex;justify-content:space-between;padding:2px 0">
     <span style="color:var(--ink3)">${label}</span><span style="font-weight:600">${val}</span></div>` : '';
   const statRows = statRow('Fuel', v.fuelPercent!=null?v.fuelPercent+'%':null)
     + statRow('DEF', v.defPercent!=null?v.defPercent+'%':null)
-    + statRow('Engine', v.engineRpm!=null?v.engineRpm+' RPM':null);
-  const popupHtml = `<div style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;min-width:140px">
-    <div style="font-weight:700;margin-bottom:4px">${v.name||v.id}</div>
-    ${v.driverName?`<div style="color:var(--ink3);margin-bottom:2px">${v.driverName}</div>`:''}
-    <div>${moving ? Math.round(v.speedMph)+' mph' : 'Stationary'}${v.engineState?' · '+v.engineState:''}</div>
-    ${statRows?`<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--rule);display:flex;flex-direction:column;gap:2px">${statRows}</div>`:''}
+    + statRow('Engine', v.engineState || null);
+  const popupLoc = _vehicleLocationCache[key]?.location;
+  return `<div style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;min-width:170px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
+      <span style="font-weight:700;font-family:'IBM Plex Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v.name||v.id}</span>
+      <span style="flex-shrink:0;padding:2px 8px;border-radius:10px;background:${badgeBg};color:${badgeColor};font-size:10px;font-weight:700;font-family:'IBM Plex Mono',monospace">${badgeText}</span>
+    </div>
+    ${v.driverName?`<div style="color:var(--ink2);margin-bottom:1px">${v.driverName}</div>`:''}
+    ${popupLoc?`<div style="color:var(--ink3);font-size:11px;margin-bottom:4px">${popupLoc}</div>`:''}
+    ${statRows?`<div style="margin-top:4px;padding-top:6px;border-top:1px solid var(--rule)">${statRows}</div>`:''}
     ${v.updatedAtTime?`<div style="color:var(--ink3);font-size:11px;margin-top:6px">Updated ${new Date(v.updatedAtTime).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>`:''}
   </div>`;
+}
+function _applyLiveVehicleUpdate(key, v) {
+  _liveVehicleData[key] = v;
+  _maybeQueueGeocode(key, v);
+  const popupHtml = _vehiclePopupHtml(key, v);
   if (_liveVehicleMarkers[key]) {
     const from = _liveVehicleMarkers[key].getLatLng();
     _animateMarkerTo(key, _liveVehicleMarkers[key], from, L.latLng(v.lat, v.lng), 15000);
