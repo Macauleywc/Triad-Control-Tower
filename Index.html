@@ -13911,11 +13911,11 @@ function _vehicleCardHtml(key, v) {
   // shown is more honest than a guess.
   const driverLine = v.driverName ? `<div style="font-size:11px;color:var(--ink3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v.driverName}</div>` : '';
   // The one thing worth still flagging directly on the card (not just in
-  // the popup) is a low fuel or DEF level specifically — that's the kind
-  // of thing worth catching without clicking in.
+  // the popup) is a low fuel level specifically — that's the kind of
+  // thing worth catching without clicking in. DEF removed entirely, per
+  // request — not tracked anywhere on the card or the popup any more.
   const lowWarnings = [
-    (v.fuelPercent!=null && v.fuelPercent<20) ? `Fuel ${v.fuelPercent}%` : null,
-    (v.defPercent!=null && v.defPercent<20) ? `DEF ${v.defPercent}%` : null,
+    (v.fuelPercent!=null && v.fuelPercent<20) ? `Fuel Level ${v.fuelPercent}%` : null,
   ].filter(Boolean);
   const warningLine = lowWarnings.length
     ? `<div style="font-size:11px;color:var(--red);margin-top:3px">⚠ Low ${lowWarnings.join(' · ')}</div>`
@@ -14031,8 +14031,7 @@ function _vehiclePopupHtml(key, v) {
   // what needs flagging.
   const statRow = (label, val) => val!=null ? `<div style="display:flex;justify-content:space-between;padding:2px 0">
     <span style="color:var(--ink3)">${label}</span><span style="font-weight:600">${val}</span></div>` : '';
-  const statRows = statRow('Fuel', v.fuelPercent!=null?v.fuelPercent+'%':null)
-    + statRow('DEF', v.defPercent!=null?v.defPercent+'%':null)
+  const statRows = statRow('Fuel Level', v.fuelPercent!=null?v.fuelPercent+'%':null)
     + statRow('Engine', v.engineState || null);
   const popupLoc = _vehicleLocationCache[key]?.location;
   return `<div style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;min-width:170px">
