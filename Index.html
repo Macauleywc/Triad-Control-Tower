@@ -3258,7 +3258,7 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
           <input type="text" id="map-vehicle-search" placeholder="Find a vehicle…" oninput="_renderVehicleList(this.value)"
             style="width:100%;padding:6px 9px;border-radius:7px;border:1.5px solid var(--rule);font-size:12px;
             font-family:'IBM Plex Mono',monospace;box-sizing:border-box;margin-top:8px">
-          <div id="map-vehicle-list" style="margin-top:6px;max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:1px"></div>
+          <div id="map-vehicle-list" style="margin-top:6px;max-height:340px;overflow-y:auto"></div>
         </div>
         <!-- Run list (shown when depot selected) -->
         <div id="map-run-list" style="padding:14px 20px;flex:1">
@@ -13826,15 +13826,33 @@ function _renderVehicleList(filterQuery) {
     listEl.innerHTML = `<div style="font-size:11px;color:var(--ink3);padding:6px 2px">${q ? 'No match' : 'No vehicles reporting yet'}</div>`;
     return;
   }
+  // Full cards rather than thin rows — plate + speed badge up top, stats
+  // below — modelled on Samsara's own fleet list layout. Driver name and a
+  // readable location ("A47, EYE, GB") are deliberately left out for now:
+  // that needs a driver-assignment lookup and reverse geocoding this
+  // doesn't have data for yet, rather than something to fake here.
   listEl.innerHTML = filtered.map(v => {
     const moving = typeof v.speedMph === 'number' && v.speedMph > LIVE_VEHICLE_STATIONARY_MPH;
-    const fuelBadge = v.fuelPercent!=null ? `<span style="font-size:10px;color:${v.fuelPercent<20?'var(--red)':'var(--ink3)'};font-family:'IBM Plex Mono',monospace;flex-shrink:0">${v.fuelPercent}%</span>` : '';
+    const badgeBg = moving ? '#E8F5E9' : '#F1F2F4';
+    const badgeColor = moving ? '#1A8A5A' : '#6B7280';
+    const badgeText = moving ? `${Math.round(v.speedMph)} MPH` : 'Stationary';
+    const stat = (label, val, warn) => val!=null ? `<span style="color:${warn?'var(--red)':'var(--ink3)'}">${label} ${val}${label==='Fuel'||label==='DEF'?'%':''}</span>` : '';
+    const stats = [
+      stat('Fuel', v.fuelPercent, v.fuelPercent!=null && v.fuelPercent<20),
+      stat('DEF', v.defPercent, v.defPercent!=null && v.defPercent<20),
+      v.engineState ? `<span style="color:var(--ink3)">${v.engineState}</span>` : '',
+    ].filter(Boolean).join('<span style="color:var(--rule)"> · </span>');
     return `<div onclick="_flyToLiveVehicle('${v.id}')"
-      style="display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;border-radius:6px"
-      onmouseover="this.style.background='var(--cream)'" onmouseout="this.style.background='none'">
-      <span style="width:7px;height:7px;border-radius:50%;background:${moving?'#1A8A5A':'#9AA0A6'};flex-shrink:0"></span>
-      <span style="font-size:12px;font-weight:600;font-family:'IBM Plex Mono',monospace;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v.name||v.id}</span>
-      ${fuelBadge}
+      style="padding:9px 10px;border:1px solid var(--rule);border-radius:8px;margin-bottom:6px;cursor:pointer;background:white;transition:border-color .15s"
+      onmouseover="this.style.borderColor='var(--navy)'" onmouseout="this.style.borderColor='var(--rule)'">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div style="display:flex;align-items:center;gap:6px;min-width:0">
+          <svg width="13" height="13" viewBox="0 0 18 18" fill="none" style="flex-shrink:0;color:var(--ink3)"><rect x="1" y="6" width="10" height="7" rx="1" stroke="currentColor" stroke-width="1.4"/><path d="M11 9h3.5l2 2.5V13H11" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><circle cx="4.5" cy="14.5" r="1.3" fill="currentColor"/><circle cx="13" cy="14.5" r="1.3" fill="currentColor"/></svg>
+          <span style="font-size:13px;font-weight:700;font-family:'IBM Plex Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v.name||v.id}</span>
+        </div>
+        <span style="flex-shrink:0;padding:2px 8px;border-radius:10px;background:${badgeBg};color:${badgeColor};font-size:10px;font-weight:700;font-family:'IBM Plex Mono',monospace">${badgeText}</span>
+      </div>
+      ${stats ? `<div style="margin-top:5px;font-size:11px;padding-left:19px">${stats}</div>` : ''}
     </div>`;
   }).join('');
 }
