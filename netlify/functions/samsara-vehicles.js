@@ -47,18 +47,33 @@ exports.handler = async function (event) {
   }
 
   try {
+    const tagId = process.env.SAMSARA_TAG_ID;
+    const tagParam = tagId ? `&tagIds=${encodeURIComponent(tagId)}` : '';
+    const fetchStats = (types) => fetch(
+      `${SAMSARA_BASE_URL}/fleet/vehicles/stats?types=${types}${tagParam}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
     // gps for position; the rest are Samsara's documented engine/fuel stat
     // types (confirmed against their own API docs) — fuelPercents,
     // defLevelMilliPercent, engineRpm, engineStates. Fault codes aren't
     // included here: that field has a much more complex nested structure
     // and deserves its own careful handling rather than guessing at it.
-    let url = `${SAMSARA_BASE_URL}/fleet/vehicles/stats?types=gps,fuelPercents,defLevelMilliPercent,engineRpm,engineStates`;
-    const tagId = process.env.SAMSARA_TAG_ID;
-    if (tagId) url += `&tagIds=${encodeURIComponent(tagId)}`;
+    let res = await fetchStats('gps,fuelPercents,defLevelMilliPercent,engineRpm,engineStates');
+    let extendedStatsFailedDetail = null;
+    let extendedStatsAvailable = true;
 
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    if (!res.ok) {
+      // The extended stat types might not be valid/available for this
+      // account or token scope — fall back to GPS-only so live tracking
+      // keeps working rather than breaking entirely over an enhancement.
+      // The original error is still captured and passed through so the
+      // actual cause can be diagnosed without losing position tracking
+      // in the meantime.
+      extendedStatsFailedDetail = await res.text().catch(() => '');
+      extendedStatsAvailable = false;
+      res = await fetchStats('gps');
+    }
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
@@ -116,11 +131,19 @@ exports.handler = async function (event) {
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-      // totalTagged lets the map show "8 of 10 reporting" rather than just
-      // "8 vehicles" — so a gap between tagged and reporting is visible
-      // (a truck with ignition off, a GPS unit with a connectivity issue)
-      // instead of silently dropping vehicles with no current fix.
-      body: JSON.stringify({ vehicles, totalTagged: allMatched.length }),
+      body: JSON.stringify({
+        vehicles,
+        // totalTagged lets the map show "8 of 10 reporting" rather than
+        // just "8 vehicles" — so a gap between tagged and reporting is
+        // visible (ignition off, a GPS connectivity issue) instead of
+        // silently dropping vehicles with no current fix.
+        totalTagged: allMatched.length,
+        // Lets the client show "fuel/DEF/engine data unavailable right
+        // now" rather than silently showing nothing with no explanation
+        // when the extended-stats request had to fall back to GPS-only.
+        extendedStatsAvailable,
+        extendedStatsFailedDetail,
+      }),
     };
   } catch (err) {
     return {
