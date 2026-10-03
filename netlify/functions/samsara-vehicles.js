@@ -91,6 +91,68 @@ exports.handler = async function (event) {
 
     const data = await res.json();
 
+    // Driver assignments — a separate call, since it's a genuinely
+    // different Samsara endpoint (who's driving, not vehicle sensors) with
+    // its own required scope ("Read Assignments") and its own calling
+    // pattern (a time range of assignment intervals, not a current
+    // snapshot). Uses the newer consolidated endpoint — the older
+    // vehicle-centric one it replaced is being deprecated.
+    let driverNameByVehicleId = {};
+    let driverAssignmentsAvailable = true;
+    let driverAssignmentsFailedDetail = null;
+    try {
+      const now = new Date();
+      const windowStart = new Date(now.getTime() - 12 * 60 * 60 * 1000); // last 12h — long enough to catch an ongoing shift
+      const assignUrl = `${SAMSARA_BASE_URL}/fleet/driver-vehicle-assignments`
+        + `?filterBy=vehicles&startTime=${encodeURIComponent(windowStart.toISOString())}&endTime=${encodeURIComponent(now.toISOString())}`
+        + (tagId ? `&vehicleTagIds=${encodeURIComponent(tagId)}` : '');
+      const assignRes = await fetch(assignUrl, { headers: { Authorization: `Bearer ${token}` } });
+      if (!assignRes.ok) {
+        driverAssignmentsAvailable = false;
+        driverAssignmentsFailedDetail = await assignRes.text().catch(() => '');
+      } else {
+        const assignData = await assignRes.json();
+        const nowMs = now.getTime();
+        // Collects every (vehicleId, driverName, startTime, endTime) triple
+        // regardless of which of the two plausible response shapes this
+        // endpoint actually uses — a vehicle-centric list with a nested
+        // driverAssignments array per vehicle, or a flat list of
+        // individual assignment records. Handling both means this doesn't
+        // silently show nothing if the real shape turns out to be the one
+        // not guessed as more likely.
+        const triples = [];
+        (assignData.data || []).forEach((entry) => {
+          if (Array.isArray(entry.driverAssignments)) {
+            // Vehicle-centric shape: entry IS the vehicle.
+            entry.driverAssignments.forEach((a) => {
+              triples.push({ vehicleId: entry.id, driverName: a.driver?.name, startTime: a.startTime, endTime: a.endTime });
+            });
+          } else if (entry.vehicle || entry.driver) {
+            // Flat shape: entry IS one assignment record.
+            triples.push({ vehicleId: entry.vehicle?.id, driverName: entry.driver?.name, startTime: entry.startTime, endTime: entry.endTime });
+          }
+        });
+        // For each vehicle, prefer an assignment that's still open right
+        // now (no endTime, or one in the future); otherwise fall back to
+        // whichever assignment started most recently, as the best
+        // available guess at who was last driving it.
+        const byVehicle = {};
+        triples.forEach((t) => {
+          if (!t.vehicleId || !t.driverName) return;
+          (byVehicle[t.vehicleId] = byVehicle[t.vehicleId] || []).push(t);
+        });
+        Object.keys(byVehicle).forEach((vehicleId) => {
+          const list = byVehicle[vehicleId];
+          const open = list.find((t) => !t.endTime || new Date(t.endTime).getTime() >= nowMs);
+          const chosen = open || list.sort((a, b) => new Date(b.startTime) - new Date(a.startTime))[0];
+          if (chosen) driverNameByVehicleId[vehicleId] = chosen.driverName;
+        });
+      }
+    } catch (err) {
+      driverAssignmentsAvailable = false;
+      driverAssignmentsFailedDetail = String(err);
+    }
+
     // Samsara documents some of these stat types as returning an array of
     // readings rather than a single current value (unlike gps, which is a
     // plain object). Handle both shapes defensively — if a stat type turns
@@ -135,6 +197,7 @@ exports.handler = async function (event) {
           defPercent: defMilliPct != null ? Math.round(defMilliPct / 1000) : null,
           engineRpm: statValue(v.engineRpm),
           engineState: statValue(v.engineStates),
+          driverName: driverNameByVehicleId[v.id] || null,
         };
       })
       .filter((v) => v.lat != null && v.lng != null);
@@ -154,6 +217,12 @@ exports.handler = async function (event) {
         // when the extended-stats request had to fall back to GPS-only.
         extendedStatsAvailable,
         extendedStatsFailedDetail,
+        // Lets the client show "driver names unavailable" with the real
+        // reason (most likely: the token needs the "Read Assignments"
+        // scope added in Samsara) rather than driver names just silently
+        // never appearing with no explanation.
+        driverAssignmentsAvailable,
+        driverAssignmentsFailedDetail,
       }),
     };
   } catch (err) {
