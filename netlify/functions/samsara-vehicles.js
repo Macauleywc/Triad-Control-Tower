@@ -35,6 +35,7 @@
 //        that tag on the vehicle in Samsara.
 
 const SAMSARA_BASE_URL = 'https://api.eu.samsara.com'; // EU cluster — confirmed from the org's cloud.eu.samsara.com URL
+const SITE_ID = process.env.SAMSARA_SITE_ID || 'desborough'; // which depot this feed's vehicles belong to
 
 exports.handler = async function (event) {
   const token = process.env.SAMSARA_API_TOKEN;
@@ -116,6 +117,12 @@ exports.handler = async function (event) {
         return {
           id: v.id,
           name: v.name,
+          // Which depot this feed represents, for sectioning the vehicle
+          // list by site on the client. Defaults to Desborough — that's
+          // where this Samsara account's tracked vehicles were confirmed
+          // clustering — but set SAMSARA_SITE_ID in Netlify if that's
+          // wrong, rather than needing a code change to correct it.
+          site: SITE_ID,
           lat: v.gps?.latitude ?? null,
           lng: v.gps?.longitude ?? null,
           heading: v.gps?.headingDegrees ?? null,
