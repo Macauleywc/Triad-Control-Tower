@@ -47,7 +47,12 @@ exports.handler = async function (event) {
   }
 
   try {
-    let url = `${SAMSARA_BASE_URL}/fleet/vehicles/stats?types=gps`;
+    // gps for position; the rest are Samsara's documented engine/fuel stat
+    // types (confirmed against their own API docs) — fuelPercents,
+    // defLevelMilliPercent, engineRpm, engineStates. Fault codes aren't
+    // included here: that field has a much more complex nested structure
+    // and deserves its own careful handling rather than guessing at it.
+    let url = `${SAMSARA_BASE_URL}/fleet/vehicles/stats?types=gps,fuelPercents,defLevelMilliPercent,engineRpm,engineStates`;
     const tagId = process.env.SAMSARA_TAG_ID;
     if (tagId) url += `&tagIds=${encodeURIComponent(tagId)}`;
 
@@ -66,20 +71,46 @@ exports.handler = async function (event) {
 
     const data = await res.json();
 
+    // Samsara documents some of these stat types as returning an array of
+    // readings rather than a single current value (unlike gps, which is a
+    // plain object). Handle both shapes defensively — if a stat type turns
+    // out to have a structure this doesn't expect, it should just come
+    // back as null for that one field, never break the whole response.
+    const latest = (stat) => {
+      if (!stat) return null;
+      return Array.isArray(stat) ? stat[stat.length - 1] ?? null : stat;
+    };
+    const statValue = (stat) => {
+      const l = latest(stat);
+      if (l == null) return null;
+      if (typeof l === 'object') return l.value ?? null;
+      return l;
+    };
+
     // Pass through only what the map needs — never forward Samsara's raw
     // response wholesale. Keeps the payload small for frequent polling and
     // avoids exposing fields (VIN, odometer, etc.) the map doesn't use.
     const allMatched = data.data || [];
     const vehicles = allMatched
-      .map((v) => ({
-        id: v.id,
-        name: v.name,
-        lat: v.gps?.latitude ?? null,
-        lng: v.gps?.longitude ?? null,
-        heading: v.gps?.headingDegrees ?? null,
-        speedMph: v.gps?.speedMilesPerHour ?? null,
-        updatedAtTime: v.gps?.time ?? null,
-      }))
+      .map((v) => {
+        const defMilliPct = statValue(v.defLevelMilliPercent);
+        return {
+          id: v.id,
+          name: v.name,
+          lat: v.gps?.latitude ?? null,
+          lng: v.gps?.longitude ?? null,
+          heading: v.gps?.headingDegrees ?? null,
+          speedMph: v.gps?.speedMilesPerHour ?? null,
+          updatedAtTime: v.gps?.time ?? null,
+          fuelPercent: statValue(v.fuelPercents),
+          // defLevelMilliPercent is in THOUSANDTHS of a percent per
+          // Samsara's own docs (e.g. 54000 = 54%) — convert to a plain
+          // percentage here so the client never has to know that.
+          defPercent: defMilliPct != null ? Math.round(defMilliPct / 1000) : null,
+          engineRpm: statValue(v.engineRpm),
+          engineState: statValue(v.engineStates),
+        };
+      })
       .filter((v) => v.lat != null && v.lng != null);
 
     return {
