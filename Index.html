@@ -3252,6 +3252,12 @@ textarea#chat-input:focus{outline:none;border-color:var(--navy);background:#fff}
             <span class="live-veh-label">Show live vehicles</span>
           </button>
           <div id="map-live-vehicles-status" style="font-size:11px;color:var(--ink3);margin-top:8px;display:none"></div>
+          <div style="margin-top:8px">
+            <input type="text" id="map-vehicle-search" placeholder="Find a vehicle…" oninput="_searchLiveVehicle(this.value)"
+              style="width:100%;padding:6px 9px;border-radius:7px;border:1.5px solid var(--rule);font-size:12px;
+              font-family:'IBM Plex Mono',monospace;box-sizing:border-box">
+            <div id="map-vehicle-search-results" style="margin-top:4px"></div>
+          </div>
         </div>
         <!-- Run list (shown when depot selected) -->
         <div id="map-run-list" style="padding:14px 20px;flex:1">
@@ -13719,6 +13725,7 @@ window._mapTogglePanel = function() {
 ══════════════════════════════════════════ */
 let _liveVehicleMarkers = {};   // keyed by Samsara vehicle id
 let _liveVehicleTrails  = {};   // keyed by vehicle id — recent position history, for the breadcrumb line
+let _liveVehicleNames   = {};   // keyed by vehicle id -> display name, for the search box
 let _liveVehicleAnimations = {}; // keyed by vehicle id — cancel token for an in-flight glide, so a new poll arriving mid-animation doesn't leave two competing animations fighting over the same marker
 // Glides a marker from one lat/lng to another over durationMs via repeated
 // setLatLng() calls — deliberately NOT a CSS transition (see the call site
@@ -13790,6 +13797,39 @@ function _liveVehicleStatus(msg, isError) {
   el.style.color = isError ? 'var(--red)' : 'var(--ink3)';
   el.textContent = msg;
 }
+// Finds a tracked vehicle by name as you type and lists matches — clicking
+// one flies the map to it and opens its detail popup, rather than having
+// to visually hunt through a cluster of identical-looking dots.
+function _searchLiveVehicle(query) {
+  const resultsEl = document.getElementById('map-vehicle-search-results');
+  if (!resultsEl) return;
+  const q = (query||'').trim().toLowerCase();
+  if (!q) { resultsEl.innerHTML = ''; return; }
+  if (!_liveVehiclesOn) {
+    resultsEl.innerHTML = `<div style="font-size:11px;color:var(--ink3);padding:4px 2px">Turn on live vehicles first</div>`;
+    return;
+  }
+  const matches = Object.entries(_liveVehicleNames).filter(([id, name]) => name.toLowerCase().includes(q)).slice(0, 6);
+  if (!matches.length) {
+    resultsEl.innerHTML = `<div style="font-size:11px;color:var(--ink3);padding:4px 2px">No match</div>`;
+    return;
+  }
+  resultsEl.innerHTML = matches.map(([id, name]) => `
+    <div onclick="_flyToLiveVehicle('${id}')"
+      style="padding:5px 8px;font-size:12px;cursor:pointer;border-radius:5px;font-family:'IBM Plex Mono',monospace"
+      onmouseover="this.style.background='var(--cream)'" onmouseout="this.style.background='none'">${name}</div>
+  `).join('');
+}
+function _flyToLiveVehicle(id) {
+  const marker = _liveVehicleMarkers[id];
+  if (!marker || !_leafletMap) return;
+  _leafletMap.flyTo(marker.getLatLng(), Math.max(_leafletMap.getZoom(), 12), { duration: 0.8 });
+  setTimeout(() => marker.openPopup(), 850);
+  const resultsEl = document.getElementById('map-vehicle-search-results');
+  const searchEl = document.getElementById('map-vehicle-search');
+  if (resultsEl) resultsEl.innerHTML = '';
+  if (searchEl) searchEl.value = '';
+}
 async function _pollLiveVehicles() {
   if (!_leafletMap) return;
   try {
@@ -13817,11 +13857,21 @@ async function _pollLiveVehicles() {
     vehicles.forEach(v => {
       if (v.lat == null || v.lng == null) return;
       seenIds.add(v.id);
+      _liveVehicleNames[v.id] = v.name || v.id;
       const moving = typeof v.speedMph === 'number' && v.speedMph > LIVE_VEHICLE_STATIONARY_MPH;
-      const popupHtml = `<div style="font-family:'IBM Plex Sans',sans-serif;font-size:12px">
+      // Fuel/DEF/engine rows only appear when Samsara actually reports
+      // them for this vehicle — gracefully absent rather than showing a
+      // "0%" that might just mean the data wasn't available.
+      const statRow = (label, val) => val!=null ? `<div style="display:flex;justify-content:space-between">
+        <span style="color:var(--ink3)">${label}</span><span style="font-weight:600">${val}</span></div>` : '';
+      const statRows = statRow('Fuel', v.fuelPercent!=null?v.fuelPercent+'%':null)
+        + statRow('DEF', v.defPercent!=null?v.defPercent+'%':null)
+        + statRow('Engine', v.engineRpm!=null?v.engineRpm+' RPM':null);
+      const popupHtml = `<div style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;min-width:140px">
         <div style="font-weight:700;margin-bottom:4px">${v.name||v.id}</div>
-        <div>${moving ? Math.round(v.speedMph)+' mph' : 'Stationary'}</div>
-        ${v.updatedAtTime?`<div style="color:var(--ink3);font-size:11px">Updated ${new Date(v.updatedAtTime).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>`:''}
+        <div>${moving ? Math.round(v.speedMph)+' mph' : 'Stationary'}${v.engineState?' · '+v.engineState:''}</div>
+        ${statRows?`<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--rule);display:flex;flex-direction:column;gap:2px">${statRows}</div>`:''}
+        ${v.updatedAtTime?`<div style="color:var(--ink3);font-size:11px;margin-top:6px">Updated ${new Date(v.updatedAtTime).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>`:''}
       </div>`;
       if (_liveVehicleMarkers[v.id]) {
         // Animate via JS (see _animateMarkerTo), not a CSS transition — a
@@ -13906,6 +13956,7 @@ function _mapStopLiveVehicles(forceButtonReset) {
   _liveVehicleMarkers = {};
   _liveVehicleTrailLines = {};
   _liveVehicleTrails = {};
+  _liveVehicleNames = {};
   const statusEl = document.getElementById('map-live-vehicles-status');
   if (statusEl) statusEl.style.display = 'none';
   if (forceButtonReset) {
