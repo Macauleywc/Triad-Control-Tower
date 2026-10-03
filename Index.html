@@ -13898,6 +13898,11 @@ function _vehicleCardHtml(key, v) {
   // engine state.
   const cachedLoc = _vehicleLocationCache[key]?.location;
   const locationLine = cachedLoc ? `<div style="font-size:11px;color:var(--ink2);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cachedLoc}</div>` : '';
+  // Absent (not a placeholder like "—") when Samsara has no current
+  // assignment for this vehicle, or when driver-assignment data isn't
+  // available for this site at all — same reasoning as location: nothing
+  // shown is more honest than a guess.
+  const driverLine = v.driverName ? `<div style="font-size:11px;color:var(--ink3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v.driverName}</div>` : '';
   // The one thing worth still flagging directly on the card (not just in
   // the popup) is a low fuel or DEF level specifically — that's the kind
   // of thing worth catching without clicking in.
@@ -13919,6 +13924,7 @@ function _vehicleCardHtml(key, v) {
       <span style="flex-shrink:0;padding:2px 8px;border-radius:10px;background:${badgeBg};color:${badgeColor};font-size:10px;font-weight:700;font-family:'IBM Plex Mono',monospace">${badgeText}</span>
     </div>
     ${locationLine ? `<div style="padding-left:19px">${locationLine}</div>` : ''}
+    ${driverLine ? `<div style="padding-left:19px">${driverLine}</div>` : ''}
     ${warningLine ? `<div style="padding-left:19px">${warningLine}</div>` : ''}
   </div>`;
 }
@@ -13966,9 +13972,16 @@ function _renderVehicleList(filterQuery) {
       body = `<div style="font-size:10px;color:var(--ink3);padding:2px 2px 8px">This site's tracking isn't set up yet.</div>`;
     } else {
       headerRight = `<span style="font-size:10px;color:var(--ink3)">${siteVehicles.length} vehicle${siteVehicles.length!==1?'s':''}</span>`;
-      body = filtered.length
+      // Shown as plain visible text, not a hover tooltip — a hover-only
+      // detail turned out to be effectively invisible on the touchscreen
+      // this panel is actually used on, so the actual reason needs to be
+      // readable without any interaction at all.
+      const driverWarning = (status.driverAssignmentsAvailable === false)
+        ? `<div style="font-size:10px;color:var(--red);padding:2px 2px 6px;line-height:1.4;word-break:break-word">⚠ Driver names unavailable: ${(status.driverAssignmentsFailedDetail||'unknown reason').replace(/&/g,'&amp;').replace(/</g,'&lt;').slice(0,150)}</div>`
+        : '';
+      body = driverWarning + (filtered.length
         ? filtered.map(([key, v]) => _vehicleCardHtml(key, v)).join('')
-        : `<div style="font-size:10px;color:var(--ink3);padding:2px 2px 8px">${q ? 'No match' : 'No vehicles reporting'}</div>`;
+        : `<div style="font-size:10px;color:var(--ink3);padding:2px 2px 8px">${q ? 'No match' : 'No vehicles reporting'}</div>`);
     }
     return `<div style="margin-bottom:10px">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:0 2px 4px">
@@ -14004,6 +14017,7 @@ function _applyLiveVehicleUpdate(key, v) {
     + statRow('Engine', v.engineRpm!=null?v.engineRpm+' RPM':null);
   const popupHtml = `<div style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;min-width:140px">
     <div style="font-weight:700;margin-bottom:4px">${v.name||v.id}</div>
+    ${v.driverName?`<div style="color:var(--ink3);margin-bottom:2px">${v.driverName}</div>`:''}
     <div>${moving ? Math.round(v.speedMph)+' mph' : 'Stationary'}${v.engineState?' · '+v.engineState:''}</div>
     ${statRows?`<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--rule);display:flex;flex-direction:column;gap:2px">${statRows}</div>`:''}
     ${v.updatedAtTime?`<div style="color:var(--ink3);font-size:11px;margin-top:6px">Updated ${new Date(v.updatedAtTime).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>`:''}
@@ -14069,7 +14083,7 @@ async function _pollLiveVehicles() {
       };
       return;
     }
-    const { vehicles, totalTagged, notConfigured, extendedStatsAvailable, extendedStatsFailedDetail } = body;
+    const { vehicles, totalTagged, notConfigured, extendedStatsAvailable, extendedStatsFailedDetail, driverAssignmentsAvailable, driverAssignmentsFailedDetail } = body;
     _siteStatus[cfg.site] = {
       label: cfg.label,
       vehicleCount: (vehicles||[]).length,
@@ -14077,6 +14091,8 @@ async function _pollLiveVehicles() {
       notConfigured: !!notConfigured,
       extendedStatsAvailable,
       extendedStatsFailedDetail,
+      driverAssignmentsAvailable,
+      driverAssignmentsFailedDetail,
     };
     (vehicles||[]).forEach(v => {
       if (v.lat == null || v.lng == null) return;
